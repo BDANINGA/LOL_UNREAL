@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 public class LOL_UNREALEditorTarget : TargetRules
 {
-	public LOL_UNREALEditorTarget(TargetInfo Target) : base(Target)
+	public LOL_UNREALEditorTarget( TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Editor;
 		DefaultBuildSettings = BuildSettingsVersion.V6;
