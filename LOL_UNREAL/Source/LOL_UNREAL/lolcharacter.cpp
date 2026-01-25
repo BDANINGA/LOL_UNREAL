@@ -17,25 +17,27 @@ Alolcharacter::Alolcharacter()
 	bUseControllerRotationRoll = false;
 
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
-	CameraBoom->SetupAttachment(RootComponent); // Ä³¸¯ÅÍ ¸öÅë¿¡ ºÙÀÌ±â
-	CameraBoom->TargetArmLength = 1200.0f; // Ä«¸Ş¶ó °Å¸® (·ÑÃ³·³ ¸Ö¸®)
-	CameraBoom->SetRelativeRotation(FRotator(-60.f, 0.f, 0.f)); // 60µµ °¢µµ·Î ³»·Á´Ùº¸±â
-	CameraBoom->bDoCollisionTest = false; // º®¿¡ ´ê¾Æµµ ÁÜÀÎµÇÁö ¾Ê°Ô (·Ñ ½ºÅ¸ÀÏ)
+	CameraBoom->SetupAttachment(RootComponent); // Ä³ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ë¿¡ ï¿½ï¿½ï¿½Ì±ï¿½
+	CameraBoom->TargetArmLength = 1200.0f; // Ä«ï¿½Ş¶ï¿½ ï¿½Å¸ï¿½ (ï¿½ï¿½Ã³ï¿½ï¿½ ï¿½Ö¸ï¿½)
+	CameraBoom->SetRelativeRotation(FRotator(-60.f, 0.f, 0.f)); // 60ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ùºï¿½ï¿½ï¿½
+	CameraBoom->bDoCollisionTest = false; // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Æµï¿½ ï¿½ï¿½ï¿½Îµï¿½ï¿½ï¿½ ï¿½Ê°ï¿½ (ï¿½ï¿½ ï¿½ï¿½Å¸ï¿½ï¿½)
 
 	CameraBoom->bInheritPitch = false;
 	CameraBoom->bInheritYaw = false;
 	CameraBoom->bInheritRoll = false;
 
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // ¸·´ë±â ³¡¿¡ ºÙÀÌ±â
-	FollowCamera->bUsePawnControlRotation = false; // Ä«¸Ş¶ó´Â Àı´ë È¸ÀüÇÏÁö ¾ÊÀ½
+	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ì±ï¿½
+	FollowCamera->bUsePawnControlRotation = false; // Ä«ï¿½Ş¶ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ È¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->RotationRate = FRotator(0.f, 640.f, 0.f); // È¸Àü ¼Óµµ
-	GetCharacterMovement()->bConstrainToPlane = true; // ¶¥¿¡ µü ºÙ¾î¼­ ´Ù´Ï°Ô
+	GetCharacterMovement()->RotationRate = FRotator(0.f, 640.f, 0.f); // È¸ï¿½ï¿½ ï¿½Óµï¿½
+	GetCharacterMovement()->bUseControllerDesiredRotation = false;
+	GetCharacterMovement()->bConstrainToPlane = true; // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ù¾î¼­ ï¿½Ù´Ï°ï¿½
 	GetCharacterMovement()->bSnapToPlaneAtStart = true;
 
-
+	bReplicates = true;
+	ACharacter::SetReplicateMovement(true); // ìœ„ì¹˜ì™€ íšŒì „ì„ ëª¨ë‘ ë³µì œí•˜ë„ë¡ ì„¤ì •
 
 }
 
