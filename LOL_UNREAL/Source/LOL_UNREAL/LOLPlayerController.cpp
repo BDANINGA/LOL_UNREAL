@@ -1,21 +1,17 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "LOLPlayerController.h"
-#include "Blueprint/AIBlueprintHelperLibrary.h" // ±æÃ£±â ÀÌµ¿ ¸í·É¿ë
-#include "Runtime/Engine/Classes/Components/DecalComponent.h" // ³ªÁß¿¡ Å¬¸¯ È¿°ú¿ë
+#include "Blueprint/AIBlueprintHelperLibrary.h"
+#include "Runtime/Engine/Classes/Components/DecalComponent.h"
 #include "GameFramework/Character.h"
 
 ALOLPlayerController::ALOLPlayerController()
 {
-	bShowMouseCursor = true; // 1. ¸¶¿ì½º Ä¿¼­ º¸ÀÌ°Ô ¼³Á¤
-	DefaultMouseCursor = EMouseCursor::Crosshairs; // 2. Ä¿¼­ ¸ğ¾ç ¼³Á¤
+	bShowMouseCursor = true;
+	DefaultMouseCursor = EMouseCursor::Crosshairs; 
 }
 
 void ALOLPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
-	// 3. ÀÔ·Â ¸ğµå¸¦ '°ÔÀÓ+UI'·Î ¼³Á¤ (¸¶¿ì½º°¡ °ÔÀÓ ¹ÛÀ¸·Î ¾È Æ¢°Ô)
 	FInputModeGameAndUI InputMode;
 	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::LockAlways);
 	InputMode.SetHideCursorDuringCapture(false);
@@ -26,18 +22,52 @@ void ALOLPlayerController::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
 
-	// 4. ¸¶¿ì½º ¿À¸¥ÂÊ ¹öÆ°(RightMouseButton)À» ´©¸£°í ÀÖ´ÂÁö °Ë»ç
+	// 1. ìš°í´ë¦­ ì‹œ ëª©ì ì§€ ê°±ì‹ 
 	if (IsInputKeyDown(EKeys::RightMouseButton))
 	{
 		FHitResult HitResult;
-		// ¸¶¿ì½º Ä¿¼­ ¾Æ·¡¿¡ ÀÖ´Â ¶¥¹Ù´Ú À§Ä¡¸¦ Ã£À½ (Raycasting)
 		GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
-
 		if (HitResult.bBlockingHit)
 		{
-			// 5. Ã£Àº À§Ä¡·Î Ä³¸¯ÅÍ ÀÌµ¿ ¸í·É ³»¸®±â (AI ±â´É ºô·Á¾²±â)
-			UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, HitResult.Location);
+			TargetLocation = HitResult.Location;
+			bIsMoving = true;
+
+			Server_SetTargetLocation(HitResult.Location);
+		}
+	}
+
+	// 2. ëª©ì ì§€ê°€ ìˆë‹¤ë©´ ì´ë™ ì²˜ë¦¬
+	if (bIsMoving)
+	{
+		APawn* const MyPawn = GetPawn();
+		if (MyPawn)
+		{
+			FVector CurrentLocation = MyPawn->GetActorLocation();
+			FVector Direction = TargetLocation - CurrentLocation;
+			Direction.Z = 0.f;
+
+			float Distance = Direction.Size();
+
+			if (Distance <= 10.f)
+			{
+				bIsMoving = false;
+			}
+			else
+			{
+				MyPawn->AddMovementInput(Direction.GetSafeNormal(), 1.0f);
+			}
 		}
 	}
 }
 
+void ALOLPlayerController::Server_SetTargetLocation_Implementation(FVector NewLocation)
+{
+	// ì„œë²„ì¸¡ì˜ ì»¨íŠ¸ë¡¤ëŸ¬ ëª©ì ì§€ë„ ê°±ì‹  (ì„œë²„ì—ì„œë„ Tickì´ ëŒì•„ê°€ë©° ìºë¦­í„°ë¥¼ ì´ë™ì‹œí‚´)
+	TargetLocation = NewLocation;
+	bIsMoving = true;
+}
+
+bool ALOLPlayerController::Server_SetTargetLocation_Validate(FVector NewLocation)
+{
+	return true;
+}

@@ -19,6 +19,13 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
-	virtual void PlayerTick(float DeltaTime) override; // ¸Å ÇÁ·¹ÀÓ ½ÇÇàµÇ´Â ÇÔ¼ö
+	virtual void PlayerTick(float DeltaTime) override;
+
+	// ì„œë²„ ì´ë™ ìš”ì²­ RPC
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_SetTargetLocation(FVector NewLocation);
+
+	FVector TargetLocation;
+	bool bIsMoving;
 	
 };
