@@ -76,8 +76,12 @@ void ALOLPlayerController::SetupInputComponent()
 
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
 	{
-		// 우클릭(ClickMoveAction)이 눌려있는 동안(Triggered) OnClickMove 함수를 실행
+		// 우클릭(ClickMoveAction)이 눌려있는 동안(Triggered) OnClickMove 및 qwer 스위치 함수를 실행
 		EnhancedInputComponent->BindAction(ClickMoveAction, ETriggerEvent::Triggered, this, &ALOLPlayerController::OnClickMove);
+		EnhancedInputComponent->BindAction(SkillQAction, ETriggerEvent::Started, this, &ALOLPlayerController::OnSkillQ);
+		EnhancedInputComponent->BindAction(SkillWAction, ETriggerEvent::Started, this, &ALOLPlayerController::OnSkillW);
+		EnhancedInputComponent->BindAction(SkillEAction, ETriggerEvent::Started, this, &ALOLPlayerController::OnSkillE);
+		EnhancedInputComponent->BindAction(SkillRAction, ETriggerEvent::Started, this, &ALOLPlayerController::OnSkillR);
 	}
 }
 
@@ -91,4 +95,25 @@ void ALOLPlayerController::OnClickMove()
 		bIsMoving = true;
 		Server_SetTargetLocation(HitResult.Location);
 	}
+}
+
+void ALOLPlayerController::OnSkillQ()
+{
+	// 화면 왼쪽 위에 3초 동안 빨간색 글씨를 띄웁니다
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Q Skill Used!"));
+}
+
+void ALOLPlayerController::OnSkillW()
+{
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green, TEXT("W Skill Used!"));
+}
+
+void ALOLPlayerController::OnSkillE()
+{
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Blue, TEXT("E Skill Used!"));
+}
+
+void ALOLPlayerController::OnSkillR()
+{
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("R Skill (Ultimate) Used!"));
 }
