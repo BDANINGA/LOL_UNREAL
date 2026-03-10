@@ -27,5 +27,30 @@ protected:
 
 	FVector TargetLocation;
 	bool bIsMoving;
+
+	virtual void SetupInputComponent() override;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	class UInputMappingContext* DefaultMappingContext;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	class UInputAction* ClickMoveAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	class UInputAction* SkillQAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	class UInputAction* SkillWAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	class UInputAction* SkillEAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	class UInputAction* SkillRAction;
+
+	void OnClickMove();
+	void OnSkillQ();
+	void OnSkillW();
+	void OnSkillE();
+	void OnSkillR();
+
 	
 };
