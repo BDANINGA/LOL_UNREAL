@@ -1,13 +1,13 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "LOL_Character.h"
+#include "BaseChampion.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 // Sets default values
-ALOL_Character::ALOL_Character()
+ABaseChampion::ABaseChampion()
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -17,23 +17,23 @@ ALOL_Character::ALOL_Character()
 	bUseControllerRotationRoll = false;
 
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
-	CameraBoom->SetupAttachment(RootComponent); // ĳ���� ���뿡 ���̱�
-	CameraBoom->TargetArmLength = 1200.0f; // ī�޶� �Ÿ� (��ó�� �ָ�)
-	CameraBoom->SetRelativeRotation(FRotator(-60.f, 0.f, 0.f)); // 60�� ������ �����ٺ���
-	CameraBoom->bDoCollisionTest = false; // ���� ��Ƶ� ���ε��� �ʰ� (�� ��Ÿ��)
+	CameraBoom->SetupAttachment(RootComponent);
+	CameraBoom->TargetArmLength = 1200.0f; 
+	CameraBoom->SetRelativeRotation(FRotator(-60.f, 0.f, 0.f)); 
+	CameraBoom->bDoCollisionTest = false;
 
 	CameraBoom->bInheritPitch = false;
 	CameraBoom->bInheritYaw = false;
 	CameraBoom->bInheritRoll = false;
 
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // ����� ���� ���̱�
-	FollowCamera->bUsePawnControlRotation = false; // ī�޶�� ���� ȸ������ ����
+	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); 
+	FollowCamera->bUsePawnControlRotation = false; 
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->RotationRate = FRotator(0.f, 640.f, 0.f); // ȸ�� �ӵ�
+	GetCharacterMovement()->RotationRate = FRotator(0.f, 640.f, 0.f); 
 	GetCharacterMovement()->bUseControllerDesiredRotation = false;
-	GetCharacterMovement()->bConstrainToPlane = true; // ���� �� �پ �ٴϰ�
+	GetCharacterMovement()->bConstrainToPlane = true;
 	GetCharacterMovement()->bSnapToPlaneAtStart = true;
 
 	bReplicates = true;
@@ -42,21 +42,21 @@ ALOL_Character::ALOL_Character()
 }
 
 // Called when the game starts or when spawned
-void ALOL_Character::BeginPlay()
+void ABaseChampion::BeginPlay()
 {
 	Super::BeginPlay();
-
+	
 }
 
 // Called every frame
-void ALOL_Character::Tick(float DeltaTime)
+void ABaseChampion::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
 }
 
 // Called to bind functionality to input
-void ALOL_Character::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+void ABaseChampion::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 

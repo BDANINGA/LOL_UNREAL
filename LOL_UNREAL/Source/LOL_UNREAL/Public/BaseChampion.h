@@ -4,22 +4,22 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
-#include "LOL_Character.generated.h"
+#include "BaseChampion.generated.h"
 
 UCLASS()
-class LOL_UNREAL_API ALOL_Character : public ACharacter
+class LOL_UNREAL_API ABaseChampion : public ACharacter
 {
 	GENERATED_BODY()
 
 public:
 	// Sets default values for this character's properties
-	ALOL_Character();
+	ABaseChampion();
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-public:
+public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
@@ -31,4 +31,5 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 	class UCameraComponent* FollowCamera;
+
 };
