@@ -1,7 +1,12 @@
 // Fill out your copyright notice in the Description page of Project Settings.
-
+// BaseChampion.cpp
+// 챔피언의 기본 설정
+// 1. 카메라 설정
+// 2. 기본 능력치
+// ----------------------------------------------------------------------------------
 
 #include "BaseChampion.h"
+#include "Net/UnrealNetwork.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -62,3 +67,9 @@ void ABaseChampion::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 
 }
 
+void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ABaseChampion, BaseStat);
+}
