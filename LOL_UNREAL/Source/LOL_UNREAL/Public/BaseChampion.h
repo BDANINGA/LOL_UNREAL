@@ -3,6 +3,7 @@
 // 챔피언의 기본 설정
 // 1. 카메라 설정
 // 2. 기본 능력치
+// 3. 공격 대상 지정
 // ----------------------------------------------------------------------------------
 #pragma once
 
@@ -90,16 +91,6 @@ public:
 	// Sets default values for this character's properties
 	ABaseChampion();
 
-protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
-
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
-	// Called to bind functionality to input
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
 	// 카메라 관련
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 	class USpringArmComponent* CameraBoom;
@@ -112,4 +103,25 @@ public:
 	FChampionStat BaseStat;
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	// 공격 대상 지정
+	void SetCombatTarget(AActor* Target);
+
+	// 공격 대상
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
+	AActor* CombatTarget;
+
+	// 매 프레임 사거리를 체크
+	void CheckAttackRange();
+
+protected:
+	// Called when the game starts or when spawned
+	virtual void BeginPlay() override;
+
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
+	// Called to bind functionality to input
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	
 };

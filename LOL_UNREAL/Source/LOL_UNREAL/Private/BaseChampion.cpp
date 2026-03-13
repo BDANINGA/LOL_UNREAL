@@ -3,6 +3,7 @@
 // 챔피언의 기본 설정
 // 1. 카메라 설정
 // 2. 기본 능력치
+// 3. 공격 대상 지정
 // ----------------------------------------------------------------------------------
 
 #include "BaseChampion.h"
@@ -53,13 +54,6 @@ void ABaseChampion::BeginPlay()
 	
 }
 
-// Called every frame
-void ABaseChampion::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-}
-
 // Called to bind functionality to input
 void ABaseChampion::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -72,4 +66,41 @@ void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ABaseChampion, BaseStat);
+}
+
+void ABaseChampion::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	// 서버에서만 로직을 계산하도록 HasAuthority()를 체크합니다. (네트워크 최적화)
+	if (HasAuthority() && CombatTarget)
+	{
+		CheckAttackRange();
+	}
+}
+
+void ABaseChampion::SetCombatTarget(AActor* Target)
+{
+	// 공격 대상을 저장합니다.
+	CombatTarget = Target;
+}
+
+void ABaseChampion::CheckAttackRange()
+{
+	if (CombatTarget == nullptr) return;
+
+	// 거리 계산
+	float Distance = GetDistanceTo(CombatTarget);
+
+	// 사거리 비교
+	if (Distance <= BaseStat.AttackRange)
+	{
+		GetCharacterMovement()->StopMovementImmediately();
+
+		UE_LOG(LogTemp, Warning, TEXT("Target in Range! Attacking..."));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Log, TEXT("Target too far. Approaching..."));
+	}
 }
