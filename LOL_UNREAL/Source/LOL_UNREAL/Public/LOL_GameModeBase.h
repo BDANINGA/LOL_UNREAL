@@ -16,6 +16,15 @@ class LOL_UNREAL_API ALOL_GameModeBase : public AGameModeBase
 public:
     ALOL_GameModeBase();
 
+    // 플레이어 컨트롤러에 따른 캐릭터 클래스 반환 함수
+    virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
+
     // 게임 시작 시 호출되는 함수
     virtual void BeginPlay() override;
+protected:
+    UPROPERTY()
+    TSubclassOf<APawn> AlistarClass;
+
+    UPROPERTY()
+    TSubclassOf<APawn> VayneClass;
 };
