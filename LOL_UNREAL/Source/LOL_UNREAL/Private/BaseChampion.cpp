@@ -11,12 +11,27 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Components/CapsuleComponent.h"
 
 // Sets default values
 ABaseChampion::ABaseChampion()
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+
+	// 1. 캡슐 컴포넌트의 콜리전 설정
+	// 기본적으로 Character는 GetCapsuleComponent()를 가지고 있습니다.
+	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.f);
+
+	// 콜리전 프리셋을 Pawn으로 설정
+	GetCapsuleComponent()->SetCollisionProfileName(TEXT("Pawn"));
+
+	// Line Trace(Visibility 채널)를 Block 하도록 설정해야 마우스 클릭이 인식됩니다.
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+
+	// 2. 테스트를 위한 기본 사거리 설정
+	// 이 값이 0이면 "Attacking..." 로그가 절대 뜨지 않습니다.
+	BaseStat.AttackRange = 500.0f;
 
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
