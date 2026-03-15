@@ -1,4 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
+// 자신이 플레이하고 있는 챔피언을 조작하기 위한 컨트롤러입니다.
+// 1. 이동
+// 2. 공격
+// ---------------------------------------------------------------------------
 
 #pragma once
 
@@ -24,6 +28,9 @@ protected:
 	// 서버 이동 요청 RPC
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_SetTargetLocation(FVector NewLocation);
+	// 서버 타겟 설정 RPC
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_SetCombatTarget(AActor* Target);
 
 	FVector TargetLocation;
 	bool bIsMoving;
@@ -51,6 +58,4 @@ protected:
 	void OnSkillW();
 	void OnSkillE();
 	void OnSkillR();
-
-
 };

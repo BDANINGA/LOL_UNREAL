@@ -1,11 +1,19 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+// 자신이 플레이하고 있는 챔피언을 조작하기 위한 컨트롤러입니다.
+// 1. 이동
+// 2. 공격
+// ---------------------------------------------------------------------------
+
 #include "LOL_PlayerController.h"
-#include "InputMappingContext.h"
-#include "InputAction.h"        
-#include "Runtime/Engine/Classes/Components/DecalComponent.h"
-#include "GameFramework/Character.h"
-#include "UObject/ConstructorHelpers.h"
+#include "BaseChampion.h"
+
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+
+#include "InputMappingContext.h"
+#include "InputAction.h"
+#include "UObject/ConstructorHelpers.h"
+
 
 ALOL_PlayerController::ALOL_PlayerController()
 {
@@ -93,14 +101,27 @@ void ALOL_PlayerController::PlayerTick(float DeltaTime)
 	}
 }
 
+// 서버 - 이동 로직
 void ALOL_PlayerController::Server_SetTargetLocation_Implementation(FVector NewLocation)
 {
 	// 서버측의 컨트롤러 목적지도 갱신 (서버에서도 Tick이 돌아가며 캐릭터를 이동시킴)
 	TargetLocation = NewLocation;
 	bIsMoving = true;
 }
-
 bool ALOL_PlayerController::Server_SetTargetLocation_Validate(FVector NewLocation)
+{
+	return true;
+}
+// 서버 - 타겟 설정 로직
+void ALOL_PlayerController::Server_SetCombatTarget_Implementation(AActor* Target)
+{
+	ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
+	if (MyPawn)
+	{
+		MyPawn->SetCombatTarget(Target); 
+	}
+}
+bool ALOL_PlayerController::Server_SetCombatTarget_Validate(AActor* Target)
 {
 	return true;
 }
@@ -123,12 +144,40 @@ void ALOL_PlayerController::SetupInputComponent()
 void ALOL_PlayerController::OnClickMove()
 {
 	FHitResult HitResult;
-	GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
-	if (HitResult.bBlockingHit)
+
+	// 마우스 아래에 있는 것이 무엇인지 검사
+	bool bHit = GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
+
+	if (bHit && HitResult.bBlockingHit)
 	{
-		TargetLocation = HitResult.Location;
-		bIsMoving = true;
-		Server_SetTargetLocation(HitResult.Location);
+		AActor* HitActor = HitResult.GetActor();
+		UE_LOG(LogTemp, Log, TEXT("Clicked Actor: %s"), HitActor ? *HitActor->GetName() : TEXT("None"));
+
+		ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
+
+		if (MyPawn)
+		{
+			// 클릭한 것이 챔피언 (나 자신이 아닐 때)
+			if (HitActor && HitActor->IsA(ABaseChampion::StaticClass()) && HitActor != MyPawn)
+			{
+				// 공격 타겟으로 지정 (서버에 요청)
+				Server_SetCombatTarget(HitActor);
+
+				// 공격 중일 때는 직접적인 좌표 이동은 잠시 멈춤
+				bIsMoving = false;
+			}
+			
+			// 바닥이나 일반 물체라면 이동 처리
+			else
+			{
+				TargetLocation = HitResult.Location;
+				bIsMoving = true;
+
+				// 서버에게 타겟 해제 및 이동 좌표 전달
+				Server_SetCombatTarget(nullptr);
+				Server_SetTargetLocation(HitResult.Location);
+			}
+		}
 	}
 }
 
