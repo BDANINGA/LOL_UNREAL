@@ -7,6 +7,7 @@
 #include "LOL_PlayerController.h"
 #include "BaseChampion.h"
 
+#include "Net/UnrealNetwork.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 
@@ -126,6 +127,14 @@ bool ALOL_PlayerController::Server_SetCombatTarget_Validate(AActor* Target)
 	return true;
 }
 
+void ALOL_PlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ALOL_PlayerController, bIsMoving);
+	DOREPLIFETIME(ALOL_PlayerController, TargetLocation);
+}
+
 void ALOL_PlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
@@ -151,7 +160,6 @@ void ALOL_PlayerController::OnClickMove()
 	if (bHit && HitResult.bBlockingHit)
 	{
 		AActor* HitActor = HitResult.GetActor();
-		UE_LOG(LogTemp, Log, TEXT("Clicked Actor: %s"), HitActor ? *HitActor->GetName() : TEXT("None"));
 
 		ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
 
@@ -162,9 +170,6 @@ void ALOL_PlayerController::OnClickMove()
 			{
 				// 공격 타겟으로 지정 (서버에 요청)
 				Server_SetCombatTarget(HitActor);
-
-				// 공격 중일 때는 직접적인 좌표 이동은 잠시 멈춤
-				bIsMoving = false;
 			}
 			
 			// 바닥이나 일반 물체라면 이동 처리
@@ -186,17 +191,14 @@ void ALOL_PlayerController::OnSkillQ()
 	// 화면 왼쪽 위에 3초 동안 빨간색 글씨를 띄웁니다
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Q Skill Used!"));
 }
-
 void ALOL_PlayerController::OnSkillW()
 {
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green, TEXT("W Skill Used!"));
 }
-
 void ALOL_PlayerController::OnSkillE()
 {
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Blue, TEXT("E Skill Used!"));
 }
-
 void ALOL_PlayerController::OnSkillR()
 {
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("R Skill (Ultimate) Used!"));
