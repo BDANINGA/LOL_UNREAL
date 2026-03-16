@@ -10,7 +10,6 @@
 #include "LOL_PlayerController.h"
 
 #include "Net/UnrealNetwork.h"
-#include "NavigationSystem.h"
 
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
@@ -23,30 +22,32 @@ ABaseChampion::ABaseChampion()
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
-	// 1. 캡슐 컴포넌트의 콜리전 설정
-	// 기본적으로 Character는 GetCapsuleComponent()를 가지고 있습니다.
+	// 캡슐 컴포넌트의 콜리전 설정
+	// 1. 콜리전 프리셋을 Pawn으로 설정
+	// 2. Line Trace를 Block 하도록 설정해야 마우스 클릭이 인식.
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.f);
-
-	// 콜리전 프리셋을 Pawn으로 설정
 	GetCapsuleComponent()->SetCollisionProfileName(TEXT("Pawn"));
-
-	// Line Trace(Visibility 채널)를 Block 하도록 설정해야 마우스 클릭이 인식됩니다.
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 
-	// 2. 테스트를 위한 기본 사거리 설정
-	// 이 값이 0이면 "Attacking..." 로그가 절대 뜨지 않습니다.
-	BaseStat.AttackRange = 500.0f;
-
+	// 캐릭터가 컨트롤러의 회전값을 직접 상속받지 않도록 확실히 차단
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
 
+	// 캐릭터 이동 설정
+	GetCharacterMovement()->bOrientRotationToMovement = true;
+	GetCharacterMovement()->RotationRate = FRotator(0.f, 640.f, 0.f);
+	GetCharacterMovement()->bConstrainToPlane = true;
+	GetCharacterMovement()->bSnapToPlaneAtStart = true;
+
+	// 카메라 시스템
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
 	CameraBoom->TargetArmLength = 1200.0f; 
-	CameraBoom->SetRelativeRotation(FRotator(-60.f, 0.f, 0.f)); 
+	CameraBoom->SetRelativeRotation(FRotator(-60.f, -90.f, 0.f)); 
 	CameraBoom->bDoCollisionTest = false;
 
+	// 카메라 고정
 	CameraBoom->bInheritPitch = false;
 	CameraBoom->bInheritYaw = false;
 	CameraBoom->bInheritRoll = false;
@@ -55,14 +56,9 @@ ABaseChampion::ABaseChampion()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); 
 	FollowCamera->bUsePawnControlRotation = false; 
 
-	GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->RotationRate = FRotator(0.f, 640.f, 0.f); 
-	GetCharacterMovement()->bUseControllerDesiredRotation = false;
-	GetCharacterMovement()->bConstrainToPlane = true;
-	GetCharacterMovement()->bSnapToPlaneAtStart = true;
-
+	// 위치와 회전을 모두 복제하도록 설정
 	bReplicates = true;
-	ACharacter::SetReplicateMovement(true); // 위치와 회전을 모두 복제하도록 설정
+	ACharacter::SetReplicateMovement(true); 
 
 	// 기초 테스트 능력치
 	BaseStat.AttackRange = 500.0f;
