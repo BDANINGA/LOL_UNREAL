@@ -141,8 +141,7 @@ void ALOL_PlayerController::SetupInputComponent()
 
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
 	{
-		// 우클릭(ClickMoveAction)이 눌려있는 동안(Triggered) OnClickMove 및 qwer 스위치 함수를 실행
-		EnhancedInputComponent->BindAction(ClickMoveAction, ETriggerEvent::Triggered, this, &ALOL_PlayerController::OnClickMove);
+		EnhancedInputComponent->BindAction(ClickMoveAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnClickMove);
 		EnhancedInputComponent->BindAction(SkillQAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSkillQ);
 		EnhancedInputComponent->BindAction(SkillWAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSkillW);
 		EnhancedInputComponent->BindAction(SkillEAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSkillE);
