@@ -7,7 +7,11 @@
 // ----------------------------------------------------------------------------------
 
 #include "BaseChampion.h"
+#include "LOL_PlayerController.h"
+
 #include "Net/UnrealNetwork.h"
+#include "NavigationSystem.h"
+
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -60,6 +64,10 @@ ABaseChampion::ABaseChampion()
 	bReplicates = true;
 	ACharacter::SetReplicateMovement(true); // 위치와 회전을 모두 복제하도록 설정
 
+	// 기초 테스트 능력치
+	BaseStat.AttackRange = 500.0f;
+	BaseStat.AttackSpeed = 1.0f;
+	bCanAttack = true; // 초기값 설정
 }
 
 // Called when the game starts or when spawned
@@ -110,12 +118,48 @@ void ABaseChampion::CheckAttackRange()
 	// 사거리 비교
 	if (Distance <= BaseStat.AttackRange)
 	{
+		ALOL_PlayerController* PC = Cast<ALOL_PlayerController>(GetController());
+		if (PC)
+		{
+			PC->SetIsMoving(false);
+		}
 		GetCharacterMovement()->StopMovementImmediately();
 
-		UE_LOG(LogTemp, Warning, TEXT("Target in Range! Attacking..."));
+		if (bCanAttack)
+		{
+			StartAttack();
+		}
 	}
 	else
 	{
-		UE_LOG(LogTemp, Log, TEXT("Target too far. Approaching..."));
+		ALOL_PlayerController* PC = Cast<ALOL_PlayerController>(GetController());
+		if (PC)
+		{
+			PC->SetIsMoving(true);
+			PC->Server_SetTargetLocation(CombatTarget->GetActorLocation());
+		}
 	}
+}
+
+void ABaseChampion::StartAttack()
+{
+	if (!bCanAttack || !CombatTarget) return;
+
+	bCanAttack = false;
+	UE_LOG(LogTemp, Warning, TEXT("Attacking %s!"), *CombatTarget->GetName());
+
+	// 여기서 공격 애니메이션 몽타주를 실행합니다.
+	// PlayAnimMontage(AttackMontage); 
+
+	// 공격 속도(AttackSpeed)를 초 단위 주기로 변환하여 타이머 설정
+	// 예: 공속이 1.0이면 1초에 한 번, 2.0이면 0.5초에 한 번
+	float AttackDelay = 1.0f / BaseStat.AttackSpeed;
+
+	GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &ABaseChampion::ResetAttack, AttackDelay, false);
+}
+
+void ABaseChampion::ResetAttack()
+{
+	// 타이머가 끝나면 다시 공격할 수 있는 상태로 변경
+	bCanAttack = true;
 }

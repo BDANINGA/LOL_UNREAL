@@ -123,5 +123,10 @@ protected:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+	void StartAttack();
+	bool bCanAttack = true;
+	FTimerHandle AttackTimerHandle;
+	void ResetAttack();
+
 	
 };
