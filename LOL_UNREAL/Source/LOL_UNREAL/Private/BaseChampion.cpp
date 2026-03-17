@@ -11,10 +11,27 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "ChampionComponent.h"
+#include "Components/WidgetComponent.h"
 
 // Sets default values
 ABaseChampion::ABaseChampion()
 {
+	//Stat Component
+	Stat = CreateDefaultSubobject<UChampionComponent>(TEXT("Stat"));
+
+	//Widget Component
+	HpBar = CreateDefaultSubobject<UWidgetComponent>(TEXT("Widget"));
+	HpBar->SetupAttachment(GetMesh());
+	HpBar->SetRelativeLocation(FVector(0.0f, 0.0f, 300.0f));
+	static ConstructorHelpers::FClassFinder<UUserWidget> HpBarWidgetRef(TEXT("/Game/UI/HPbar.HPbar_C"));
+	if (HpBarWidgetRef.Class) {
+		HpBar->SetWidgetClass(HpBarWidgetRef.Class);
+		HpBar->SetWidgetSpace(EWidgetSpace::Screen);
+		HpBar->SetDrawSize(FVector2D(150.0f, 20.0f));
+		HpBar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -44,7 +61,6 @@ ABaseChampion::ABaseChampion()
 
 	bReplicates = true;
 	ACharacter::SetReplicateMovement(true); // 위치와 회전을 모두 복제하도록 설정
-
 }
 
 // Called when the game starts or when spawned
