@@ -1,11 +1,20 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+// 자신이 플레이하고 있는 챔피언을 조작하기 위한 컨트롤러입니다.
+// 1. 이동
+// 2. 공격
+// ---------------------------------------------------------------------------
+
 #include "LOL_PlayerController.h"
-#include "InputMappingContext.h"
-#include "InputAction.h"        
-#include "Runtime/Engine/Classes/Components/DecalComponent.h"
-#include "GameFramework/Character.h"
-#include "UObject/ConstructorHelpers.h"
+#include "BaseChampion.h"
+
+#include "Net/UnrealNetwork.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+
+#include "InputMappingContext.h"
+#include "InputAction.h"
+#include "UObject/ConstructorHelpers.h"
+
 
 ALOL_PlayerController::ALOL_PlayerController()
 {
@@ -93,16 +102,37 @@ void ALOL_PlayerController::PlayerTick(float DeltaTime)
 	}
 }
 
+// 서버 - 이동 로직
 void ALOL_PlayerController::Server_SetTargetLocation_Implementation(FVector NewLocation)
 {
 	// 서버측의 컨트롤러 목적지도 갱신 (서버에서도 Tick이 돌아가며 캐릭터를 이동시킴)
 	TargetLocation = NewLocation;
 	bIsMoving = true;
 }
-
 bool ALOL_PlayerController::Server_SetTargetLocation_Validate(FVector NewLocation)
 {
 	return true;
+}
+// 서버 - 타겟 설정 로직
+void ALOL_PlayerController::Server_SetCombatTarget_Implementation(AActor* Target)
+{
+	ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
+	if (MyPawn)
+	{
+		MyPawn->SetCombatTarget(Target); 
+	}
+}
+bool ALOL_PlayerController::Server_SetCombatTarget_Validate(AActor* Target)
+{
+	return true;
+}
+
+void ALOL_PlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ALOL_PlayerController, bIsMoving);
+	DOREPLIFETIME(ALOL_PlayerController, TargetLocation);
 }
 
 void ALOL_PlayerController::SetupInputComponent()
@@ -111,8 +141,7 @@ void ALOL_PlayerController::SetupInputComponent()
 
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
 	{
-		// 우클릭(ClickMoveAction)이 눌려있는 동안(Triggered) OnClickMove 및 qwer 스위치 함수를 실행
-		EnhancedInputComponent->BindAction(ClickMoveAction, ETriggerEvent::Triggered, this, &ALOL_PlayerController::OnClickMove);
+		EnhancedInputComponent->BindAction(ClickMoveAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnClickMove);
 		EnhancedInputComponent->BindAction(SkillQAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSkillQ);
 		EnhancedInputComponent->BindAction(SkillWAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSkillW);
 		EnhancedInputComponent->BindAction(SkillEAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSkillE);
@@ -123,12 +152,36 @@ void ALOL_PlayerController::SetupInputComponent()
 void ALOL_PlayerController::OnClickMove()
 {
 	FHitResult HitResult;
-	GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
-	if (HitResult.bBlockingHit)
+
+	// 마우스 아래에 있는 것이 무엇인지 검사
+	bool bHit = GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
+
+	if (bHit && HitResult.bBlockingHit)
 	{
-		TargetLocation = HitResult.Location;
-		bIsMoving = true;
-		Server_SetTargetLocation(HitResult.Location);
+		AActor* HitActor = HitResult.GetActor();
+
+		ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
+
+		if (MyPawn)
+		{
+			// 클릭한 것이 챔피언 (나 자신이 아닐 때)
+			if (HitActor && HitActor->IsA(ABaseChampion::StaticClass()) && HitActor != MyPawn)
+			{
+				// 공격 타겟으로 지정 (서버에 요청)
+				Server_SetCombatTarget(HitActor);
+			}
+			
+			// 바닥이나 일반 물체라면 이동 처리
+			else
+			{
+				TargetLocation = HitResult.Location;
+				bIsMoving = true;
+
+				// 서버에게 타겟 해제 및 이동 좌표 전달
+				Server_SetCombatTarget(nullptr);
+				Server_SetTargetLocation(HitResult.Location);
+			}
+		}
 	}
 }
 
@@ -137,17 +190,14 @@ void ALOL_PlayerController::OnSkillQ()
 	// 화면 왼쪽 위에 3초 동안 빨간색 글씨를 띄웁니다
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Q Skill Used!"));
 }
-
 void ALOL_PlayerController::OnSkillW()
 {
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green, TEXT("W Skill Used!"));
 }
-
 void ALOL_PlayerController::OnSkillE()
 {
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Blue, TEXT("E Skill Used!"));
 }
-
 void ALOL_PlayerController::OnSkillR()
 {
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("R Skill (Ultimate) Used!"));

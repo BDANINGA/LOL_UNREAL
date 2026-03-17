@@ -59,7 +59,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	float SpellBlockPerLevel;
 
-	// --- 공격력(Attack) ---
+	// --- 공격력(AttackDamege) ---
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	float AttackDamage;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
@@ -71,13 +71,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	float AttackRange;
 
+
+
 	// --- 크리티컬(Critical) ---
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	float Critical;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	float CriticalPerLevel;
 	
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	float ADPerLevel;
 };
@@ -123,5 +124,23 @@ protected:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+	void StartAttack();
+	bool bCanAttack = true;
+	FTimerHandle AttackTimerHandle;
+	void ResetAttack();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayAttackMontage();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+	class UAnimMontage* AttackMontage;
 	
+	//Stat Section
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"));
+	TObjectPtr<class UChampionComponent> Stat;
+
+	//UI Widget Section
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"));
+	TObjectPtr<class UWidgetComponent> HpBar;
+
 };
