@@ -142,10 +142,9 @@ void ABaseChampion::StartAttack()
 	if (!bCanAttack || !CombatTarget) return;
 
 	bCanAttack = false;
-	UE_LOG(LogTemp, Warning, TEXT("Attacking %s!"), *CombatTarget->GetName());
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("공격중!"));
 
-	// 여기서 공격 애니메이션 몽타주를 실행합니다.
-	// PlayAnimMontage(AttackMontage); 
+	Multicast_PlayAttackMontage();
 
 	// 공격 속도(AttackSpeed)를 초 단위 주기로 변환하여 타이머 설정
 	// 예: 공속이 1.0이면 1초에 한 번, 2.0이면 0.5초에 한 번
@@ -158,4 +157,13 @@ void ABaseChampion::ResetAttack()
 {
 	// 타이머가 끝나면 다시 공격할 수 있는 상태로 변경
 	bCanAttack = true;
+}
+
+void ABaseChampion::Multicast_PlayAttackMontage_Implementation()
+{
+	if (AttackMontage)
+	{
+		// 이 코드가 이제 모든 플레이어의 화면에서 실행됩니다.
+		PlayAnimMontage(AttackMontage);
+	}
 }

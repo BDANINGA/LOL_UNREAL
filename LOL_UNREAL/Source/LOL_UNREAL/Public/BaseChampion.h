@@ -128,5 +128,10 @@ protected:
 	FTimerHandle AttackTimerHandle;
 	void ResetAttack();
 
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayAttackMontage();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+	class UAnimMontage* AttackMontage;
 	
 };
