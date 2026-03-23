@@ -54,6 +54,7 @@ protected:
 	bool bCanAttack = true;
 	FTimerHandle AttackTimerHandle;
 	void ResetAttack();
+	float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_PlayAttackMontage();

@@ -10,19 +10,21 @@
 #include "LOL_PlayerController.h"
 
 #include "Net/UnrealNetwork.h"
+#include "Kismet/GameplayStatics.h"
 
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
-
-#include "Component/LOL_StatComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/WidgetComponent.h"
+
+#include "Component/LOL_StatComponent.h"
+#include "LOL_ChampionHpBarWidget.h"
 
 // Sets default values
 ABaseChampion::ABaseChampion()
 {
-	//Widget Component
+	// Widget Component
 	HpBar = CreateDefaultSubobject<UWidgetComponent>(TEXT("Widget"));
 	HpBar->SetupAttachment(GetMesh());
 	HpBar->SetRelativeLocation(FVector(0.0f, 0.0f, 300.0f));
@@ -33,6 +35,7 @@ ABaseChampion::ABaseChampion()
 		HpBar->SetDrawSize(FVector2D(150.0f, 20.0f));
 		HpBar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
+	// Stat
 	StatComponent = CreateDefaultSubobject<ULOL_StatComponent>(TEXT("StatComponent"));
 
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
@@ -83,7 +86,23 @@ ABaseChampion::ABaseChampion()
 void ABaseChampion::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	if (HpBar && StatComponent)
+	{
+		ULOL_ChampionHpBarWidget* HpWidget = Cast<ULOL_ChampionHpBarWidget>(HpBar->GetUserWidgetObject());
+			
+		if (HpWidget)
+		{
+			// 최대 체력 설정
+			HpWidget->SetMaxHp(StatComponent->GetStat().MaxHP);
+
+			// StatComponent의 HP가 변할 때마다 위젯의 UpdateHpBar를 호출하도록 연결(Bind)합니다.
+			StatComponent->OnHpChanged.AddUObject(HpWidget, &ULOL_ChampionHpBarWidget::UpdateHpBar);
+
+			// 초기 HP 상태를 한 번 반영.
+			HpWidget->UpdateHpBar(StatComponent->GetStat().CurrentHP);
+		}
+	}
 }
 
 // Called to bind functionality to input
@@ -152,8 +171,22 @@ void ABaseChampion::StartAttack()
 
 	Multicast_PlayAttackMontage();
 
+	// 서버에서 데미지 계산
+	if (HasAuthority())
+	{
+		float DamageToApply = StatComponent->GetStat().AttackDamage;
+
+		// 상대방에게 데미지를 전달합니다. (언리얼 표준 함수 호출)
+		UGameplayStatics::ApplyDamage(
+			CombatTarget,
+			DamageToApply,
+			GetController(),
+			this,
+			nullptr
+		);
+	}
+
 	// 공격 속도(AttackSpeed)를 초 단위 주기로 변환하여 타이머 설정
-	// 예: 공속이 1.0이면 1초에 한 번, 2.0이면 0.5초에 한 번
 	float AttackDelay = 1.0f / StatComponent->GetStat().AttackSpeed;
 
 	GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &ABaseChampion::ResetAttack, AttackDelay, false);
@@ -163,6 +196,19 @@ void ABaseChampion::ResetAttack()
 {
 	// 타이머가 끝나면 다시 공격할 수 있는 상태로 변경
 	bCanAttack = true;
+}
+
+float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+	if (StatComponent)
+	{
+		// 컴포넌트에게 데미지 계산을 맡깁니다.
+		ActualDamage = StatComponent->ApplyDamage(ActualDamage);
+	}
+
+	return ActualDamage;
 }
 
 void ABaseChampion::Multicast_PlayAttackMontage_Implementation()
