@@ -101,6 +101,9 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 protected:
 	// 능력치 관련
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Stat")
+	UPROPERTY(ReplicatedUsing = OnRep_BaseStat, EditAnywhere, Category = "Stat")
 	FChampionStat BaseStat;
+
+	UFUNCTION()
+	void OnRep_BaseStat();
 };
