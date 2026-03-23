@@ -14,16 +14,14 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+
+#include "Component/LOL_StatComponent.h"
 #include "Components/CapsuleComponent.h"
-#include "ChampionComponent.h"
 #include "Components/WidgetComponent.h"
 
 // Sets default values
 ABaseChampion::ABaseChampion()
 {
-	//Stat Component
-	Stat = CreateDefaultSubobject<UChampionComponent>(TEXT("Stat"));
-
 	//Widget Component
 	HpBar = CreateDefaultSubobject<UWidgetComponent>(TEXT("Widget"));
 	HpBar->SetupAttachment(GetMesh());
@@ -35,6 +33,7 @@ ABaseChampion::ABaseChampion()
 		HpBar->SetDrawSize(FVector2D(150.0f, 20.0f));
 		HpBar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
+	StatComponent = CreateDefaultSubobject<ULOL_StatComponent>(TEXT("StatComponent"));
 
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -77,9 +76,6 @@ ABaseChampion::ABaseChampion()
 	bReplicates = true;
 	ACharacter::SetReplicateMovement(true); 
 
-	// 기초 테스트 능력치
-	BaseStat.AttackRange = 500.0f;
-	BaseStat.AttackSpeed = 1.0f;
 	bCanAttack = true; // 초기값 설정
 }
 
@@ -95,13 +91,6 @@ void ABaseChampion::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-}
-
-void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(ABaseChampion, BaseStat);
 }
 
 void ABaseChampion::Tick(float DeltaTime)
@@ -129,7 +118,7 @@ void ABaseChampion::CheckAttackRange()
 	float Distance = GetDistanceTo(CombatTarget);
 
 	// 사거리 비교
-	if (Distance <= BaseStat.AttackRange)
+	if (StatComponent && Distance <= StatComponent->GetStat().AttackRange)
 	{
 		ALOL_PlayerController* PC = Cast<ALOL_PlayerController>(GetController());
 		if (PC)
@@ -156,7 +145,7 @@ void ABaseChampion::CheckAttackRange()
 
 void ABaseChampion::StartAttack()
 {
-	if (!bCanAttack || !CombatTarget) return;
+	if (!bCanAttack || !CombatTarget || !StatComponent) return;
 
 	bCanAttack = false;
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("공격중!"));
@@ -165,7 +154,7 @@ void ABaseChampion::StartAttack()
 
 	// 공격 속도(AttackSpeed)를 초 단위 주기로 변환하여 타이머 설정
 	// 예: 공속이 1.0이면 1초에 한 번, 2.0이면 0.5초에 한 번
-	float AttackDelay = 1.0f / BaseStat.AttackSpeed;
+	float AttackDelay = 1.0f / StatComponent->GetStat().AttackSpeed;
 
 	GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &ABaseChampion::ResetAttack, AttackDelay, false);
 }
