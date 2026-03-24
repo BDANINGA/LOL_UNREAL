@@ -11,16 +11,18 @@ ULOL_StatComponent::ULOL_StatComponent()
 
 	BaseStat.MaxHP = 500.0f;
 	BaseStat.CurrentHP = BaseStat.MaxHP;
+	BaseStat.MaxMP = 300.0f;
+	BaseStat.CurrentMP = BaseStat.MaxMP;
 	BaseStat.AttackRange = 500.0f;
 	BaseStat.AttackSpeed = 1.0f;
 	BaseStat.AttackDamage = 25.0f;
-
 }
 void ULOL_StatComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
 	SetHp(BaseStat.MaxHP);
+	SetMp(BaseStat.MaxMP);
 	
 }
 void ULOL_StatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -37,6 +39,10 @@ inline void ULOL_StatComponent::SetHp(float NewHp)
 	{
 		OnHpChanged.Broadcast(BaseStat.CurrentHP);
 	}
+}
+inline void ULOL_StatComponent::SetMp(float NewMp)
+{
+
 }
 
 void ULOL_StatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

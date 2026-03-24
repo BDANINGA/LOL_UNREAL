@@ -79,6 +79,9 @@ public:
 DECLARE_MULTICAST_DELEGATE(FOnHpZeroDelegate);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnHpChangedDelegate, float /*CurrentHp*/);
 
+DECLARE_MULTICAST_DELEGATE(FOnMpZeroDelegate);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnMpChangedDelegate, float /*CurrentMp*/);
+
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class LOL_UNREAL_API ULOL_StatComponent : public UActorComponent
 {
@@ -94,8 +97,14 @@ public:
 	FOnHpZeroDelegate OnHpZero;
 	FOnHpChangedDelegate OnHpChanged;
 
+	FOnMpZeroDelegate OnMpZero;
+	FOnMpChangedDelegate OnMpChanged;
+
 	float ApplyDamage(float InDagame);
+
 	void SetHp(float NewHp);
+	void SetMp(float NewMp);
+
 	FORCEINLINE const FChampionStat GetStat() const { return BaseStat; }
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;

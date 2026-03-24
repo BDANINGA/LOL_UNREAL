@@ -19,6 +19,7 @@
 #include "Components/WidgetComponent.h"
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_CameraControlComponent.h"
+#include "LOL_ChampionHpBarWidget.h"
 
 // Sets default values
 ABaseChampion::ABaseChampion()
