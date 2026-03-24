@@ -27,9 +27,13 @@ public:
 	// 카메라 관련
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 	class USpringArmComponent* CameraBoom;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 	class UCameraComponent* FollowCamera;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	class ULOL_CameraControlComponent* CameraControlComponent;
+	void OnSpacePressed();
+	void OnSpaceReleased();
 
 	// 공격 대상 지정
 	void SetCombatTarget(AActor* Target);
@@ -40,6 +44,8 @@ public:
 
 	// 매 프레임 사거리를 체크
 	void CheckAttackRange();
+
+	
 
 protected:
 	// Called when the game starts or when spawned

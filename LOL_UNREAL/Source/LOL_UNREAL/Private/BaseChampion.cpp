@@ -17,8 +17,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/WidgetComponent.h"
-
 #include "Component/LOL_StatComponent.h"
+#include "Component/LOL_CameraControlComponent.h"
 #include "LOL_ChampionHpBarWidget.h"
 
 // Sets default values
@@ -37,6 +37,9 @@ ABaseChampion::ABaseChampion()
 	}
 	// Stat
 	StatComponent = CreateDefaultSubobject<ULOL_StatComponent>(TEXT("StatComponent"));
+
+	// Camera
+	CameraControlComponent = CreateDefaultSubobject<ULOL_CameraControlComponent>(TEXT("CameraControlComponent"));
 
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -81,8 +84,6 @@ ABaseChampion::ABaseChampion()
 
 	bCanAttack = true; // 초기값 설정
 }
-
-// Called when the game starts or when spawned
 void ABaseChampion::BeginPlay()
 {
 	Super::BeginPlay();
@@ -104,14 +105,10 @@ void ABaseChampion::BeginPlay()
 		}
 	}
 }
-
-// Called to bind functionality to input
 void ABaseChampion::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
 }
-
 void ABaseChampion::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -123,12 +120,12 @@ void ABaseChampion::Tick(float DeltaTime)
 	}
 }
 
+// 공격 관련 함수
 void ABaseChampion::SetCombatTarget(AActor* Target)
 {
 	// 공격 대상을 저장합니다.
 	CombatTarget = Target;
 }
-
 void ABaseChampion::CheckAttackRange()
 {
 	if (CombatTarget == nullptr) return;
@@ -161,7 +158,6 @@ void ABaseChampion::CheckAttackRange()
 		}
 	}
 }
-
 void ABaseChampion::StartAttack()
 {
 	if (!bCanAttack || !CombatTarget || !StatComponent) return;
@@ -191,13 +187,11 @@ void ABaseChampion::StartAttack()
 
 	GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &ABaseChampion::ResetAttack, AttackDelay, false);
 }
-
 void ABaseChampion::ResetAttack()
 {
 	// 타이머가 끝나면 다시 공격할 수 있는 상태로 변경
 	bCanAttack = true;
 }
-
 float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
@@ -210,12 +204,29 @@ float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 
 	return ActualDamage;
 }
-
 void ABaseChampion::Multicast_PlayAttackMontage_Implementation()
 {
 	if (AttackMontage)
 	{
 		// 이 코드가 이제 모든 플레이어의 화면에서 실행됩니다.
 		PlayAnimMontage(AttackMontage);
+	}
+}
+
+// 카메라 시점
+void ABaseChampion::OnSpacePressed()
+{
+	if (CameraControlComponent)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Green, TEXT("Space Pressed!"));
+		CameraControlComponent->SetCameraLock(true);
+	}
+}
+void ABaseChampion::OnSpaceReleased()
+{
+	if (CameraControlComponent)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::White, TEXT("Space Released!"));
+		CameraControlComponent->SetCameraLock(false);
 	}
 }
