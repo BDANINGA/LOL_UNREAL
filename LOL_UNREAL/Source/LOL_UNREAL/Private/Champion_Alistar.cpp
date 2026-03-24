@@ -25,10 +25,10 @@ AChampion_Alistar::AChampion_Alistar()
 			GetMesh()->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 		}
 
-		/*static ConstructorHelpers::FObjectFinder<UAnimMontage> AlistarAttackMtg(TEXT("/Script/Engine.AnimMontage'/Game/Level/vain_real/am_attack_1.am_attack_1'"));
+		static ConstructorHelpers::FObjectFinder<UAnimMontage> AlistarAttackMtg(TEXT("/Game/Level/alistar/am_alistar_attack1.am_alistar_attack1"));
 		if (AlistarAttackMtg.Succeeded())
 		{
 			AttackMontage = AlistarAttackMtg.Object;
-		}*/
+		}
 	}
 }
