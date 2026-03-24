@@ -53,6 +53,11 @@ ALOL_PlayerController::ALOL_PlayerController()
 	{
 		SkillRAction = IA_SkillR.Object;
 	}
+	static ConstructorHelpers::FObjectFinder<UInputAction> IA_SpaceBar(TEXT("/Game/Level/input/IA_SpaceBar.IA_SpaceBar"));
+	if (IA_SpaceBar.Succeeded())
+	{
+		SpaceBarAction = IA_SpaceBar.Object;
+	}
 }
 
 void ALOL_PlayerController::BeginPlay()
@@ -75,8 +80,6 @@ void ALOL_PlayerController::BeginPlay()
 void ALOL_PlayerController::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
-
-
 
 	// . 목적지가 있다면 이동 처리
 	if (bIsMoving)
@@ -146,6 +149,8 @@ void ALOL_PlayerController::SetupInputComponent()
 		EnhancedInputComponent->BindAction(SkillWAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSkillW);
 		EnhancedInputComponent->BindAction(SkillEAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSkillE);
 		EnhancedInputComponent->BindAction(SkillRAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSkillR);
+		EnhancedInputComponent->BindAction(SpaceBarAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSpaceBarPressed);
+		EnhancedInputComponent->BindAction(SpaceBarAction, ETriggerEvent::Completed, this, &ALOL_PlayerController::OnSpaceBarReleased);
 	}
 }
 
@@ -201,4 +206,21 @@ void ALOL_PlayerController::OnSkillE()
 void ALOL_PlayerController::OnSkillR()
 {
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("R Skill (Ultimate) Used!"));
+}
+void ALOL_PlayerController::OnSpaceBarPressed()
+{
+	ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
+	if (MyPawn)
+	{
+		MyPawn->OnSpacePressed();
+	}
+}
+
+void ALOL_PlayerController::OnSpaceBarReleased()
+{
+	ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
+	if (MyPawn)
+	{
+		MyPawn->OnSpaceReleased();
+	}
 }

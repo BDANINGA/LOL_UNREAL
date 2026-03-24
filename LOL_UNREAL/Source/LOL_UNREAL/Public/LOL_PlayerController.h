@@ -56,9 +56,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	class UInputAction* SkillRAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	class UInputAction* SpaceBarAction;
+
 	void OnClickMove();
 	void OnSkillQ();
 	void OnSkillW();
 	void OnSkillE();
 	void OnSkillR();
+	void OnSpaceBarPressed();
+	void OnSpaceBarReleased();
 };

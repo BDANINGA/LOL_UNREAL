@@ -10,14 +10,15 @@
 #include "LOL_PlayerController.h"
 
 #include "Net/UnrealNetwork.h"
+#include "Kismet/GameplayStatics.h"
 
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
-#include "ChampionComponent.h"
 #include "Components/WidgetComponent.h"
-#include "LOL_ChampionHpBarWidget.h"
+#include "Component/LOL_StatComponent.h"
+#include "Component/LOL_CameraControlComponent.h"
 
 // Sets default values
 ABaseChampion::ABaseChampion()
@@ -26,7 +27,7 @@ ABaseChampion::ABaseChampion()
 	Stat = CreateDefaultSubobject<UChampionComponent>(TEXT("Stat"));
 
 	//Widget Component
-	HpBar = CreateDefaultSubobject<UWidgetComponent>(TEXT("HpWidget"));
+	HpBar = CreateDefaultSubobject<UWidgetComponent>(TEXT("Widget"));
 	HpBar->SetupAttachment(GetMesh());
 	HpBar->SetRelativeLocation(FVector(0.0f, 0.0f, 300.0f));
 	static ConstructorHelpers::FClassFinder<UUserWidget> HpBarWidgetRef(TEXT("/Game/UI/HPbar.HPbar_C"));
@@ -36,6 +37,11 @@ ABaseChampion::ABaseChampion()
 		HpBar->SetDrawSize(FVector2D(150.0f, 20.0f));
 		HpBar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
+	// Stat
+	StatComponent = CreateDefaultSubobject<ULOL_StatComponent>(TEXT("StatComponent"));
+
+	// Camera
+	CameraControlComponent = CreateDefaultSubobject<ULOL_CameraControlComponent>(TEXT("CameraControlComponent"));
 
 	//추가: Widget Component(MP)
 	MpBar = CreateDefaultSubobject<UWidgetComponent>(TEXT("MpWidget"));
@@ -90,33 +96,33 @@ ABaseChampion::ABaseChampion()
 	bReplicates = true;
 	ACharacter::SetReplicateMovement(true); 
 
-	// 기초 테스트 능력치
-	BaseStat.AttackRange = 500.0f;
-	BaseStat.AttackSpeed = 1.0f;
 	bCanAttack = true; // 초기값 설정
 }
-
-// Called when the game starts or when spawned
 void ABaseChampion::BeginPlay()
 {
 	Super::BeginPlay();
-	
-}
 
-// Called to bind functionality to input
+	if (HpBar && StatComponent)
+	{
+		ULOL_ChampionHpBarWidget* HpWidget = Cast<ULOL_ChampionHpBarWidget>(HpBar->GetUserWidgetObject());
+			
+		if (HpWidget)
+		{
+			// 최대 체력 설정
+			HpWidget->SetMaxHp(StatComponent->GetStat().MaxHP);
+
+			// StatComponent의 HP가 변할 때마다 위젯의 UpdateHpBar를 호출하도록 연결(Bind)합니다.
+			StatComponent->OnHpChanged.AddUObject(HpWidget, &ULOL_ChampionHpBarWidget::UpdateHpBar);
+
+			// 초기 HP 상태를 한 번 반영.
+			HpWidget->UpdateHpBar(StatComponent->GetStat().CurrentHP);
+		}
+	}
+}
 void ABaseChampion::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
 }
-
-void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(ABaseChampion, BaseStat);
-}
-
 void ABaseChampion::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -128,12 +134,12 @@ void ABaseChampion::Tick(float DeltaTime)
 	}
 }
 
+// 공격 관련 함수
 void ABaseChampion::SetCombatTarget(AActor* Target)
 {
 	// 공격 대상을 저장합니다.
 	CombatTarget = Target;
 }
-
 void ABaseChampion::CheckAttackRange()
 {
 	if (CombatTarget == nullptr) return;
@@ -142,7 +148,7 @@ void ABaseChampion::CheckAttackRange()
 	float Distance = GetDistanceTo(CombatTarget);
 
 	// 사거리 비교
-	if (Distance <= BaseStat.AttackRange)
+	if (StatComponent && Distance <= StatComponent->GetStat().AttackRange)
 	{
 		ALOL_PlayerController* PC = Cast<ALOL_PlayerController>(GetController());
 		if (PC)
@@ -166,38 +172,50 @@ void ABaseChampion::CheckAttackRange()
 		}
 	}
 }
-
 void ABaseChampion::StartAttack()
 {
-	if (!bCanAttack || !CombatTarget) return;
+	if (!bCanAttack || !CombatTarget || !StatComponent) return;
 
 	bCanAttack = false;
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("공격중!"));
 
 	Multicast_PlayAttackMontage();
 
+	// 서버에서 데미지 계산
+	if (HasAuthority())
+	{
+		float DamageToApply = StatComponent->GetStat().AttackDamage;
+
+		// 상대방에게 데미지를 전달합니다. (언리얼 표준 함수 호출)
+		UGameplayStatics::ApplyDamage(
+			CombatTarget,
+			DamageToApply,
+			GetController(),
+			this,
+			nullptr
+		);
+	}
+
 	// 공격 속도(AttackSpeed)를 초 단위 주기로 변환하여 타이머 설정
-	// 예: 공속이 1.0이면 1초에 한 번, 2.0이면 0.5초에 한 번
-	float AttackDelay = 1.0f / BaseStat.AttackSpeed;
+	float AttackDelay = 1.0f / StatComponent->GetStat().AttackSpeed;
 
 	GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &ABaseChampion::ResetAttack, AttackDelay, false);
 }
-
 void ABaseChampion::ResetAttack()
 {
 	// 타이머가 끝나면 다시 공격할 수 있는 상태로 변경
 	bCanAttack = true;
 }
-
-void ABaseChampion::SetupCharacterWidget(UChampionUserWidget* InUserWidget)
+float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	ULOL_ChampionHpBarWidget* HpBarWidget = Cast<ULOL_ChampionHpBarWidget>(InUserWidget);
-	if (HpBarWidget)
+	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+	if (StatComponent)
 	{
-		HpBarWidget->SetMaxHp(Stat->GetMaxHp());
-		HpBarWidget->UpdateHpBar(Stat->GetCurrentHp());
-		Stat->OnHpChanged.AddUObject(HpBarWidget, &ULOL_ChampionHpBarWidget::UpdateHpBar);
+		// 컴포넌트에게 데미지 계산을 맡깁니다.
+		ActualDamage = StatComponent->ApplyDamage(ActualDamage);
 	}
+
+	return ActualDamage;
 }
 
 void ABaseChampion::Multicast_PlayAttackMontage_Implementation()
@@ -208,21 +226,25 @@ void ABaseChampion::Multicast_PlayAttackMontage_Implementation()
 		PlayAnimMontage(AttackMontage);
 	}
 }
+// 카메라 시점
+void ABaseChampion::OnSpacePressed()
+{
+	if (CameraControlComponent)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Green, TEXT("Space Pressed!"));
+		CameraControlComponent->SetCameraLock(true);
+	}
+}
+void ABaseChampion::OnSpaceReleased()
+{
+	if (CameraControlComponent)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::White, TEXT("Space Released!"));
+		CameraControlComponent->SetCameraLock(false);
+	}
+}
 
 void ABaseChampion::Skill_Q()
 {
-	if (!Stat) return;
-	float ManaCost = 70.f;
 
-	if (!Stat->ConsumeMana(ManaCost))
-	{
-		if (GEngine)
-			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Blue, TEXT("마나 부족"));
-		return;
-	}
-
-	if (GEngine)
-		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("Q 스킬 사용"));
-
-	// 스킬 로직
 }

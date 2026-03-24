@@ -9,83 +9,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
-#include "ChampionWidgetInterface.h"
 #include "BaseChampion.generated.h"
 
-// 스텟 구조체
-USTRUCT(BlueprintType)
-struct FChampionStat
-{
-	GENERATED_BODY()
-
-public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	int32 Level = 1;
-
-	// --- 체력(HP) ---
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float MaxHP;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float CurrentHP;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float HPPerLevel;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float HPRegen;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float HPRegenPerLevel;
-
-	// --- 마나(MP) ---
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float MaxMP;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float CurrentMP;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float MPPerLevel;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float MPRegen;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float MPRegenPerLevel;
-
-	// --- 속도(MoveSpeed) ---
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float MoveSpeed;
-
-	// --- 방어력(Armor) / 마법 저항력(SpellBlock) ---
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float Armor;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float ArmorPerLevel;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float SpellBlock;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float SpellBlockPerLevel;
-
-	// --- 공격력(AttackDamege) ---
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float AttackDamage;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float AttackDamagePerLevel;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float AttackSpeed;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float AttackSpeedPerLevel;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float AttackRange;
-
-
-
-	// --- 크리티컬(Critical) ---
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float Critical;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float CriticalPerLevel;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	float ADPerLevel;
-};
-
 UCLASS()
-class LOL_UNREAL_API ABaseChampion : public ACharacter, public IChampionWidgetInterface
+class LOL_UNREAL_API ABaseChampion : public ACharacter
 {
 	GENERATED_BODY()
 
@@ -93,18 +20,20 @@ public:
 	// Sets default values for this character's properties
 	ABaseChampion();
 
+	// 스탯 관련
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	class ULOL_StatComponent* StatComponent;
+
 	// 카메라 관련
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 	class USpringArmComponent* CameraBoom;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 	class UCameraComponent* FollowCamera;
 
-	// 능력치 관련
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Stat")
-	FChampionStat BaseStat;
-
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	class ULOL_CameraControlComponent* CameraControlComponent;
+	void OnSpacePressed();
+	void OnSpaceReleased();
 
 	// 공격 대상 지정
 	void SetCombatTarget(AActor* Target);
@@ -121,7 +50,7 @@ public:
 	void Skill_W();
 	void Skill_E();
 	void Skill_R();
-
+	
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -135,6 +64,7 @@ protected:
 	bool bCanAttack = true;
 	FTimerHandle AttackTimerHandle;
 	void ResetAttack();
+	float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_PlayAttackMontage();
@@ -150,10 +80,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"));
 	TObjectPtr<class UWidgetComponent> HpBar;
 
-	virtual void SetupCharacterWidget(class UChampionUserWidget* InUserWidget) override;
-
 	// 추가: UI Widget Section (MP)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UWidgetComponent> MpBar;
-
 };

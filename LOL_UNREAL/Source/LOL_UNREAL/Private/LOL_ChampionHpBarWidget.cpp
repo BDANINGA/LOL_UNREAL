@@ -12,7 +12,7 @@ void ULOL_ChampionHpBarWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	HpProgressBar = Cast<UProgressBar>(GetWidgetFromName(TEXT("PbHpBar")));
+	HpProgressBar = Cast<UProgressBar>(GetWidgetFromName(TEXT("HpBar")));
 	ensure(HpProgressBar);
 }
 
