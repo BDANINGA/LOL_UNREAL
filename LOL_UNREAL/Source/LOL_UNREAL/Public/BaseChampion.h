@@ -9,6 +9,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "ChampionWidgetInterface.h"
 #include "BaseChampion.generated.h"
 
 // 스텟 구조체
@@ -84,7 +85,7 @@ public:
 };
 
 UCLASS()
-class LOL_UNREAL_API ABaseChampion : public ACharacter
+class LOL_UNREAL_API ABaseChampion : public ACharacter, public IChampionWidgetInterface
 {
 	GENERATED_BODY()
 
@@ -115,6 +116,12 @@ public:
 	// 매 프레임 사거리를 체크
 	void CheckAttackRange();
 
+	// 추가: 캐릭터 스킬 함수 구현
+	void Skill_Q();
+	void Skill_W();
+	void Skill_E();
+	void Skill_R();
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -134,13 +141,19 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 	class UAnimMontage* AttackMontage;
-	
+
 	//Stat Section
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"));
 	TObjectPtr<class UChampionComponent> Stat;
 
-	//UI Widget Section
+	//UI Widget Section (HP)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"));
 	TObjectPtr<class UWidgetComponent> HpBar;
+
+	virtual void SetupCharacterWidget(class UChampionUserWidget* InUserWidget) override;
+
+	// 추가: UI Widget Section (MP)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UWidgetComponent> MpBar;
 
 };

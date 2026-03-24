@@ -17,6 +17,7 @@
 #include "Components/CapsuleComponent.h"
 #include "ChampionComponent.h"
 #include "Components/WidgetComponent.h"
+#include "LOL_ChampionHpBarWidget.h"
 
 // Sets default values
 ABaseChampion::ABaseChampion()
@@ -25,7 +26,7 @@ ABaseChampion::ABaseChampion()
 	Stat = CreateDefaultSubobject<UChampionComponent>(TEXT("Stat"));
 
 	//Widget Component
-	HpBar = CreateDefaultSubobject<UWidgetComponent>(TEXT("Widget"));
+	HpBar = CreateDefaultSubobject<UWidgetComponent>(TEXT("HpWidget"));
 	HpBar->SetupAttachment(GetMesh());
 	HpBar->SetRelativeLocation(FVector(0.0f, 0.0f, 300.0f));
 	static ConstructorHelpers::FClassFinder<UUserWidget> HpBarWidgetRef(TEXT("/Game/UI/HPbar.HPbar_C"));
@@ -34,6 +35,18 @@ ABaseChampion::ABaseChampion()
 		HpBar->SetWidgetSpace(EWidgetSpace::Screen);
 		HpBar->SetDrawSize(FVector2D(150.0f, 20.0f));
 		HpBar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	//추가: Widget Component(MP)
+	MpBar = CreateDefaultSubobject<UWidgetComponent>(TEXT("MpWidget"));
+	MpBar->SetupAttachment(GetMesh());
+	MpBar->SetRelativeLocation(FVector(0.0f, 0.0f, 275.0f));
+	static ConstructorHelpers::FClassFinder<UUserWidget> MpBarWidgetRef(TEXT("/Game/UI/MPbar.MPbar_C"));
+	if (MpBarWidgetRef.Class) {
+		MpBar->SetWidgetClass(MpBarWidgetRef.Class);
+		MpBar->SetWidgetSpace(EWidgetSpace::Screen);
+		MpBar->SetDrawSize(FVector2D(150.0f, 10.0f));
+		MpBar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
@@ -176,6 +189,17 @@ void ABaseChampion::ResetAttack()
 	bCanAttack = true;
 }
 
+void ABaseChampion::SetupCharacterWidget(UChampionUserWidget* InUserWidget)
+{
+	ULOL_ChampionHpBarWidget* HpBarWidget = Cast<ULOL_ChampionHpBarWidget>(InUserWidget);
+	if (HpBarWidget)
+	{
+		HpBarWidget->SetMaxHp(Stat->GetMaxHp());
+		HpBarWidget->UpdateHpBar(Stat->GetCurrentHp());
+		Stat->OnHpChanged.AddUObject(HpBarWidget, &ULOL_ChampionHpBarWidget::UpdateHpBar);
+	}
+}
+
 void ABaseChampion::Multicast_PlayAttackMontage_Implementation()
 {
 	if (AttackMontage)
@@ -183,4 +207,22 @@ void ABaseChampion::Multicast_PlayAttackMontage_Implementation()
 		// 이 코드가 이제 모든 플레이어의 화면에서 실행됩니다.
 		PlayAnimMontage(AttackMontage);
 	}
+}
+
+void ABaseChampion::Skill_Q()
+{
+	if (!Stat) return;
+	float ManaCost = 70.f;
+
+	if (!Stat->ConsumeMana(ManaCost))
+	{
+		if (GEngine)
+			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Blue, TEXT("마나 부족"));
+		return;
+	}
+
+	if (GEngine)
+		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("Q 스킬 사용"));
+
+	// 스킬 로직
 }
