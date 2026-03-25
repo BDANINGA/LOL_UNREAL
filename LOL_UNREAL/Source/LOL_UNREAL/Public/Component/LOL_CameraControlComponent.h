@@ -22,12 +22,16 @@ public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
+	// 스페이스바 입력 처리를 이 컴포넌트가 담당하도록 통합
+	void HandleCameraLockInput(bool bPressed);
+
+	// 카메라를 특정 위치(주로 챔피언)로 즉시 복구시키는 함수
+	void ResetCameraToOwner();
+
 	// 카메라 고정/해제 제어
 	void SetCameraLock(bool bLock);
 
-	// 1. 마우스 좌표를 받음 
-	// 2. 화면 끝인지 검사
-	// 3. 카메라 붐을 이동시킨다.
+	// 자유 시점
 	void UpdateCameraPan(float DeltaTime);
 
 private:

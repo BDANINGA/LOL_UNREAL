@@ -32,8 +32,8 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class ULOL_CameraControlComponent* CameraControlComponent;
-	void OnSpacePressed();
-	void OnSpaceReleased();
+
+	void SetCameraLock(bool bLock);
 
 	// 공격 대상 지정
 	void SetCombatTarget(AActor* Target);
@@ -52,12 +52,8 @@ public:
 	void Skill_R();
 	
 protected:
-	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-
-	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	void StartAttack();
@@ -71,10 +67,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 	class UAnimMontage* AttackMontage;
-
-	//Stat Section
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"));
-	TObjectPtr<class UChampionComponent> Stat;
 
 	//UI Widget Section (HP)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"));

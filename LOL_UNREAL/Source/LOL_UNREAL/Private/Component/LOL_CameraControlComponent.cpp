@@ -6,31 +6,22 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/PlayerController.h"
 
-// Sets default values for this component's properties
 ULOL_CameraControlComponent::ULOL_CameraControlComponent()
 {
-	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
-	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
 
-	// ...
 }
-
-
-// Called when the game starts
 void ULOL_CameraControlComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// GetOwner()는 이 컴포넌트를 들고 있는 액터를 반환합니다.
 	OwnerChampion = Cast<ABaseChampion>(GetOwner());
 	if (OwnerChampion)
 	{
-		// 주인에게 직접 카메라 붐을 달라고 요청합니다.
+		// 주인에게 직접 카메라 붐을 달라고 요청
 		CameraBoom = OwnerChampion->CameraBoom;
 	}
 }
-// Called every frame
 void ULOL_CameraControlComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -55,32 +46,36 @@ void ULOL_CameraControlComponent::UpdateCameraPan(float DeltaTime)
         int32 SizeX, SizeY;
         PC->GetViewportSize(SizeX, SizeY);
 
-        // 1. 입력 방향 결정 (화면 기준)
-        float InputX = 0.f; // 상하
-        float InputY = 0.f; // 좌우
+        // 1. 순수 입력 벡터 초기화 (화면 기준)
+        FVector RawDirection = FVector::ZeroVector;
 
-        // else if를 쓰지 않고 각각 검사해야 대각선(8방향)이 가능합니다.
-        if (MouseY <= EdgeThreshold) InputX = 1.f;          // 화면 위쪽
-        if (MouseY >= SizeY - EdgeThreshold) InputX = -1.f; // 화면 아래쪽
-        if (MouseX <= EdgeThreshold) InputY = -1.f;         // 화면 왼쪽
-        if (MouseX >= SizeX - EdgeThreshold) InputY = 1.f;  // 화면 오른쪽
+        // 독립적인 if문으로 8방향 판정
+        if (MouseY <= EdgeThreshold) RawDirection.X = 1.f;          // 화면 위
+        if (MouseY >= SizeY - EdgeThreshold) RawDirection.X = -1.f; // 화면 아래
+        if (MouseX <= EdgeThreshold) RawDirection.Y = -1.f;         // 화면 왼쪽
+        if (MouseX >= SizeX - EdgeThreshold) RawDirection.Y = 1.f;  // 화면 오른쪽
 
-        if (InputX != 0.f || InputY != 0.f)
+        if (!RawDirection.IsNearlyZero())
         {
-            // 2. 카메라의 Yaw(회전) 값만 가져와서 평면 이동 방향을 계산합니다.
-            // 우리 카메라는 -90도 회전되어 있으므로 이 값을 기준으로 방향을 잡아야 합니다.
-            FRotator SubRotation = CameraBoom->GetRelativeRotation();
-            FRotator YawRotation(0, SubRotation.Yaw, 0);
+            // 1. 현재 카메라 붐의 월드 회전값을 가져옵니다. (-90도 상태 포함)
+            FRotator CameraRotation = CameraBoom->GetComponentRotation();
 
-            // 카메라가 앞(Forward)이라고 생각하는 월드 방향과 오른쪽(Right) 방향 추출
-            FVector Forward = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-            FVector Right = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+            // 2. 수평 이동을 위해 Pitch, Roll은 버리고 Yaw만 추출합니다.
+            FRotator YawRotation(0.f, CameraRotation.Yaw, 0.f);
 
-            // 3. 최종 이동 벡터 계산 (8방향 합산)
-            FVector MoveDirection = (Forward * InputX) + (Right * InputY);
+            // 3. [중요] 화면의 '위' 방향(RawDirection.X)은 카메라가 보는 '앞' 방향입니다.
+            // [중요] 화면의 '오른쪽' 방향(RawDirection.Y)은 카메라가 보는 '오른쪽' 방향입니다.
+            FVector ForwardVector = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+            FVector RightVector = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
-            // 4. 위치 업데이트
-            FVector NewLocation = CameraBoom->GetRelativeLocation() + (MoveDirection.GetSafeNormal() * MoveSpeed * DeltaTime);
+            // 4. 입력값과 실제 벡터를 결합합니다.
+            // 마우스 위(X=1) -> 카메라 정면(Forward)
+            // 마우스 오른쪽(Y=1) -> 카메라 오른쪽(Right)
+            FVector MoveDirection = (ForwardVector * RawDirection.X) + (RightVector * RawDirection.Y);
+            MoveDirection = MoveDirection.GetSafeNormal();
+
+            // 5. 이동 적용
+            FVector NewLocation = CameraBoom->GetRelativeLocation() + (MoveDirection * MoveSpeed * DeltaTime);
             CameraBoom->SetRelativeLocation(NewLocation);
         }
     }
@@ -93,6 +88,25 @@ void ULOL_CameraControlComponent::SetCameraLock(bool bLock)
     // Space바를 누르는 순간(bLock == true), 위치를 즉시 초기화
     if (IsCameraLocked && CameraBoom)
     {
+        CameraBoom->SetRelativeLocation(FVector::ZeroVector);
+    }
+}
+
+void ULOL_CameraControlComponent::HandleCameraLockInput(bool bPressed)
+{
+    IsCameraLocked = bPressed;
+
+    if (IsCameraLocked)
+    {
+        ResetCameraToOwner();
+    }
+}
+
+void ULOL_CameraControlComponent::ResetCameraToOwner()
+{
+    if (CameraBoom)
+    {
+        // 챔피언 위치로 즉시 이동 (상대 좌표 0)
         CameraBoom->SetRelativeLocation(FVector::ZeroVector);
     }
 }

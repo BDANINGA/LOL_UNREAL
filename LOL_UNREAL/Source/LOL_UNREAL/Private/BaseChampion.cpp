@@ -24,9 +24,6 @@
 // Sets default values
 ABaseChampion::ABaseChampion()
 {
-	//Stat Component
-	Stat = CreateDefaultSubobject<UChampionComponent>(TEXT("Stat"));
-
 	//Widget Component
 	HpBar = CreateDefaultSubobject<UWidgetComponent>(TEXT("Widget"));
 	HpBar->SetupAttachment(GetMesh());
@@ -38,13 +35,7 @@ ABaseChampion::ABaseChampion()
 		HpBar->SetDrawSize(FVector2D(150.0f, 20.0f));
 		HpBar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
-	// Stat
-	StatComponent = CreateDefaultSubobject<ULOL_StatComponent>(TEXT("StatComponent"));
-
-	// Camera
-	CameraControlComponent = CreateDefaultSubobject<ULOL_CameraControlComponent>(TEXT("CameraControlComponent"));
-
-	//추가: Widget Component(MP)
+	//Widget Component(MP)
 	MpBar = CreateDefaultSubobject<UWidgetComponent>(TEXT("MpWidget"));
 	MpBar->SetupAttachment(GetMesh());
 	MpBar->SetRelativeLocation(FVector(0.0f, 0.0f, 275.0f));
@@ -55,8 +46,12 @@ ABaseChampion::ABaseChampion()
 		MpBar->SetDrawSize(FVector2D(150.0f, 10.0f));
 		MpBar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
+	// Stat
+	StatComponent = CreateDefaultSubobject<ULOL_StatComponent>(TEXT("StatComponent"));
 
-	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Camera
+	CameraControlComponent = CreateDefaultSubobject<ULOL_CameraControlComponent>(TEXT("CameraControlComponent"));
+
 	PrimaryActorTick.bCanEverTick = true;
 
 	// 캡슐 컴포넌트의 콜리전 설정
@@ -96,17 +91,13 @@ ABaseChampion::ABaseChampion()
 	// 위치와 회전을 모두 복제하도록 설정
 	bReplicates = true;
 	ACharacter::SetReplicateMovement(true); 
-
-	bCanAttack = true; // 초기값 설정
 }
 void ABaseChampion::BeginPlay()
 {
 	Super::BeginPlay();
-
 	if (HpBar && StatComponent)
 	{
 		ULOL_ChampionHpBarWidget* HpWidget = Cast<ULOL_ChampionHpBarWidget>(HpBar->GetUserWidgetObject());
-			
 		if (HpWidget)
 		{
 			// 최대 체력 설정
@@ -128,7 +119,7 @@ void ABaseChampion::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// 서버에서만 로직을 계산하도록 HasAuthority()를 체크합니다. (네트워크 최적화)
+	// 서버에서만 로직을 계산하도록 HasAuthority()를 체크
 	if (HasAuthority() && CombatTarget)
 	{
 		CheckAttackRange();
@@ -227,25 +218,11 @@ void ABaseChampion::Multicast_PlayAttackMontage_Implementation()
 		PlayAnimMontage(AttackMontage);
 	}
 }
-// 카메라 시점
-void ABaseChampion::OnSpacePressed()
+
+void ABaseChampion::SetCameraLock(bool bLock)
 {
 	if (CameraControlComponent)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Green, TEXT("Space Pressed!"));
-		CameraControlComponent->SetCameraLock(true);
+		CameraControlComponent->HandleCameraLockInput(bLock);
 	}
-}
-void ABaseChampion::OnSpaceReleased()
-{
-	if (CameraControlComponent)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::White, TEXT("Space Released!"));
-		CameraControlComponent->SetCameraLock(false);
-	}
-}
-
-void ABaseChampion::Skill_Q()
-{
-
 }

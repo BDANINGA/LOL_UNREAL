@@ -209,18 +209,16 @@ void ALOL_PlayerController::OnSkillR()
 }
 void ALOL_PlayerController::OnSpaceBarPressed()
 {
-	ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
-	if (MyPawn)
+	if (ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn()))
 	{
-		MyPawn->OnSpacePressed();
+		MyPawn->SetCameraLock(true);
 	}
 }
 
 void ALOL_PlayerController::OnSpaceBarReleased()
 {
-	ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
-	if (MyPawn)
+	if (ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn()))
 	{
-		MyPawn->OnSpaceReleased();
+		MyPawn->SetCameraLock(false);
 	}
 }
