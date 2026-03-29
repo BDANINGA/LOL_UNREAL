@@ -95,6 +95,11 @@ ABaseChampion::ABaseChampion()
 void ABaseChampion::BeginPlay()
 {
 	Super::BeginPlay();
+	if (StatComponent)
+	{
+		// 스탯 컴포넌트의 죽음 이벤트에 나의 OnDeath 함수를 바인딩
+		StatComponent->OnHpZero.AddUObject(this, &ABaseChampion::Server_HandleDeath);
+	}
 	if (HpBar && StatComponent)
 	{
 		ULOL_ChampionHpBarWidget* HpWidget = Cast<ULOL_ChampionHpBarWidget>(HpBar->GetUserWidgetObject());
@@ -217,6 +222,52 @@ void ABaseChampion::Multicast_PlayAttackMontage_Implementation()
 		// 이 코드가 이제 모든 플레이어의 화면에서 실행됩니다.
 		PlayAnimMontage(AttackMontage);
 	}
+}
+void ABaseChampion::Multicast_PlayDeathMontage_Implementation()
+{
+	if (DeathMontage)
+	{
+		PlayAnimMontage(DeathMontage);
+	}
+}
+
+void ABaseChampion::Server_HandleDeath()
+{
+	if (bIsDead) return;
+
+	// 서버에서 먼저 상태를 바꾸고
+	bIsDead = true;
+
+	// 모든 클라이언트에게 알림
+	Multicast_OnDeath();
+}
+
+void ABaseChampion::Multicast_OnDeath_Implementation()
+{
+	// 이 함수 안의 내용은 이제 모든 플레이어의 PC에서 실행됩니다.
+	OnDeath();
+}
+
+void ABaseChampion::OnDeath()
+{
+	// 1. 애니메이션 재생
+	Multicast_PlayDeathMontage();
+
+	// 2. 조작 금지
+	GetCharacterMovement()->DisableMovement(); // 이동 정지
+
+	// 3. 충돌 제거 (시체가 방해되지 않도록)
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	// 4. UI 숨기기
+	if (HpBar && MpBar)
+	{
+		HpBar->SetVisibility(false);
+		MpBar->SetVisibility(false);
+	}
+
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, TEXT("챔피언 처치됨!"));
 }
 
 void ABaseChampion::SetCameraLock(bool bLock)

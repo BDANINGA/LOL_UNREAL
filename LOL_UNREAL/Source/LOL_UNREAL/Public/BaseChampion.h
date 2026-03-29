@@ -65,8 +65,24 @@ protected:
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_PlayAttackMontage();
 
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayDeathMontage();
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 	class UAnimMontage* AttackMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Animation")
+	class UAnimMontage* DeathMontage;
+
+	bool bIsDead = false;
+
+	// 죽었을 때 실행될 함수
+	void Server_HandleDeath();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_OnDeath();
+
+	virtual void OnDeath();
 
 	//UI Widget Section (HP)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"));

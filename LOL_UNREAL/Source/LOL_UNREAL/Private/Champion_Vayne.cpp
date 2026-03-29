@@ -30,5 +30,11 @@ AChampion_Vayne::AChampion_Vayne()
 		{
 			AttackMontage = VayneAttackMtg.Object;
 		}
+
+		/*static ConstructorHelpers::FObjectFinder<UAnimMontage> VayneDeathMtg(TEXT("/Game/Level/vain_real/am_attack_1.am_attack_1"));
+		if (VayneDeathMtg.Succeeded())
+		{
+			DeathMontage = VayneDeathMtg.Object;
+		}*/
 	}
 }

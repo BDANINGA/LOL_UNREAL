@@ -30,5 +30,11 @@ AChampion_Alistar::AChampion_Alistar()
 		{
 			AttackMontage = AlistarAttackMtg.Object;
 		}
+
+		static ConstructorHelpers::FObjectFinder<UAnimMontage> AlistarDeathMtg(TEXT("/Game/Level/alistar/am_alistar_death.am_alistar_death"));
+		if (AlistarDeathMtg.Succeeded())
+		{
+			DeathMontage = AlistarDeathMtg.Object;
+		}
 	}
 }
