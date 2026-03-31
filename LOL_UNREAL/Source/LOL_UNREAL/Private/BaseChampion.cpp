@@ -177,8 +177,6 @@ void ABaseChampion::StartAttack()
 	bCanAttack = false;
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("공격중!"));
 
-	Multicast_PlayAttackMontage();
-
 	// 서버에서 데미지 계산
 	if (HasAuthority())
 	{
@@ -192,6 +190,17 @@ void ABaseChampion::StartAttack()
 			this,
 			nullptr
 		);
+
+		FVector LookAtLocation = CombatTarget->GetActorLocation();
+		FVector Direction = LookAtLocation - GetActorLocation();
+		Direction.Z = 0.f;
+
+		if (!Direction.IsNearlyZero())
+		{
+			FRotator NewRotation = FRotationMatrix::MakeFromX(Direction).Rotator();
+
+			Multicast_PlayAttackMontage(NewRotation);
+		}
 	}
 
 	// 공격 속도(AttackSpeed)를 초 단위 주기로 변환하여 타이머 설정
@@ -216,8 +225,10 @@ float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 	return ActualDamage;
 }
 
-void ABaseChampion::Multicast_PlayAttackMontage_Implementation()
+void ABaseChampion::Multicast_PlayAttackMontage_Implementation(FRotator TargetRotation)
 {
+	SetActorRotation(TargetRotation);
+
 	if (AttackMontage)
 	{
 		// 이 코드가 이제 모든 플레이어의 화면에서 실행됩니다.

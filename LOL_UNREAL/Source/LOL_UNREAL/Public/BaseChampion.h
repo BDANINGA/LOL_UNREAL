@@ -68,7 +68,7 @@ protected:
 	float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
 	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_PlayAttackMontage();
+	void Multicast_PlayAttackMontage(FRotator TargetRotation);
 
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_PlayDeathMontage();
