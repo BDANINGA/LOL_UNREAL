@@ -50,6 +50,11 @@ public:
 	void Skill_W();
 	void Skill_E();
 	void Skill_R();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_OnRespawn();
+
+	void Respawn();
 	
 protected:
 	virtual void BeginPlay() override;

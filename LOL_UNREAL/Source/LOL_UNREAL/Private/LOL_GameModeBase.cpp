@@ -30,3 +30,14 @@ void ALOL_GameModeBase::BeginPlay()
 {
     Super::BeginPlay();
 }
+
+void ALOL_GameModeBase::RequestRespawn(ABaseChampion* DeadChampion)
+{
+    float RespawnDelay = 5.0f; // 나중에는 레벨에 따라 계산식 적용
+
+    FTimerHandle RespawnTimer;
+    FTimerDelegate RespawnDelegate;
+    RespawnDelegate.BindUObject(DeadChampion, &ABaseChampion::Respawn);
+
+    GetWorldTimerManager().SetTimer(RespawnTimer, RespawnDelegate, RespawnDelay, false);
+}

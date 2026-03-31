@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "BaseChampion.h"
+
 #include "LOL_GameModeBase.generated.h"
 
 /**
@@ -18,6 +20,8 @@ public:
 
     // 플레이어 컨트롤러에 따른 캐릭터 클래스 반환 함수
     virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
+
+    void RequestRespawn(ABaseChampion* DeadChampion);
 
     // 게임 시작 시 호출되는 함수
     virtual void BeginPlay() override;

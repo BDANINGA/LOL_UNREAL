@@ -8,6 +8,7 @@
 
 #include "BaseChampion.h"
 #include "LOL_PlayerController.h"
+#include "LOL_GameModeBase.h"
 
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
@@ -240,6 +241,17 @@ void ABaseChampion::Server_HandleDeath()
 
 	// 모든 클라이언트에게 알림
 	Multicast_OnDeath();
+
+	// 서버에서 게임모드에게 부활 요청
+	if (AGameModeBase* GM = GetWorld()->GetAuthGameMode())
+	{
+		// 사용자님의 게임모드 클래스로 캐스팅하여 호출
+		ALOL_GameModeBase* LOLGM = Cast<ALOL_GameModeBase>(GM);
+		if (LOLGM)
+		{
+			LOLGM->RequestRespawn(this);
+		}
+	}
 }
 
 void ABaseChampion::Multicast_OnDeath_Implementation()
@@ -268,6 +280,35 @@ void ABaseChampion::OnDeath()
 	}
 
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, TEXT("챔피언 처치됨!"));
+}
+
+void ABaseChampion::Respawn()
+{
+	// 1. 상태 초기화
+	bIsDead = false;
+	if (StatComponent) StatComponent->SetHp(StatComponent->GetStat().MaxHP);
+	if (StatComponent) StatComponent->SetMp(StatComponent->GetStat().MaxMP);
+
+	// 2. 위치 이동 (본진 좌표로)
+	SetActorLocation(FVector(0, 0, 100)); // 실제로는 StartSpot 좌표 사용
+
+	// 3. 시각적 부활 처리
+	Multicast_OnRespawn();
+}
+
+void ABaseChampion::Multicast_OnRespawn_Implementation()
+{
+	// 충돌 다시 켜기
+	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	GetMesh()->SetCollisionResponseToAllChannels(ECR_Block);
+
+	// UI 다시 보이기
+	if (HpBar) HpBar->SetVisibility(true);
+	if (MpBar) MpBar->SetVisibility(true);
+
+	// 애니메이션 초기화 (Idle로 돌아가기)
+	PlayAnimMontage(nullptr);
 }
 
 void ABaseChampion::SetCameraLock(bool bLock)
