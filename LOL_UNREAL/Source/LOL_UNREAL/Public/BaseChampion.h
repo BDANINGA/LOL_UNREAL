@@ -55,6 +55,10 @@ public:
 	void Multicast_OnRespawn();
 
 	void Respawn();
+
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Status")
+	bool bIsDead = false;
 	
 protected:
 	virtual void BeginPlay() override;
@@ -70,16 +74,11 @@ protected:
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_PlayAttackMontage(FRotator TargetRotation);
 
-	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_PlayDeathMontage();
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 	class UAnimMontage* AttackMontage;
 
 	UPROPERTY(EditAnywhere, Category = "Animation")
 	class UAnimMontage* DeathMontage;
-
-	bool bIsDead = false;
 
 	// 죽었을 때 실행될 함수
 	void Server_HandleDeath();

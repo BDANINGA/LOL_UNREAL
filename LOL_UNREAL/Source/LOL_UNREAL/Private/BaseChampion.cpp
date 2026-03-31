@@ -235,13 +235,6 @@ void ABaseChampion::Multicast_PlayAttackMontage_Implementation(FRotator TargetRo
 		PlayAnimMontage(AttackMontage);
 	}
 }
-void ABaseChampion::Multicast_PlayDeathMontage_Implementation()
-{
-	if (DeathMontage)
-	{
-		PlayAnimMontage(DeathMontage);
-	}
-}
 
 void ABaseChampion::Server_HandleDeath()
 {
@@ -273,9 +266,6 @@ void ABaseChampion::Multicast_OnDeath_Implementation()
 
 void ABaseChampion::OnDeath()
 {
-	// 1. 애니메이션 재생
-	Multicast_PlayDeathMontage();
-
 	// 2. 조작 금지
 	GetCharacterMovement()->DisableMovement(); // 이동 정지
 
