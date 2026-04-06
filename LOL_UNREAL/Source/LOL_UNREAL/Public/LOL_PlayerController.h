@@ -38,6 +38,9 @@ protected:
 	UPROPERTY(Replicated)
 	bool bIsMoving;
 
+	UPROPERTY()
+	class UNiagaraSystem* ClickFX;
+
 	virtual void SetupInputComponent() override;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	class UInputMappingContext* DefaultMappingContext;

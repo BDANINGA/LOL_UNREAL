@@ -15,11 +15,19 @@
 #include "InputAction.h"
 #include "UObject/ConstructorHelpers.h"
 
+#include "NiagaraFunctionLibrary.h" 
+#include "NiagaraSystem.h"
 
 ALOL_PlayerController::ALOL_PlayerController()
 {
 	bShowMouseCursor = true;
 	DefaultMouseCursor = EMouseCursor::Crosshairs;
+
+	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> FXAsset(TEXT("/Game/UI/NS_ClickIndicator.NS_ClickIndicator"));
+	if (FXAsset.Succeeded())
+	{
+		ClickFX = FXAsset.Object;
+	}
 
 	static ConstructorHelpers::FObjectFinder<UInputMappingContext> IMC_Default(TEXT("/Game/Level/input/IMC_Default.IMC_Default"));
 	if (IMC_Default.Succeeded())
@@ -185,6 +193,16 @@ void ALOL_PlayerController::OnClickMove()
 				// 서버에게 타겟 해제 및 이동 좌표 전달
 				Server_SetCombatTarget(nullptr);
 				Server_SetTargetLocation(HitResult.Location);
+
+				if (ClickFX)
+				{
+					UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+						GetWorld(),
+						ClickFX,
+						HitResult.ImpactPoint + FVector(0, 0, 100.0f),
+						FRotator(-90.0f, 0, 0)
+					);
+				}
 			}
 		}
 	}
