@@ -17,8 +17,10 @@ class LOL_UNREAL_API ABaseChampion : public ACharacter
 	GENERATED_BODY()
 
 public:
-	// Sets default values for this character's properties
 	ABaseChampion();
+
+	UPROPERTY()
+	class UNiagaraSystem* ClickFX;
 
 	// 스탯 관련
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
@@ -35,21 +37,8 @@ public:
 
 	void SetCameraLock(bool bLock);
 
-	// 공격 대상 지정
-	void SetCombatTarget(AActor* Target);
-
-	// 공격 대상
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
-	AActor* CombatTarget;
-
 	// 매 프레임 사거리를 체크
 	void CheckAttackRange();
-
-	// 추가: 캐릭터 스킬 함수 구현
-	void Skill_Q();
-	void Skill_W();
-	void Skill_E();
-	void Skill_R();
 
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_OnRespawn();
@@ -59,7 +48,26 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Status")
 	bool bIsDead = false;
-	
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Movement")
+	FVector TargetLocation;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Movement")
+	bool bIsMoving = false;
+
+	void ProcessMoveInput(FVector ClickLocation, AActor* TargetActor);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_ProcessMoveInput(FVector ClickLocation, AActor* TargetActor);
+
+	// 공격 대상
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
+	AActor* CombatTarget;
+
+	void SetAttackTarget(AActor* Target);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_SetAttackTarget(AActor* Target);
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
@@ -80,7 +88,6 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Animation")
 	class UAnimMontage* DeathMontage;
 
-	// 죽었을 때 실행될 함수
 	void Server_HandleDeath();
 
 	UFUNCTION(NetMulticast, Reliable)
@@ -88,11 +95,9 @@ protected:
 
 	virtual void OnDeath();
 
-	//UI Widget Section (HP)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"));
 	TObjectPtr<class UWidgetComponent> HpBar;
 
-	// 추가: UI Widget Section (MP)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UWidgetComponent> MpBar;
 };

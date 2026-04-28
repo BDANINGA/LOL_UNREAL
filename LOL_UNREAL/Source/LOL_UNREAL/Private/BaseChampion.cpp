@@ -13,6 +13,9 @@
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 
+#include "NiagaraFunctionLibrary.h" 
+#include "NiagaraSystem.h"
+
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -21,6 +24,8 @@
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_CameraControlComponent.h"
 #include "LOL_ChampionHpBarWidget.h"
+
+#include "UObject/ConstructorHelpers.h"
 
 // Sets default values
 ABaseChampion::ABaseChampion()
@@ -47,11 +52,18 @@ ABaseChampion::ABaseChampion()
 		MpBar->SetDrawSize(FVector2D(150.0f, 10.0f));
 		MpBar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
+
 	// Stat
 	StatComponent = CreateDefaultSubobject<ULOL_StatComponent>(TEXT("StatComponent"));
 
 	// Camera
 	CameraControlComponent = CreateDefaultSubobject<ULOL_CameraControlComponent>(TEXT("CameraControlComponent"));
+
+	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> FXAsset(TEXT("/Game/UI/NS_ClickIndicator.NS_ClickIndicator"));
+	if (FXAsset.Succeeded())
+	{
+		ClickFX = FXAsset.Object;
+	}
 
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -108,10 +120,8 @@ void ABaseChampion::BeginPlay()
 		{
 			// 최대 체력 설정
 			HpWidget->SetMaxHp(StatComponent->GetStat().MaxHP);
-
 			// StatComponent의 HP가 변할 때마다 위젯의 UpdateHpBar를 호출하도록 연결(Bind)합니다.
 			StatComponent->OnHpChanged.AddUObject(HpWidget, &ULOL_ChampionHpBarWidget::UpdateHpBar);
-
 			// 초기 HP 상태를 한 번 반영.
 			HpWidget->UpdateHpBar(StatComponent->GetStat().CurrentHP);
 		}
@@ -125,34 +135,36 @@ void ABaseChampion::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// 서버에서만 로직을 계산하도록 HasAuthority()를 체크
-	if (HasAuthority() && CombatTarget)
+	if (bIsDead) return;
+
+	if (CombatTarget)
 	{
 		CheckAttackRange();
 	}
-}
+	else if (bIsMoving)
+	{
+		FVector CurrentLocation = GetActorLocation();
+		FVector Direction = TargetLocation - CurrentLocation;
+		Direction.Z = 0.f;
+		float Distance = Direction.Size();
 
-// 공격 관련 함수
-void ABaseChampion::SetCombatTarget(AActor* Target)
-{
-	// 공격 대상을 저장합니다.
-	CombatTarget = Target;
+		if (Distance <= 10.f) {
+			bIsMoving = false;
+			GetCharacterMovement()->StopMovementImmediately();
+		}
+		else
+			AddMovementInput(Direction.GetSafeNormal(), 1.0f);
+	}
 }
 void ABaseChampion::CheckAttackRange()
 {
-	if (CombatTarget == nullptr) return;
+	if (CombatTarget == nullptr || bIsDead) return;
 
-	// 거리 계산
 	float Distance = GetDistanceTo(CombatTarget);
-
-	// 사거리 비교
+	// 사거리 안이면 공격
 	if (StatComponent && Distance <= StatComponent->GetStat().AttackRange)
 	{
-		ALOL_PlayerController* PC = Cast<ALOL_PlayerController>(GetController());
-		if (PC)
-		{
-			PC->SetIsMoving(false);
-		}
+		bIsMoving = false;
 		GetCharacterMovement()->StopMovementImmediately();
 
 		if (bCanAttack)
@@ -160,14 +172,15 @@ void ABaseChampion::CheckAttackRange()
 			StartAttack();
 		}
 	}
+	// 사거리 밖이면 추격
 	else
 	{
-		ALOL_PlayerController* PC = Cast<ALOL_PlayerController>(GetController());
-		if (PC)
-		{
-			PC->SetIsMoving(true);
-			PC->Server_SetTargetLocation(CombatTarget->GetActorLocation());
-		}
+		bIsMoving = true;
+		TargetLocation = CombatTarget->GetActorLocation();
+
+		FVector Direction = TargetLocation - GetActorLocation();
+		Direction.Z = 0.f;
+		AddMovementInput(Direction.GetSafeNormal(), 1.0f);
 	}
 }
 void ABaseChampion::StartAttack()
@@ -224,7 +237,6 @@ float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 
 	return ActualDamage;
 }
-
 void ABaseChampion::Multicast_PlayAttackMontage_Implementation(FRotator TargetRotation)
 {
 	SetActorRotation(TargetRotation);
@@ -235,7 +247,6 @@ void ABaseChampion::Multicast_PlayAttackMontage_Implementation(FRotator TargetRo
 		PlayAnimMontage(AttackMontage);
 	}
 }
-
 void ABaseChampion::Server_HandleDeath()
 {
 	if (bIsDead) return;
@@ -257,13 +268,11 @@ void ABaseChampion::Server_HandleDeath()
 		}
 	}
 }
-
 void ABaseChampion::Multicast_OnDeath_Implementation()
 {
 	// 이 함수 안의 내용은 이제 모든 플레이어의 PC에서 실행됩니다.
 	OnDeath();
 }
-
 void ABaseChampion::OnDeath()
 {
 	// 2. 조작 금지
@@ -282,7 +291,6 @@ void ABaseChampion::OnDeath()
 
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, TEXT("챔피언 처치됨!"));
 }
-
 void ABaseChampion::Respawn()
 {
 	// 1. 상태 초기화
@@ -296,7 +304,6 @@ void ABaseChampion::Respawn()
 	// 3. 시각적 부활 처리
 	Multicast_OnRespawn();
 }
-
 void ABaseChampion::Multicast_OnRespawn_Implementation()
 {
 	// 충돌 다시 켜기
@@ -311,7 +318,6 @@ void ABaseChampion::Multicast_OnRespawn_Implementation()
 	// 애니메이션 초기화 (Idle로 돌아가기)
 	PlayAnimMontage(nullptr);
 }
-
 void ABaseChampion::SetCameraLock(bool bLock)
 {
 	if (CameraControlComponent)
@@ -319,3 +325,51 @@ void ABaseChampion::SetCameraLock(bool bLock)
 		CameraControlComponent->HandleCameraLockInput(bLock);
 	}
 }
+void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(ABaseChampion, TargetLocation);
+	DOREPLIFETIME(ABaseChampion, bIsMoving);
+	DOREPLIFETIME(ABaseChampion, CombatTarget);
+}
+void ABaseChampion::ProcessMoveInput(FVector ClickLocation, AActor* TargetActor)
+{
+	ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
+	if (ClickFX && TargetChampion == nullptr)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			GetWorld(),
+			ClickFX,
+			ClickLocation + FVector(0.f, 0.f, 20.f), // 바닥에 살짝 띄움
+			FRotator(-90.f, 0.f, 0.f)
+		);
+	}
+	Server_ProcessMoveInput(ClickLocation, TargetActor);
+}
+void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation, AActor* TargetActor)
+{
+	if (bIsDead) return;
+
+	ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
+	if (TargetChampion && TargetChampion != this) {
+		CombatTarget = TargetChampion;
+		bIsMoving = false;
+	}
+	else {
+		CombatTarget = nullptr;
+		TargetLocation = ClickLocation;
+		bIsMoving = true;
+	}
+}
+bool ABaseChampion::Server_ProcessMoveInput_Validate(FVector ClickLocation, AActor* TargetActor)
+{
+	return true;
+}
+void ABaseChampion::SetAttackTarget(AActor* Target) {
+	if (bIsDead || Target == this) return;
+	Server_SetAttackTarget(Target);
+}
+void ABaseChampion::Server_SetAttackTarget_Implementation(AActor* Target) {
+	CombatTarget = Target;
+	bIsMoving = false;
+}
+bool ABaseChampion::Server_SetAttackTarget_Validate(AActor* Target) { return true; }

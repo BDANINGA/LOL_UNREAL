@@ -20,26 +20,10 @@ class LOL_UNREAL_API ALOL_PlayerController : public APlayerController
 
 public:
 	ALOL_PlayerController();
-	// 서버 이동 요청 RPC
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_SetTargetLocation(FVector NewLocation);
-	// 서버 타겟 설정 RPC
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_SetCombatTarget(AActor* Target);
-
-	void SetIsMoving(bool bMove) { bIsMoving = bMove; }
 
 protected:
 	virtual void BeginPlay() override;
 	virtual void PlayerTick(float DeltaTime) override;
-	
-	UPROPERTY(Replicated)
-	FVector TargetLocation;
-	UPROPERTY(Replicated)
-	bool bIsMoving;
-
-	UPROPERTY()
-	class UNiagaraSystem* ClickFX;
 
 	virtual void SetupInputComponent() override;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")

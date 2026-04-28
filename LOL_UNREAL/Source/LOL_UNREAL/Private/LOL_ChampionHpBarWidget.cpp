@@ -18,9 +18,6 @@ void ULOL_ChampionHpBarWidget::NativeConstruct()
 
 void ULOL_ChampionHpBarWidget::UpdateHpBar(float NewCurrentHp)
 {
-	ensure(MaxHp > 0.0f);
-	if (HpProgressBar)
-	{
-		HpProgressBar->SetPercent(NewCurrentHp / MaxHp);
-	}
+	if (MaxHp <= 0.0f || !HpProgressBar) return; // 0이면 계산 안 함
+	HpProgressBar->SetPercent(NewCurrentHp / MaxHp);
 }
