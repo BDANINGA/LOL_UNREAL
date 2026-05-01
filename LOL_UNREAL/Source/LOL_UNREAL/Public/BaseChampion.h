@@ -46,10 +46,19 @@ public:
 	void CheckAttackRange();
 
 	// 추가: 캐릭터 스킬 함수 구현
-	void Skill_Q();
-	void Skill_W();
-	void Skill_E();
-	void Skill_R();
+	virtual void Skill_Q();
+	virtual void Skill_W();
+	virtual void Skill_E();
+	virtual void Skill_R();
+
+	//스턴 변수
+	void ApplyStun(float Duration);
+	void ClearStun();
+	void MoveForward(float Value);
+
+	FTimerHandle StunHandle;
+
+	bool bIsStunned = false;
 
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_OnRespawn();
@@ -60,8 +69,11 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Status")
 	bool bIsDead = false;
 	
+	void SetIsKnockedBack(bool bInKnockback);
+
 protected:
 	virtual void BeginPlay() override;
+
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
@@ -95,4 +107,10 @@ protected:
 	// 추가: UI Widget Section (MP)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UWidgetComponent> MpBar;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Status")
+	bool bIsKnockedBack = false;
+
+	// 넉백 해제용 함수
+	void FinishKnockback() { bIsKnockedBack = false; }
 };
