@@ -76,4 +76,3 @@ float ULOL_StatComponent::ApplyDamage(float InDamage)
 
 	return ActualDamage;
 }
-

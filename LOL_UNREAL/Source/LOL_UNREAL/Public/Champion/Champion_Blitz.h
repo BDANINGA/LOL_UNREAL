@@ -4,16 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "BaseChampion.h"
-#include "Champion_Vayne.generated.h"
+#include "Champion_Blitz.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class LOL_UNREAL_API AChampion_Vayne : public ABaseChampion
+class AChampion_Blitz : public ABaseChampion
 {
 	GENERATED_BODY()
-
-public:
-	AChampion_Vayne();
+	
 };

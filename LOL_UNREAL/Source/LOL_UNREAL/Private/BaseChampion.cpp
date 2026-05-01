@@ -85,6 +85,7 @@ ABaseChampion::ABaseChampion()
 void ABaseChampion::BeginPlay()
 {
 	Super::BeginPlay();
+
 	if (StatComponent)
 	{
 		// 스탯 컴포넌트의 죽음 이벤트에 나의 OnDeath 함수를 바인딩
@@ -135,7 +136,7 @@ void ABaseChampion::Tick(float DeltaTime)
 }
 void ABaseChampion::CheckAttackRange()
 {
-	if (CombatTarget == nullptr || bIsDead) return;
+	if (CombatTarget == nullptr || bIsDead || bIsKnockedBack) return;
 
 	float Distance = GetDistanceTo(CombatTarget);
 	// 사거리 안이면 공격
@@ -162,6 +163,8 @@ void ABaseChampion::CheckAttackRange()
 }
 void ABaseChampion::StartAttack()
 {
+	if (bIsKnockedBack) return;
+
 	if (!bCanAttack || !CombatTarget || !StatComponent) return;
 
 	bCanAttack = false;
@@ -343,3 +346,76 @@ void ABaseChampion::Server_SetAttackTarget_Implementation(AActor* Target) {
 	bIsMoving = false;
 }
 bool ABaseChampion::Server_SetAttackTarget_Validate(AActor* Target) { return true; }
+}
+
+//스턴 로직
+void ABaseChampion::ApplyStun(float Duration)
+{
+	bIsStunned = true;
+
+	bCanAttack = false;
+
+	GetWorldTimerManager().ClearTimer(AttackTimerHandle);
+
+	StopAnimMontage();
+
+	GetWorldTimerManager().SetTimer(
+		StunHandle,
+		this,
+		&ABaseChampion::ClearStun,
+		Duration,
+		false
+	);
+}
+
+//스턴해제
+void ABaseChampion::ClearStun()
+{
+
+	GetCharacterMovement()->SetMovementMode(MOVE_Walking); // 이동 복구
+
+	bIsStunned = false;
+
+	bCanAttack = true;
+}
+
+
+void ABaseChampion::MoveForward(float Value)
+{
+	if (bIsKnockedBack) return; //에어본 중이면 함수 종료
+
+	if (bIsStunned) return;
+
+	AddMovementInput(GetActorForwardVector(), Value);
+}
+
+
+void ABaseChampion::SetIsKnockedBack(bool bInKnockback)
+{
+	// 실제 로직 (예: 변수 업데이트)
+	bIsKnockedBack = bInKnockback;
+}
+
+//스킬Q
+void ABaseChampion::Skill_Q()
+{
+
+}
+
+//스킬W
+void ABaseChampion::Skill_W()
+{
+
+}
+
+//스킬E
+void ABaseChampion::Skill_E()
+{
+
+}
+
+//스킬R
+void ABaseChampion::Skill_R()
+{
+
+}

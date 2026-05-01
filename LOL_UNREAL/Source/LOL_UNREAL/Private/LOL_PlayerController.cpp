@@ -213,3 +213,47 @@ void ALOL_PlayerController::InitCameraAnchor(APawn* TargetPawn)
 		SetViewTarget(CameraAnchor);
 	}
 }
+
+void ALOL_PlayerController::OnSkillQ()
+{
+
+	ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
+
+	if (MyPawn)
+	{
+		MyPawn->Skill_Q();
+	}
+	// 화면 왼쪽 위에 3초 동안 빨간색 글씨를 띄웁니다
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Q Skill Used!"));
+}
+void ALOL_PlayerController::OnSkillW()
+{
+	ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
+
+	if (MyPawn)
+	{
+		MyPawn->Skill_W();
+	}
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green, TEXT("W Skill Used!"));
+}
+void ALOL_PlayerController::OnSkillE()
+{
+	ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
+
+	if (MyPawn)
+	{
+		MyPawn->Skill_E();
+	}
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Blue, TEXT("E Skill Used!"));
+}
+void ALOL_PlayerController::OnSkillR()
+{
+	ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
+
+	if (MyPawn)
+	{
+		MyPawn->Skill_R();
+	}
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("R Skill (Ultimate) Used!"));
+}
+
