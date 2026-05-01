@@ -63,7 +63,7 @@ void AChampion_Vayne::Server_Skill_Q_Implementation(FVector QLocation)
     FVector Start = GetActorLocation();
 
     // 1. 수평 방향 계산 (Z값 무시)
-    FVector Direction = TargetLocation - Start;
+    FVector Direction = QLocation - Start;
     Direction.Z = 0.0f;
     Direction.Normalize();
 
