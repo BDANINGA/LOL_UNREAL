@@ -346,7 +346,6 @@ void ABaseChampion::Server_SetAttackTarget_Implementation(AActor* Target) {
 	bIsMoving = false;
 }
 bool ABaseChampion::Server_SetAttackTarget_Validate(AActor* Target) { return true; }
-}
 
 //스턴 로직
 void ABaseChampion::ApplyStun(float Duration)

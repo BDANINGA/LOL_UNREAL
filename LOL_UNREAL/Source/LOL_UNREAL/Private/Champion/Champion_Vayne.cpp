@@ -56,9 +56,9 @@ void AChampion_Vayne::Skill_Q()
     Server_Skill_Q(Hit.Location);
 }
 
-bool AChampion_Vayne::Server_Skill_Q_Validate(FVector TargetLocation) { return true; }
+bool AChampion_Vayne::Server_Skill_Q_Validate(FVector QLocation) { return true; }
 
-void AChampion_Vayne::Server_Skill_Q_Implementation(FVector TargetLocation)
+void AChampion_Vayne::Server_Skill_Q_Implementation(FVector QLocation)
 {
     FVector Start = GetActorLocation();
 

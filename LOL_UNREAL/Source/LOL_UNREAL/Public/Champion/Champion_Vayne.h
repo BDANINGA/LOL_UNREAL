@@ -26,38 +26,38 @@ public:
 
     virtual void Tick(float DeltaTime) override;
 protected:
-    // --- º£ÀÎ Q °ü·Ã º¯¼ö ---
+    // --- ï¿½ï¿½ï¿½ï¿½ Q ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ---
 
     bool bIsDashing = false;
 
-    float DashTime = 0.2f;     // ´ë½Ã Áö¼Ó ½Ã°£
-    float DashElapsed = 0.0f;  // °æ°ú ½Ã°£
+    float DashTime = 0.2f;     // ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ã°ï¿½
+    float DashElapsed = 0.0f;  // ï¿½ï¿½ï¿½ ï¿½Ã°ï¿½
 
     UFUNCTION(Server, Reliable, WithValidation)
-    void Server_Skill_Q(FVector TargetLocation);
-    void Server_Skill_Q_Implementation(FVector TargetLocation);
-    bool Server_Skill_Q_Validate(FVector TargetLocation);
+    void Server_Skill_Q(FVector QLocation);
+    void Server_Skill_Q_Implementation(FVector QLocation);
+    bool Server_Skill_Q_Validate(FVector QLocation);
 
 
     FVector DashStart;
 
     FVector DashTarget;
 
-    // --- W ½ºÅ³ »óÅÂ º¯¼ö ---
+    // --- W ï¿½ï¿½Å³ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ---
  
 
 
-    // --- E ½ºÅ³ »óÅÂ º¯¼ö ---
+    // --- E ï¿½ï¿½Å³ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ---
 
-    // ¼­¹ö¿¡¼­ ¹°¸® Ã³¸®¸¦ ¼öÇàÇÒ RPC
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Ã³ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ RPC
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_ExecuteCondemn(ACharacter* Target);
 
-    // ¿¡µðÅÍ¿¡¼­ Á¶Àý °¡´ÉÇÑ ½ºÅ³ ¼öÄ¡
+    // ï¿½ï¿½ï¿½ï¿½ï¿½Í¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Å³ ï¿½ï¿½Ä¡
     UPROPERTY(EditAnywhere, Category = "Skill|E")
-    float PushDistance = 1000.0f; // ¹Ð·Á³¯ °Å¸®
+    float PushDistance = 1000.0f; // ï¿½Ð·ï¿½ï¿½ï¿½ ï¿½Å¸ï¿½
 
     UPROPERTY(EditAnywhere, Category = "Skill|E")
-    float PushTime = 0.4f; // ¹Ð·Á³ª´Â ½Ã°£ (ÃÊ)
+    float PushTime = 0.4f; // ï¿½Ð·ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ã°ï¿½ (ï¿½ï¿½)
 
 };
