@@ -22,14 +22,19 @@ public:
 	UPROPERTY()
 	class UNiagaraSystem* ClickFX;
 
-	// 스탯 관련
+	// 스탯 컴포넌트
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class ULOL_StatComponent* StatComponent;
 
-	void SetCameraLock(bool bLock);
+	// 공격 컴포넌트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	class ULOL_AttackComponent* AttackComponent;
 
-	// 매 프레임 사거리를 체크
-	void CheckAttackRange();
+	// 이동 컴포넌트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	class ULOL_MoveComponent* MoveComponent;
+
+	void SetCameraLock(bool bLock);
 
 	// 추가: 캐릭터 스킬 함수 구현
 	virtual void Skill_Q();
@@ -46,6 +51,12 @@ public:
 
 	bool bIsStunned = false;
 
+	UPROPERTY(BlueprintReadWrite, Category = "Status")
+	bool bIsKnockedBack = false;
+
+	// 넉백 해제용 함수
+	void FinishKnockback() { bIsKnockedBack = false; }
+
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_OnRespawn();
 
@@ -55,12 +66,6 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Status")
 	bool bIsDead = false;
 
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Movement")
-	FVector TargetLocation;
-
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Movement")
-	bool bIsMoving = false;
-
 	void ProcessMoveInput(FVector ClickLocation, AActor* TargetActor);
 
 	UFUNCTION(Server, Reliable, WithValidation)
@@ -69,13 +74,11 @@ public:
 	// 공격 대상
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
 	AActor* CombatTarget;
-
-	void SetAttackTarget(AActor* Target);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_SetAttackTarget(AActor* Target);
 	
 	void SetIsKnockedBack(bool bInKnockback);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayAttackMontage(FRotator TargetRotation);
 
 protected:
 	virtual void BeginPlay() override;
@@ -83,14 +86,8 @@ protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	void StartAttack();
-	bool bCanAttack = true;
-	FTimerHandle AttackTimerHandle;
-	void ResetAttack();
 	float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
-	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_PlayAttackMontage(FRotator TargetRotation);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 	class UAnimMontage* AttackMontage;
@@ -111,9 +108,4 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UWidgetComponent> MpBar;
 
-	UPROPERTY(BlueprintReadWrite, Category = "Status")
-	bool bIsKnockedBack = false;
-
-	// 넉백 해제용 함수
-	void FinishKnockback() { bIsKnockedBack = false; }
 };

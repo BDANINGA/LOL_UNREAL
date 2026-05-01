@@ -21,6 +21,8 @@
 #include "Components/WidgetComponent.h"
 
 #include "Component/LOL_StatComponent.h"
+#include "Component/LOL_AttackComponent.h"
+#include "Component/LOL_MoveComponent.h"
 #include "LOL_ChampionHpBarWidget.h"
 
 #include "UObject/ConstructorHelpers.h"
@@ -55,6 +57,12 @@ ABaseChampion::ABaseChampion()
 
 	// Stat
 	StatComponent = CreateDefaultSubobject<ULOL_StatComponent>(TEXT("StatComponent"));
+
+	// Attack
+	AttackComponent = CreateDefaultSubobject<ULOL_AttackComponent>(TEXT("AttackComponent"));
+
+	// Move
+	MoveComponent = CreateDefaultSubobject<ULOL_MoveComponent>(TEXT("MoveComponent"));
 
 	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> FXAsset(TEXT("/Game/UI/NS_ClickIndicator.NS_ClickIndicator"));
 	if (FXAsset.Succeeded())
@@ -117,94 +125,11 @@ void ABaseChampion::Tick(float DeltaTime)
 
 	if (CombatTarget)
 	{
-		CheckAttackRange();
+		AttackComponent->UpdateAttackLogic();
 	}
-	else if (bIsMoving)
-	{
-		FVector CurrentLocation = GetActorLocation();
-		FVector Direction = TargetLocation - CurrentLocation;
-		Direction.Z = 0.f;
-		float Distance = Direction.Size();
-
-		if (Distance <= 10.f) {
-			bIsMoving = false;
-			GetCharacterMovement()->StopMovementImmediately();
-		}
-		else
-			AddMovementInput(Direction.GetSafeNormal(), 1.0f);
+	else {
+		MoveComponent->UpdateMovement(DeltaTime); // 분리된 로직 호출
 	}
-}
-void ABaseChampion::CheckAttackRange()
-{
-	if (CombatTarget == nullptr || bIsDead || bIsKnockedBack) return;
-
-	float Distance = GetDistanceTo(CombatTarget);
-	// 사거리 안이면 공격
-	if (StatComponent && Distance <= StatComponent->GetStat().AttackRange)
-	{
-		bIsMoving = false;
-		GetCharacterMovement()->StopMovementImmediately();
-
-		if (bCanAttack)
-		{
-			StartAttack();
-		}
-	}
-	// 사거리 밖이면 추격
-	else
-	{
-		bIsMoving = true;
-		TargetLocation = CombatTarget->GetActorLocation();
-
-		FVector Direction = TargetLocation - GetActorLocation();
-		Direction.Z = 0.f;
-		AddMovementInput(Direction.GetSafeNormal(), 1.0f);
-	}
-}
-void ABaseChampion::StartAttack()
-{
-	if (bIsKnockedBack) return;
-
-	if (!bCanAttack || !CombatTarget || !StatComponent) return;
-
-	bCanAttack = false;
-	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("공격중!"));
-
-	// 서버에서 데미지 계산
-	if (HasAuthority())
-	{
-		float DamageToApply = StatComponent->GetStat().AttackDamage;
-
-		// 상대방에게 데미지를 전달합니다. (언리얼 표준 함수 호출)
-		UGameplayStatics::ApplyDamage(
-			CombatTarget,
-			DamageToApply,
-			GetController(),
-			this,
-			nullptr
-		);
-
-		FVector LookAtLocation = CombatTarget->GetActorLocation();
-		FVector Direction = LookAtLocation - GetActorLocation();
-		Direction.Z = 0.f;
-
-		if (!Direction.IsNearlyZero())
-		{
-			FRotator NewRotation = FRotationMatrix::MakeFromX(Direction).Rotator();
-
-			Multicast_PlayAttackMontage(NewRotation);
-		}
-	}
-
-	// 공격 속도(AttackSpeed)를 초 단위 주기로 변환하여 타이머 설정
-	float AttackDelay = 1.0f / StatComponent->GetStat().AttackSpeed;
-
-	GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &ABaseChampion::ResetAttack, AttackDelay, false);
-}
-void ABaseChampion::ResetAttack()
-{
-	// 타이머가 끝나면 다시 공격할 수 있는 상태로 변경
-	bCanAttack = true;
 }
 float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
@@ -300,8 +225,6 @@ void ABaseChampion::Multicast_OnRespawn_Implementation()
 }
 void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(ABaseChampion, TargetLocation);
-	DOREPLIFETIME(ABaseChampion, bIsMoving);
 	DOREPLIFETIME(ABaseChampion, CombatTarget);
 }
 void ABaseChampion::ProcessMoveInput(FVector ClickLocation, AActor* TargetActor)
@@ -323,38 +246,19 @@ void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation
 	if (bIsDead) return;
 
 	ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
-	if (TargetChampion && TargetChampion != this) {
-		CombatTarget = TargetChampion;
-		bIsMoving = false;
-	}
-	else {
-		CombatTarget = nullptr;
-		TargetLocation = ClickLocation;
-		bIsMoving = true;
-	}
+	CombatTarget = TargetChampion;
+
+	MoveComponent->SetMoveTarget(ClickLocation, TargetChampion);
 }
 bool ABaseChampion::Server_ProcessMoveInput_Validate(FVector ClickLocation, AActor* TargetActor)
 {
 	return true;
 }
-void ABaseChampion::SetAttackTarget(AActor* Target) {
-	if (bIsDead || Target == this) return;
-	Server_SetAttackTarget(Target);
-}
-void ABaseChampion::Server_SetAttackTarget_Implementation(AActor* Target) {
-	CombatTarget = Target;
-	bIsMoving = false;
-}
-bool ABaseChampion::Server_SetAttackTarget_Validate(AActor* Target) { return true; }
 
 //스턴 로직
 void ABaseChampion::ApplyStun(float Duration)
 {
 	bIsStunned = true;
-
-	bCanAttack = false;
-
-	GetWorldTimerManager().ClearTimer(AttackTimerHandle);
 
 	StopAnimMontage();
 
@@ -375,7 +279,7 @@ void ABaseChampion::ClearStun()
 
 	bIsStunned = false;
 
-	bCanAttack = true;
+	AttackComponent->ResetAttack();
 }
 
 
