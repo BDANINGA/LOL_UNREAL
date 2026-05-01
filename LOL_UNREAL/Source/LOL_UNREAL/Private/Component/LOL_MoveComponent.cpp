@@ -1,5 +1,7 @@
 // 이동 관련 컴포넌트
 #include "Component/LOL_MoveComponent.h"
+#include "Component/LOL_LifeCycleComponent.h"
+
 #include "BaseChampion.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
@@ -19,7 +21,7 @@ void ULOL_MoveComponent::BeginPlay()
 
 void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
 {
-    if (!Owner || Owner->bIsDead || Owner->bIsStunned || Owner->bIsKnockedBack) return;
+    if (!Owner || Owner->LifeCycleComponent->bIsDead || Owner->bIsStunned || Owner->bIsKnockedBack) return;
 
     if (Owner->CombatTarget) return; 
 

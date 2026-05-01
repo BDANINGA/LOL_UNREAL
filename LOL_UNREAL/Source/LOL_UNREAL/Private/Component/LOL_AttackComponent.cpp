@@ -2,6 +2,7 @@
 #include "Component/LOL_AttackComponent.h"
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_MoveComponent.h"
+#include "Component/LOL_LifeCycleComponent.h"
 
 #include "BaseChampion.h"
 
@@ -20,7 +21,7 @@ void ULOL_AttackComponent::BeginPlay()
 }
 void ULOL_AttackComponent::UpdateAttackLogic()
 {
-    if (!Owner || !Owner->CombatTarget || Owner->bIsDead) return;
+    if (!Owner || !Owner->CombatTarget || Owner->LifeCycleComponent->bIsDead) return;
 
     float Distance = Owner->GetDistanceTo(Owner->CombatTarget);
     auto StatComp = Owner->StatComponent;

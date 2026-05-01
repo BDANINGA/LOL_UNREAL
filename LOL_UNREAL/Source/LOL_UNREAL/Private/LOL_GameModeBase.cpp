@@ -1,6 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "LOL_GameModeBase.h"
 #include "LOL_PlayerController.h"
+
+#include "Component/LOL_LifeCycleComponent.h"
+
 #include "Champion/Champion_Alistar.h"
 #include "Champion/Champion_Vayne.h"
 
@@ -35,9 +38,16 @@ void ALOL_GameModeBase::RequestRespawn(ABaseChampion* DeadChampion)
 {
     float RespawnDelay = 5.0f; // 나중에는 레벨에 따라 계산식 적용
 
-    FTimerHandle RespawnTimer;
-    FTimerDelegate RespawnDelegate;
-    RespawnDelegate.BindUObject(DeadChampion, &ABaseChampion::Respawn);
+    ULOL_LifeCycleComponent* LifeCycleComp = DeadChampion->FindComponentByClass<ULOL_LifeCycleComponent>();
 
-    GetWorldTimerManager().SetTimer(RespawnTimer, RespawnDelegate, RespawnDelay, false);
+    if (LifeCycleComp)
+    {
+        FTimerHandle RespawnTimer;
+        FTimerDelegate RespawnDelegate;
+
+        // 핵심 수정: 바인딩 대상을 컴포넌트와 컴포넌트의 Respawn 함수로 변경합니다.[cite: 14, 15]
+        RespawnDelegate.BindUObject(LifeCycleComp, &ULOL_LifeCycleComponent::Respawn);
+
+        GetWorldTimerManager().SetTimer(RespawnTimer, RespawnDelegate, RespawnDelay, false);
+    }
 }

@@ -23,6 +23,7 @@
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_AttackComponent.h"
 #include "Component/LOL_MoveComponent.h"
+#include "Component/LOL_LifeCycleComponent.h"
 #include "LOL_ChampionHpBarWidget.h"
 
 #include "UObject/ConstructorHelpers.h"
@@ -64,6 +65,9 @@ ABaseChampion::ABaseChampion()
 	// Move
 	MoveComponent = CreateDefaultSubobject<ULOL_MoveComponent>(TEXT("MoveComponent"));
 
+	// LifeCycle
+	LifeCycleComponent = CreateDefaultSubobject<ULOL_LifeCycleComponent>(TEXT("LifeCycleComponent"));
+
 	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> FXAsset(TEXT("/Game/UI/NS_ClickIndicator.NS_ClickIndicator"));
 	if (FXAsset.Succeeded())
 	{
@@ -93,12 +97,6 @@ ABaseChampion::ABaseChampion()
 void ABaseChampion::BeginPlay()
 {
 	Super::BeginPlay();
-
-	if (StatComponent)
-	{
-		// 스탯 컴포넌트의 죽음 이벤트에 나의 OnDeath 함수를 바인딩
-		StatComponent->OnHpZero.AddUObject(this, &ABaseChampion::Server_HandleDeath);
-	}
 	if (HpBar && StatComponent)
 	{
 		ULOL_ChampionHpBarWidget* HpWidget = Cast<ULOL_ChampionHpBarWidget>(HpBar->GetUserWidgetObject());
@@ -121,7 +119,7 @@ void ABaseChampion::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (bIsDead) return;
+	if (LifeCycleComponent->bIsDead) return;
 
 	if (CombatTarget)
 	{
@@ -152,77 +150,6 @@ void ABaseChampion::Multicast_PlayAttackMontage_Implementation(FRotator TargetRo
 		PlayAnimMontage(AttackMontage);
 	}
 }
-void ABaseChampion::Server_HandleDeath()
-{
-	if (bIsDead) return;
-
-	// 서버에서 먼저 상태를 바꾸고
-	bIsDead = true;
-
-	// 모든 클라이언트에게 알림
-	Multicast_OnDeath();
-
-	// 서버에서 게임모드에게 부활 요청
-	if (AGameModeBase* GM = GetWorld()->GetAuthGameMode())
-	{
-		// 사용자님의 게임모드 클래스로 캐스팅하여 호출
-		ALOL_GameModeBase* LOLGM = Cast<ALOL_GameModeBase>(GM);
-		if (LOLGM)
-		{
-			LOLGM->RequestRespawn(this);
-		}
-	}
-}
-void ABaseChampion::Multicast_OnDeath_Implementation()
-{
-	// 이 함수 안의 내용은 이제 모든 플레이어의 PC에서 실행됩니다.
-	OnDeath();
-}
-void ABaseChampion::OnDeath()
-{
-	// 2. 조작 금지
-	GetCharacterMovement()->DisableMovement(); // 이동 정지
-
-	// 3. 충돌 제거 (시체가 방해되지 않도록)
-	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
-	// 4. UI 숨기기
-	if (HpBar && MpBar)
-	{
-		HpBar->SetVisibility(false);
-		MpBar->SetVisibility(false);
-	}
-
-	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, TEXT("챔피언 처치됨!"));
-}
-void ABaseChampion::Respawn()
-{
-	// 1. 상태 초기화
-	bIsDead = false;
-	if (StatComponent) StatComponent->SetHp(StatComponent->GetStat().MaxHP);
-	if (StatComponent) StatComponent->SetMp(StatComponent->GetStat().MaxMP);
-
-	// 2. 위치 이동 (본진 좌표로)
-	SetActorLocation(FVector(0, 0, 100)); // 실제로는 StartSpot 좌표 사용
-
-	// 3. 시각적 부활 처리
-	Multicast_OnRespawn();
-}
-void ABaseChampion::Multicast_OnRespawn_Implementation()
-{
-	// 충돌 다시 켜기
-	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
-	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	GetMesh()->SetCollisionResponseToAllChannels(ECR_Block);
-
-	// UI 다시 보이기
-	if (HpBar) HpBar->SetVisibility(true);
-	if (MpBar) MpBar->SetVisibility(true);
-
-	// 애니메이션 초기화 (Idle로 돌아가기)
-	PlayAnimMontage(nullptr);
-}
 void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ABaseChampion, CombatTarget);
@@ -243,7 +170,7 @@ void ABaseChampion::ProcessMoveInput(FVector ClickLocation, AActor* TargetActor)
 }
 void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation, AActor* TargetActor)
 {
-	if (bIsDead) return;
+	if (LifeCycleComponent->bIsDead) return;
 
 	ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
 	CombatTarget = TargetChampion;

@@ -34,6 +34,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class ULOL_MoveComponent* MoveComponent;
 
+	// 사망, 리스폰 컴포넌트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	class ULOL_LifeCycleComponent* LifeCycleComponent;
+
 	void SetCameraLock(bool bLock);
 
 	// 추가: 캐릭터 스킬 함수 구현
@@ -57,21 +61,11 @@ public:
 	// 넉백 해제용 함수
 	void FinishKnockback() { bIsKnockedBack = false; }
 
-	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_OnRespawn();
-
-	void Respawn();
-
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Status")
-	bool bIsDead = false;
-
 	void ProcessMoveInput(FVector ClickLocation, AActor* TargetActor);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_ProcessMoveInput(FVector ClickLocation, AActor* TargetActor);
 
-	// 공격 대상
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
 	AActor* CombatTarget;
 	
@@ -79,6 +73,12 @@ public:
 
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_PlayAttackMontage(FRotator TargetRotation);
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"));
+	TObjectPtr<class UWidgetComponent> HpBar;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UWidgetComponent> MpBar;
 
 protected:
 	virtual void BeginPlay() override;
@@ -88,24 +88,12 @@ protected:
 
 	float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 	class UAnimMontage* AttackMontage;
 
 	UPROPERTY(EditAnywhere, Category = "Animation")
 	class UAnimMontage* DeathMontage;
 
-	void Server_HandleDeath();
-
-	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_OnDeath();
-
-	virtual void OnDeath();
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"));
-	TObjectPtr<class UWidgetComponent> HpBar;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<class UWidgetComponent> MpBar;
+	
 
 };
