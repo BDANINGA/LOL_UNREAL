@@ -9,6 +9,9 @@
 
 AChampion_Alistar::AChampion_Alistar()
 {
+    // 데이터 테이블 연결
+    ChampionName = TEXT("Alistar");
+
 	// 스켈레탈 메쉬 에셋 연결
 	static ConstructorHelpers::FObjectFinder<USkeletalMesh> AlistarMesh(TEXT("/Game/Level/alistar/unrea_alistar_real_1.unrea_alistar_real_1"));
 

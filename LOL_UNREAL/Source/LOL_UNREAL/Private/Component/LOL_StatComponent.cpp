@@ -2,24 +2,27 @@
 
 
 #include "Component/LOL_StatComponent.h"
+#include "BaseChampion.h"
 #include "Net/UnrealNetwork.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/DataTable.h"
 
 ULOL_StatComponent::ULOL_StatComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
 
-	BaseStat.MaxHP = 500.0f;
-	BaseStat.CurrentHP = BaseStat.MaxHP;
-	BaseStat.MaxMP = 300.0f;
-	BaseStat.CurrentMP = BaseStat.MaxMP;
-	BaseStat.AttackRange = 500.0f;
-	BaseStat.AttackSpeed = 1.0f;
-	BaseStat.AttackDamage = 25.0f;
+	static ConstructorHelpers::FObjectFinder<UDataTable> StatTableObject(TEXT("/Game/LOL_Data/Data_Champions/Data_ChampionStats.Data_ChampionStats"));
+	if (StatTableObject.Succeeded())
+	{
+		ChampionDataTable = StatTableObject.Object;
+	}
 }
 void ULOL_StatComponent::BeginPlay()
 {
 	Super::BeginPlay();
+
+	InitializeStat();
 
 	SetHp(BaseStat.MaxHP);
 	SetMp(BaseStat.MaxMP);
@@ -43,6 +46,22 @@ inline void ULOL_StatComponent::SetHp(float NewHp)
 inline void ULOL_StatComponent::SetMp(float NewMp)
 {
 
+}
+
+void ULOL_StatComponent::InitializeStat()
+{
+	ABaseChampion* Owner = Cast<ABaseChampion>(GetOwner());
+	if (Owner && ChampionDataTable)
+	{
+		FChampionStat* FoundRow = ChampionDataTable->FindRow<FChampionStat>(Owner->GetChampionName(), TEXT(""));
+
+		if (FoundRow)
+		{
+			BaseStat = *FoundRow;
+			BaseStat.CurrentHP = BaseStat.MaxHP;
+			BaseStat.CurrentMP = BaseStat.MaxMP;
+		}
+	}
 }
 
 void ULOL_StatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

@@ -42,6 +42,8 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class ULOL_UIComponent* UIComponent;
 
+	FName GetChampionName(){ return ChampionName; }
+
 	// 추가: 캐릭터 스킬 함수 구현
 	virtual void Skill_Q();
 	virtual void Skill_W();
@@ -90,6 +92,6 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Animation")
 	class UAnimMontage* DeathMontage;
 
-	
-
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
+	FName ChampionName;
 };

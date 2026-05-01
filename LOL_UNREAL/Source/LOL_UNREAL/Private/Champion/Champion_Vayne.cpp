@@ -10,6 +10,9 @@
 
 AChampion_Vayne::AChampion_Vayne()
 {
+    // 데이터 테이블 연결
+    ChampionName = TEXT("Vayne");
+
 	// 스켈레탈 메쉬 에셋 연결
 	static ConstructorHelpers::FObjectFinder<USkeletalMesh> VayneMesh(TEXT("/Game/Level/vain_real/unreal_vain_idle.unreal_vain_idle"));
 
