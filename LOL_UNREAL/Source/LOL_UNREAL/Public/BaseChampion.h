@@ -38,7 +38,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class ULOL_LifeCycleComponent* LifeCycleComponent;
 
-	void SetCameraLock(bool bLock);
+	// HP, MP 컴포넌트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	class ULOL_UIComponent* UIComponent;
 
 	// 추가: 캐릭터 스킬 함수 구현
 	virtual void Skill_Q();
@@ -73,12 +75,6 @@ public:
 
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_PlayAttackMontage(FRotator TargetRotation);
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"));
-	TObjectPtr<class UWidgetComponent> HpBar;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<class UWidgetComponent> MpBar;
 
 protected:
 	virtual void BeginPlay() override;

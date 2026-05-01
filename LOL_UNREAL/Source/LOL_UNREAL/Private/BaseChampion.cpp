@@ -5,7 +5,6 @@
 // 2. 기본 능력치
 // 3. 공격 대상 지정
 // ----------------------------------------------------------------------------------
-
 #include "BaseChampion.h"
 #include "LOL_PlayerController.h"
 #include "LOL_GameModeBase.h"
@@ -24,7 +23,7 @@
 #include "Component/LOL_AttackComponent.h"
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_LifeCycleComponent.h"
-#include "LOL_ChampionHpBarWidget.h"
+#include "Component/LOL_UIComponent.h"
 
 #include "UObject/ConstructorHelpers.h"
 
@@ -32,29 +31,6 @@
 ABaseChampion::ABaseChampion()
 {
 	PrimaryActorTick.bCanEverTick = true;
-
-	//Widget Component
-	HpBar = CreateDefaultSubobject<UWidgetComponent>(TEXT("Widget"));
-	HpBar->SetupAttachment(GetMesh());
-	HpBar->SetRelativeLocation(FVector(0.0f, 0.0f, 300.0f));
-	static ConstructorHelpers::FClassFinder<UUserWidget> HpBarWidgetRef(TEXT("/Game/UI/HPbar.HPbar_C"));
-	if (HpBarWidgetRef.Class) {
-		HpBar->SetWidgetClass(HpBarWidgetRef.Class);
-		HpBar->SetWidgetSpace(EWidgetSpace::Screen);
-		HpBar->SetDrawSize(FVector2D(150.0f, 20.0f));
-		HpBar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	}
-	//Widget Component(MP)
-	MpBar = CreateDefaultSubobject<UWidgetComponent>(TEXT("MpWidget"));
-	MpBar->SetupAttachment(GetMesh());
-	MpBar->SetRelativeLocation(FVector(0.0f, 0.0f, 275.0f));
-	static ConstructorHelpers::FClassFinder<UUserWidget> MpBarWidgetRef(TEXT("/Game/UI/MPbar.MPbar_C"));
-	if (MpBarWidgetRef.Class) {
-		MpBar->SetWidgetClass(MpBarWidgetRef.Class);
-		MpBar->SetWidgetSpace(EWidgetSpace::Screen);
-		MpBar->SetDrawSize(FVector2D(150.0f, 10.0f));
-		MpBar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	}
 
 	// Stat
 	StatComponent = CreateDefaultSubobject<ULOL_StatComponent>(TEXT("StatComponent"));
@@ -67,6 +43,9 @@ ABaseChampion::ABaseChampion()
 
 	// LifeCycle
 	LifeCycleComponent = CreateDefaultSubobject<ULOL_LifeCycleComponent>(TEXT("LifeCycleComponent"));
+
+	// UI
+	UIComponent = CreateDefaultSubobject<ULOL_UIComponent>(TEXT("UIComponent"));
 
 	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> FXAsset(TEXT("/Game/UI/NS_ClickIndicator.NS_ClickIndicator"));
 	if (FXAsset.Succeeded())
@@ -97,18 +76,11 @@ ABaseChampion::ABaseChampion()
 void ABaseChampion::BeginPlay()
 {
 	Super::BeginPlay();
-	if (HpBar && StatComponent)
+
+	if (StatComponent && UIComponent)
 	{
-		ULOL_ChampionHpBarWidget* HpWidget = Cast<ULOL_ChampionHpBarWidget>(HpBar->GetUserWidgetObject());
-		if (HpWidget)
-		{
-			// 최대 체력 설정
-			HpWidget->SetMaxHp(StatComponent->GetStat().MaxHP);
-			// StatComponent의 HP가 변할 때마다 위젯의 UpdateHpBar를 호출하도록 연결(Bind)합니다.
-			StatComponent->OnHpChanged.AddUObject(HpWidget, &ULOL_ChampionHpBarWidget::UpdateHpBar);
-			// 초기 HP 상태를 한 번 반영.
-			HpWidget->UpdateHpBar(StatComponent->GetStat().CurrentHP);
-		}
+		StatComponent->OnHpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateHpFromStat);
+		StatComponent->OnHpZero.AddUObject(LifeCycleComponent, &ULOL_LifeCycleComponent::Server_HandleDeath);
 	}
 }
 void ABaseChampion::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -134,7 +106,6 @@ float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 	if (StatComponent)
 	{
-		// 컴포넌트에게 데미지 계산을 맡깁니다.
 		ActualDamage = StatComponent->ApplyDamage(ActualDamage);
 	}
 

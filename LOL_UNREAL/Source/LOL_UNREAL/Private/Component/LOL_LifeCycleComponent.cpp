@@ -4,6 +4,7 @@
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_AttackComponent.h"
+#include "Component/LOL_UIComponent.h"
 
 #include "BaseChampion.h"
 #include "LOL_GameModeBase.h"
@@ -54,8 +55,8 @@ void ULOL_LifeCycleComponent::Multicast_OnDeath_Implementation()
 	Owner->GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Owner->GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
-	Owner->HpBar->SetVisibility(false);
-	Owner->MpBar->SetVisibility(false);
+	Owner->UIComponent->GetHpBar()->SetVisibility(false);
+	Owner->UIComponent->GetMpBar()->SetVisibility(false);
 }
 void ULOL_LifeCycleComponent::Respawn()
 {
@@ -78,8 +79,8 @@ void ULOL_LifeCycleComponent::Multicast_OnRespawn_Implementation()
 	Owner->GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	Owner->GetMesh()->SetCollisionResponseToAllChannels(ECR_Block);
 
-	Owner->HpBar->SetVisibility(true);
-	Owner->MpBar->SetVisibility(true);
+	Owner->UIComponent->GetHpBar()->SetVisibility(true);
+	Owner->UIComponent->GetMpBar()->SetVisibility(true);
 	Owner->PlayAnimMontage(nullptr);
 }
 void ULOL_LifeCycleComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
