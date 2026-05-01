@@ -20,6 +20,8 @@ ALOL_PlayerController::ALOL_PlayerController()
 	bShowMouseCursor = true;
 	DefaultMouseCursor = EMouseCursor::Crosshairs;
 
+	bAutoManageActiveCameraTarget = false;
+
 	static ConstructorHelpers::FObjectFinder<UInputMappingContext> IMC_Default(TEXT("/Game/Level/input/IMC_Default.IMC_Default"));
 	if (IMC_Default.Succeeded())
 	{
@@ -74,11 +76,23 @@ void ALOL_PlayerController::BeginPlay()
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
 	}
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	CameraAnchor = GetWorld()->SpawnActor<ACamera>(ACamera::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+
+	if (CameraAnchor)
+	{
+		CameraAnchor->SetFollowTarget(GetPawn());
+		SetViewTarget(CameraAnchor);
+	}	
 }
 
 void ALOL_PlayerController::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
+
+	FreeCameraEdgeScroll(DeltaTime);
 }
 
 void ALOL_PlayerController::SetupInputComponent()
@@ -92,8 +106,8 @@ void ALOL_PlayerController::SetupInputComponent()
 		EnhancedInputComponent->BindAction(SkillWAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSkillW);
 		EnhancedInputComponent->BindAction(SkillEAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSkillE);
 		EnhancedInputComponent->BindAction(SkillRAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSkillR);
-		EnhancedInputComponent->BindAction(SpaceBarAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSpaceBarPressed);
-		EnhancedInputComponent->BindAction(SpaceBarAction, ETriggerEvent::Completed, this, &ALOL_PlayerController::OnSpaceBarReleased);
+		EnhancedInputComponent->BindAction(SpaceBarAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnToggleCamera);
+		EnhancedInputComponent->BindAction(SpaceBarAction, ETriggerEvent::Completed, this, &ALOL_PlayerController::OnToggleCamera);
 	}
 }
 void ALOL_PlayerController::OnClickMove()
@@ -125,18 +139,77 @@ void ALOL_PlayerController::OnSkillR()
 {
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("R Skill (Ultimate) Used!"));
 }
-void ALOL_PlayerController::OnSpaceBarPressed()
+void ALOL_PlayerController::OnToggleCamera()
 {
-	if (ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn()))
+	if (CameraAnchor)
 	{
-		MyPawn->SetCameraLock(true);
+		bool bNewLock = !CameraAnchor->IsLocked();
+		CameraAnchor->SetCameraLock(bNewLock);
+
+		if (bNewLock)
+		{
+			CameraAnchor->SetFollowTarget(GetPawn());
+		}
 	}
 }
 
-void ALOL_PlayerController::OnSpaceBarReleased()
+void ALOL_PlayerController::FreeCameraEdgeScroll(float DeltaTime)
 {
-	if (ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn()))
+	if (!CameraAnchor || CameraAnchor->IsLocked()) return;
+
+	int32 ViewportSizeX, ViewportSizeY;
+	GetViewportSize(ViewportSizeX, ViewportSizeY);
+
+	float MouseX, MouseY;
+	if (GetMousePosition(MouseX, MouseY))
 	{
-		MyPawn->SetCameraLock(false);
+		FVector MoveDir = FVector::ZeroVector;
+		float EdgeThreshold = 10.0f; // 가장자리 인식 범위
+
+		// 8방향 체크 로직
+		if (MouseX <= EdgeThreshold) MoveDir.X = -1; // 왼쪽
+		else if (MouseX >= ViewportSizeX - EdgeThreshold) MoveDir.X = 1; // 오른쪽
+
+		if (MouseY <= EdgeThreshold) MoveDir.Y = -1;
+		else if (MouseY >= ViewportSizeY - EdgeThreshold) MoveDir.Y = 1; // 아래
+
+		if (!MoveDir.IsZero())
+		{
+			MoveDir.Normalize();
+			CameraAnchor->MoveAnchor(MoveDir, DeltaTime);
+		}
+	}
+}
+void ALOL_PlayerController::AcknowledgePossession(APawn* P)
+{
+	Super::AcknowledgePossession(P);
+
+	if (IsLocalPlayerController())
+	{
+		InitCameraAnchor(P);
+	}
+}
+void ALOL_PlayerController::InitCameraAnchor(APawn* TargetPawn)
+{
+	if (!TargetPawn) return;
+
+	if (CameraAnchor)
+	{
+		CameraAnchor->Destroy();
+		CameraAnchor = nullptr;
+	}
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	FVector ChampionLocation = TargetPawn->GetActorLocation();
+	CameraAnchor = GetWorld()->SpawnActor<ACamera>(ACamera::StaticClass(), 
+		ChampionLocation,
+		FRotator::ZeroRotator,
+		SpawnParams);
+
+	if (CameraAnchor)
+	{
+		CameraAnchor->SetFollowTarget(TargetPawn);
+		SetViewTarget(CameraAnchor);
 	}
 }

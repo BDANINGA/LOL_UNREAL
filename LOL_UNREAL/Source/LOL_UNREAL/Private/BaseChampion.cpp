@@ -16,13 +16,11 @@
 #include "NiagaraFunctionLibrary.h" 
 #include "NiagaraSystem.h"
 
-#include "GameFramework/SpringArmComponent.h"
-#include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/WidgetComponent.h"
+
 #include "Component/LOL_StatComponent.h"
-#include "Component/LOL_CameraControlComponent.h"
 #include "LOL_ChampionHpBarWidget.h"
 
 #include "UObject/ConstructorHelpers.h"
@@ -30,6 +28,8 @@
 // Sets default values
 ABaseChampion::ABaseChampion()
 {
+	PrimaryActorTick.bCanEverTick = true;
+
 	//Widget Component
 	HpBar = CreateDefaultSubobject<UWidgetComponent>(TEXT("Widget"));
 	HpBar->SetupAttachment(GetMesh());
@@ -56,20 +56,13 @@ ABaseChampion::ABaseChampion()
 	// Stat
 	StatComponent = CreateDefaultSubobject<ULOL_StatComponent>(TEXT("StatComponent"));
 
-	// Camera
-	CameraControlComponent = CreateDefaultSubobject<ULOL_CameraControlComponent>(TEXT("CameraControlComponent"));
-
 	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> FXAsset(TEXT("/Game/UI/NS_ClickIndicator.NS_ClickIndicator"));
 	if (FXAsset.Succeeded())
 	{
 		ClickFX = FXAsset.Object;
 	}
 
-	PrimaryActorTick.bCanEverTick = true;
-
 	// 캡슐 컴포넌트의 콜리전 설정
-	// 1. 콜리전 프리셋을 Pawn으로 설정
-	// 2. Line Trace를 Block 하도록 설정해야 마우스 클릭이 인식.
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.f);
 	GetCapsuleComponent()->SetCollisionProfileName(TEXT("Pawn"));
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
@@ -84,22 +77,6 @@ ABaseChampion::ABaseChampion()
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 640.f, 0.f);
 	GetCharacterMovement()->bConstrainToPlane = true;
 	GetCharacterMovement()->bSnapToPlaneAtStart = true;
-
-	// 카메라 시스템
-	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
-	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 1200.0f; 
-	CameraBoom->SetRelativeRotation(FRotator(-60.f, -90.f, 0.f)); 
-	CameraBoom->bDoCollisionTest = false;
-
-	// 카메라 고정
-	CameraBoom->bInheritPitch = false;
-	CameraBoom->bInheritYaw = false;
-	CameraBoom->bInheritRoll = false;
-
-	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); 
-	FollowCamera->bUsePawnControlRotation = false; 
 
 	// 위치와 회전을 모두 복제하도록 설정
 	bReplicates = true;
@@ -317,13 +294,6 @@ void ABaseChampion::Multicast_OnRespawn_Implementation()
 
 	// 애니메이션 초기화 (Idle로 돌아가기)
 	PlayAnimMontage(nullptr);
-}
-void ABaseChampion::SetCameraLock(bool bLock)
-{
-	if (CameraControlComponent)
-	{
-		CameraControlComponent->HandleCameraLockInput(bLock);
-	}
 }
 void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

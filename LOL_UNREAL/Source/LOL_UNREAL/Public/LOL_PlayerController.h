@@ -3,11 +3,11 @@
 // 1. 이동
 // 2. 공격
 // ---------------------------------------------------------------------------
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "Camera.h"
 #include "LOL_PlayerController.generated.h"
 
 /**
@@ -51,6 +51,11 @@ protected:
 	void OnSkillW();
 	void OnSkillE();
 	void OnSkillR();
-	void OnSpaceBarPressed();
-	void OnSpaceBarReleased();
+
+	void OnToggleCamera(); 
+	void FreeCameraEdgeScroll(float DeltaTime); 
+	virtual void AcknowledgePossession(APawn* P) override;
+	void InitCameraAnchor(APawn* TargetPawn);
+private:
+	ACamera* CameraAnchor;
 };

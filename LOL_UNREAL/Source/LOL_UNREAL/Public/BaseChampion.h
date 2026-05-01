@@ -26,15 +26,6 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class ULOL_StatComponent* StatComponent;
 
-	// 카메라 관련
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
-	class USpringArmComponent* CameraBoom;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
-	class UCameraComponent* FollowCamera;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	class ULOL_CameraControlComponent* CameraControlComponent;
-
 	void SetCameraLock(bool bLock);
 
 	// 매 프레임 사거리를 체크
