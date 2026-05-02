@@ -156,7 +156,6 @@ public:
 	FOnHpZeroDelegate OnHpZero;
 	FOnHpChangedDelegate OnHpChanged;
 
-	FOnMpZeroDelegate OnMpZero;
 	FOnMpChangedDelegate OnMpChanged;
 
 	float ApplyDamage(float InDagame);

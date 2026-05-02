@@ -22,8 +22,6 @@ void ULOL_StatComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	InitializeStat();
-
 	SetHp(BaseStat.MaxHP);
 	SetMp(BaseStat.MaxMP);
 	
@@ -45,7 +43,12 @@ inline void ULOL_StatComponent::SetHp(float NewHp)
 }
 inline void ULOL_StatComponent::SetMp(float NewMp)
 {
+	BaseStat.CurrentMP = FMath::Clamp<float>(NewMp, 0, BaseStat.MaxMP);
 
+	if (OnMpChanged.IsBound())
+	{
+		OnMpChanged.Broadcast(BaseStat.CurrentMP);
+	}
 }
 
 void ULOL_StatComponent::InitializeStat()
@@ -67,17 +70,19 @@ void ULOL_StatComponent::InitializeStat()
 void ULOL_StatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	// 컴포넌트가 소유한 BaseStat을 복제 등록합니다.
 	DOREPLIFETIME(ULOL_StatComponent, BaseStat);
 }
 
 void ULOL_StatComponent::OnRep_BaseStat()
 {
-	// 클라이언트의 위젯들에게 HP가 변했음을 알립니다.
+	// 클라이언트의 위젯들에게 스탯이 변했음을 알립니다.
 	if (OnHpChanged.IsBound())
 	{
 		OnHpChanged.Broadcast(BaseStat.CurrentHP);
+	}
+	if (OnMpChanged.IsBound())
+	{
+		OnMpChanged.Broadcast(BaseStat.CurrentMP);
 	}
 }
 

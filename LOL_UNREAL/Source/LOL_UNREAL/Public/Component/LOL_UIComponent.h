@@ -17,21 +17,20 @@ public:
 	ULOL_UIComponent();
 
 	void UpdateHpFromStat(float NewHp);
+	void UpdateMpFromStat(float NewMp);
 
 	void SetMaxHp(float InMaxHp) { CachedMaxHP = InMaxHp; }
+	void SetMaxMp(float InMaxMp) { CachedMaxMP = InMaxMp; }
 
-	class UWidgetComponent* GetHpBar() { return HpBar; }
-	class UWidgetComponent* GetMpBar() { return MpBar; }
+	class UWidgetComponent* GetChampionProgressBar() { return ChampionProgressBar; }
 	
 protected:
 	virtual void BeginPlay() override;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI")
-	class UWidgetComponent* HpBar;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI")
-	class UWidgetComponent* MpBar;
+	class UWidgetComponent* ChampionProgressBar;
 
 private:
 	float CachedMaxHP = -1.f;
+	float CachedMaxMP = -1.f;
 };

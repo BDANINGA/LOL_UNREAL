@@ -55,8 +55,7 @@ void ULOL_LifeCycleComponent::Multicast_OnDeath_Implementation()
 	Owner->GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Owner->GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
-	Owner->UIComponent->GetHpBar()->SetVisibility(false);
-	Owner->UIComponent->GetMpBar()->SetVisibility(false);
+	Owner->UIComponent->GetChampionProgressBar()->SetVisibility(false);
 }
 void ULOL_LifeCycleComponent::Respawn()
 {
@@ -79,8 +78,7 @@ void ULOL_LifeCycleComponent::Multicast_OnRespawn_Implementation()
 	Owner->GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	Owner->GetMesh()->SetCollisionResponseToAllChannels(ECR_Block);
 
-	Owner->UIComponent->GetHpBar()->SetVisibility(true);
-	Owner->UIComponent->GetMpBar()->SetVisibility(true);
+	Owner->UIComponent->GetChampionProgressBar()->SetVisibility(true);
 	Owner->PlayAnimMontage(nullptr);
 }
 void ULOL_LifeCycleComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

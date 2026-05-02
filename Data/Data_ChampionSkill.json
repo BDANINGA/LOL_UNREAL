@@ -1,0 +1,79 @@
+[
+  {
+    "Name": "Alistar_Q",
+    "SkillName": "Pulverize",
+    "BaseDamage": [ 60.0, 100.0, 140.0, 180.0, 220.0 ],
+    "ManaCost": [ 65.0, 70.0, 75.0, 80.0, 85.0 ],
+    "Cooldown": [ 14.0, 13.0, 12.0, 11.0, 10.0 ],
+    "Range": [ 300.0, 300.0, 300.0, 300.0, 300.0 ],
+    "Duration": [ 1.0, 1.0, 1.0, 1.0, 1.0 ],
+    "CastTime": 0.25,
+    "SecondaryValue": [ 0.0, 0.0, 0.0, 0.0, 0.0 ]
+  },
+  {
+    "Name": "Alistar_W",
+    "SkillName": "Headbutt",
+    "BaseDamage": [ 55.0, 110.0, 165.0, 220.0, 275.0 ],
+    "ManaCost": [ 65.0, 70.0, 75.0, 80.0, 85.0 ],
+    "Cooldown": [ 14.0, 13.0, 12.0, 11.0, 10.0 ],
+    "Range": [ 650.0, 650.0, 650.0, 650.0, 650.0 ],
+    "Duration": [ 0.5, 0.5, 0.5, 0.5, 0.5 ],
+    "CastTime": 0.0,
+    "SecondaryValue": [ 700.0, 700.0, 700.0, 700.0, 700.0 ]
+  },
+  {
+    "Name": "Alistar_R",
+    "SkillName": "Unbreakable Will",
+    "BaseDamage": [ 0.0, 0.0, 0.0 ],
+    "ManaCost": [ 100.0, 100.0, 100.0 ],
+    "Cooldown": [ 120.0, 100.0, 80.0 ],
+    "Range": [ 0.0, 0.0, 0.0 ],
+    "Duration": [ 7.0, 7.0, 7.0 ],
+    "CastTime": 0.0,
+    "SecondaryValue": [ 55.0, 65.0, 75.0 ]
+  },
+  {
+    "Name": "Vayne_Q",
+    "SkillName": "Tumble",
+    "BaseDamage": [ 0.0, 0.0, 0.0, 0.0, 0.0 ],
+    "ManaCost": [ 30.0, 30.0, 30.0, 30.0, 30.0 ],
+    "Cooldown": [ 6.0, 5.0, 4.0, 3.0, 2.0 ],
+    "Range": [ 300.0, 300.0, 300.0, 300.0, 300.0 ],
+    "Duration": [ 7.0, 7.0, 7.0, 7.0, 7.0 ],
+    "CastTime": 0.0,
+    "SecondaryValue": [ 0.0, 0.0, 0.0, 0.0, 0.0 ]
+  },
+  {
+    "Name": "Vayne_W",
+    "SkillName": "Silver Bolts",
+    "BaseDamage": [ 0.0, 0.0, 0.0, 0.0, 0.0 ],
+    "ManaCost": [ 0.0, 0.0, 0.0, 0.0, 0.0 ],
+    "Cooldown": [ 0.0, 0.0, 0.0, 0.0, 0.0 ],
+    "Range": [ 0.0, 0.0, 0.0, 0.0, 0.0 ],
+    "Duration": [ 3.0, 3.0, 3.0, 3.0, 3.0 ],
+    "CastTime": 0.0,
+    "SecondaryValue": [ 6.0, 7.0, 8.0, 9.0, 10.0 ]
+  },
+  {
+    "Name": "Vayne_E",
+    "SkillName": "Condemn",
+    "BaseDamage": [ 50.0, 85.0, 120.0, 155.0, 190.0 ],
+    "ManaCost": [ 90.0, 90.0, 90.0, 90.0, 90.0 ],
+    "Cooldown": [ 20.0, 18.0, 16.0, 14.0, 12.0 ],
+    "Range": [ 550.0, 550.0, 550.0, 550.0, 550.0 ],
+    "Duration": [ 1.5, 1.5, 1.5, 1.5, 1.5 ],
+    "CastTime": 0.25,
+    "SecondaryValue": [ 475.0, 475.0, 475.0, 475.0, 475.0 ]
+  },
+  {
+    "Name": "Vayne_R",
+    "SkillName": "Final Hour",
+    "BaseDamage": [ 0.0, 0.0, 0.0 ],
+    "ManaCost": [ 100.0, 100.0, 100.0 ],
+    "Cooldown": [ 100.0, 85.0, 70.0 ],
+    "Range": [ 0.0, 0.0, 0.0 ],
+    "Duration": [ 8.0, 10.0, 12.0 ],
+    "CastTime": 0.0,
+    "SecondaryValue": [ 25.0, 40.0, 55.0 ]
+  }
+]

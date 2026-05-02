@@ -24,6 +24,7 @@
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_UIComponent.h"
+#include "Component/Champion_SkillComponent.h"
 
 #include "UObject/ConstructorHelpers.h"
 
@@ -46,6 +47,9 @@ ABaseChampion::ABaseChampion()
 
 	// UI
 	UIComponent = CreateDefaultSubobject<ULOL_UIComponent>(TEXT("UIComponent"));
+
+	// Skill
+	SkillComponent = CreateDefaultSubobject<UChampion_SkillComponent>(TEXT("SkillComponent"));
 
 	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> FXAsset(TEXT("/Game/UI/NS_ClickIndicator.NS_ClickIndicator"));
 	if (FXAsset.Succeeded())
@@ -77,10 +81,21 @@ void ABaseChampion::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (StatComponent) StatComponent->InitializeStat();
+
+	if (SkillComponent) SkillComponent->InitializeSkills();
+
 	if (StatComponent && UIComponent)
 	{
+		UIComponent->SetMaxHp(StatComponent->GetStat().MaxHP);
+		UIComponent->SetMaxMp(StatComponent->GetStat().MaxMP);
+
 		StatComponent->OnHpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateHpFromStat);
+		StatComponent->OnMpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateMpFromStat);
 		StatComponent->OnHpZero.AddUObject(LifeCycleComponent, &ULOL_LifeCycleComponent::Server_HandleDeath);
+
+		UIComponent->UpdateHpFromStat(StatComponent->GetStat().CurrentHP);
+		UIComponent->UpdateMpFromStat(StatComponent->GetStat().CurrentMP);
 	}
 }
 void ABaseChampion::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -197,26 +212,7 @@ void ABaseChampion::SetIsKnockedBack(bool bInKnockback)
 	bIsKnockedBack = bInKnockback;
 }
 
-//스킬Q
-void ABaseChampion::Skill_Q()
-{
-
-}
-
-//스킬W
-void ABaseChampion::Skill_W()
-{
-
-}
-
-//스킬E
-void ABaseChampion::Skill_E()
-{
-
-}
-
-//스킬R
-void ABaseChampion::Skill_R()
-{
-
-}
+void ABaseChampion::Skill_Q(){}
+void ABaseChampion::Skill_W(){}
+void ABaseChampion::Skill_E(){}
+void ABaseChampion::Skill_R(){}

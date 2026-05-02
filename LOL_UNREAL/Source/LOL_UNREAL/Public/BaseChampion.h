@@ -42,7 +42,11 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class ULOL_UIComponent* UIComponent;
 
-	FName GetChampionName(){ return ChampionName; }
+	// 스킬 컴포넌트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	class UChampion_SkillComponent* SkillComponent;
+
+	FName GetChampionName() const { return ChampionName; }
 
 	// 추가: 캐릭터 스킬 함수 구현
 	virtual void Skill_Q();

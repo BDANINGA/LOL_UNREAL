@@ -6,6 +6,8 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
+#include "Component/Champion_SkillComponent.h"
+
 
 AChampion_Alistar::AChampion_Alistar()
 {
@@ -46,11 +48,9 @@ AChampion_Alistar::AChampion_Alistar()
 
 void AChampion_Alistar::Skill_Q()
 {
-    // 1. 마나 체크
-    /*if (!ChampionComponent->ConsumeMana(50.0f))
-        return;*/
+    if (!SkillComponent->TryCastSkill(SkillComponent->GetQ_Data(), 1)) return;
 
-        // 2. 범위 설정
+    // 2. 범위 설정
     float Radius = 300.0f;
 
     FVector Center = GetActorLocation();
