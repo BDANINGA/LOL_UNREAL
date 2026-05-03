@@ -33,6 +33,9 @@ public:
 
     UPROPERTY(EditAnywhere)
     TArray<float> SecondaryValue; // 넉백 거리, 피해 감소율 등 특수 수치
+
+    UPROPERTY(EditAnywhere)
+    float CooldownEndTime{};    // 쿨타임 종료 시간
 };
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -45,13 +48,13 @@ public:
 
 	void InitializeSkills();
 
-    FSkillData GetQ_Data() { return Q_Data; }
-    FSkillData GetW_Data() { return W_Data; }
-    FSkillData GetE_Data() { return E_Data; }
-    FSkillData GetR_Data() { return R_Data; }
+    FSkillData& GetQ_Data() { return Q_Data; }
+    FSkillData& GetW_Data() { return W_Data; }
+    FSkillData& GetE_Data() { return E_Data; }
+    FSkillData& GetR_Data() { return R_Data; }
 
-    bool TryCastSkill(const FSkillData& SkillData, int32 SkillLevel);
-
+    bool TryCastSkill(FSkillData& SkillData, int32 SkillLevel);
+    
 protected:
 	virtual void BeginPlay() override;
 
