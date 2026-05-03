@@ -1,13 +1,13 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "Champion/Champion_Alistar.h"
-#include "UObject/ConstructorHelpers.h"
-#include "Components/SkeletalMeshComponent.h"
-#include "GameFramework/CharacterMovementComponent.h"
 
 #include "Component/Champion_SkillComponent.h"
+#include "Component/LOL_StatComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 
+#include "Kismet/GameplayStatics.h"
+#include "GameFramework/CharacterMovementComponent.h"
+
+#include "UObject/ConstructorHelpers.h"
 
 AChampion_Alistar::AChampion_Alistar()
 {
@@ -107,9 +107,23 @@ void AChampion_Alistar::Skill_Q()
                         if (IsValid(Champ)) Champ->SetIsKnockedBack(false);
                         }, 1.0f, false); // 에어본 체공 시간만큼 설정
                 }
+
+                float SkillDamage = SkillComponent->GetQ_Data().BaseDamage[0] + StatComponent->GetStat().AbilityPower * 0.5f;
+
+                UGameplayStatics::ApplyDamage(
+                    Target,
+                    SkillDamage,
+                    this->GetController(),
+                    this,
+                    ULOL_DamageMagic::StaticClass()
+                );
             }
         }
     }
+
+    
+
+
 
     // 6. 이펙트 (선택)
     // UGameplayStatics::SpawnEmitterAtLocation(...)

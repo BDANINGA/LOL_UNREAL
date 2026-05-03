@@ -14,10 +14,10 @@
 
 #include "NiagaraFunctionLibrary.h" 
 #include "NiagaraSystem.h"
+#include "Engine/DamageEvents.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
-#include "Components/WidgetComponent.h"
 
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_AttackComponent.h"
@@ -28,7 +28,6 @@
 
 #include "UObject/ConstructorHelpers.h"
 
-// Sets default values
 ABaseChampion::ABaseChampion()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -121,7 +120,19 @@ float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 	if (StatComponent)
 	{
-		ActualDamage = StatComponent->ApplyDamage(ActualDamage);
+		EDamageType Type = EDamageType::Physical; // 기본값
+
+		if (DamageEvent.DamageTypeClass == ULOL_DamageMagic::StaticClass())
+		{
+			Type = EDamageType::Magic;
+		}
+		else if (DamageEvent.DamageTypeClass == ULOL_DamageTrueDamage::StaticClass())
+		{
+			Type = EDamageType::TrueDamage;
+		}
+
+		// 2. 판별된 타입을 포함하여 StatComponent 호출
+		ActualDamage = StatComponent->ApplyDamage(ActualDamage, Type);
 	}
 
 	return ActualDamage;

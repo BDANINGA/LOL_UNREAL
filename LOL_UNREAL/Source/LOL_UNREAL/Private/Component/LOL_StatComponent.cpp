@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+	// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "Component/LOL_StatComponent.h"
@@ -86,17 +86,53 @@ void ULOL_StatComponent::OnRep_BaseStat()
 	}
 }
 
-float ULOL_StatComponent::ApplyDamage(float InDamage)
+float ULOL_StatComponent::ApplyDamage(float InDamage, EDamageType DamageType)
 {
 	if (InDamage <= 0.f || BaseStat.CurrentHP <= 0.f) return 0.f;
 
-	const float ActualDamage = FMath::Clamp(InDamage, 0.f, BaseStat.CurrentHP);
+	float FinalDamage = CalculateReducedDamage(InDamage, DamageType);
+
+	const float ActualDamage = FMath::Clamp(FinalDamage, 0.f, BaseStat.CurrentHP);
 	SetHp(BaseStat.CurrentHP - ActualDamage);
 
 	if (BaseStat.CurrentHP <= 0.f)
 	{
-		OnHpZero.Broadcast(); // 사망 이벤트 발생
+		OnHpZero.Broadcast();
 	}
 
 	return ActualDamage;
+}
+float ULOL_StatComponent::CalculateReducedDamage(float RawDamage, EDamageType Type)
+{
+	float DefenseStat = 0.f;
+	float PenPercent = 0.f;
+	float PenFlat = 0.f;
+
+	// 1. 데미지 타입에 따른 방어력 및 관통력 스탯 선택
+	if (Type == EDamageType::Physical)
+	{
+		DefenseStat = BaseStat.Armor;
+		PenPercent = BaseStat.PhysicalPenetrationPercent; 
+		PenFlat = BaseStat.PhysicalPenetration;           
+	}
+	else if (Type == EDamageType::Magic)
+	{
+		DefenseStat = BaseStat.SpellBlock;
+		PenPercent = BaseStat.MagicPenetrationPercent;    
+		PenFlat = BaseStat.MagicPenetration;          
+	}
+	else if (Type == EDamageType::TrueDamage)
+	{
+		return RawDamage;
+	}
+
+	// 롤 공식: 최종 방어력 = (기본 방어력 * (1 - 퍼센트관통력)) - 고정관통력
+	float EffectiveDefense = (DefenseStat * (1.0f - PenPercent)) - PenFlat;
+
+	EffectiveDefense = FMath::Max(0.f, EffectiveDefense);
+
+	// 3. 최종 데미지 배율 적용 100 / (100 + 방어력)
+	float DamageMultiplier = 100.f / (100.f + EffectiveDefense);
+
+	return RawDamage * DamageMultiplier;
 }

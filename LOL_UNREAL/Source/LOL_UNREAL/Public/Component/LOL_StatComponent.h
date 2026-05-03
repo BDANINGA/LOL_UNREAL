@@ -135,6 +135,25 @@ public:
 	float CriticalDamage = 1.75f; // 치명타 피해량 (기본 1.75배)
 };
 
+// 데미지 타입
+UENUM(BlueprintType)
+enum class EDamageType : uint8
+{
+	Physical,
+	Magic,
+	TrueDamage
+};
+
+UCLASS()
+class ULOL_DamagePhysical : public UDamageType { GENERATED_BODY() };
+
+UCLASS()
+class ULOL_DamageMagic : public UDamageType { GENERATED_BODY() };
+
+UCLASS()
+class ULOL_DamageTrueDamage : public UDamageType { GENERATED_BODY() };
+
+
 DECLARE_MULTICAST_DELEGATE(FOnHpZeroDelegate);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnHpChangedDelegate, float /*CurrentHp*/);
 
@@ -158,7 +177,7 @@ public:
 
 	FOnMpChangedDelegate OnMpChanged;
 
-	float ApplyDamage(float InDagame);
+	float ApplyDamage(float InDagame, EDamageType DamageType);
 
 	void SetHp(float NewHp);
 	void SetMp(float NewMp);
@@ -166,6 +185,8 @@ public:
 	FORCEINLINE const FChampionStat GetStat() const { return BaseStat; }
 
 	void InitializeStat();
+
+	float CalculateReducedDamage(float RawDamage, EDamageType Type);
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 protected:
