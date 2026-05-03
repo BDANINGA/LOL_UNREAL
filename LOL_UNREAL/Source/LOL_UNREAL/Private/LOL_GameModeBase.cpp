@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "LOL_GameModeBase.h"
 #include "LOL_PlayerController.h"
+#include "Widget/LOL_HUD.h"
 
 #include "Component/LOL_LifeCycleComponent.h"
 
@@ -13,6 +14,8 @@ ALOL_GameModeBase::ALOL_GameModeBase()
     
     // 플레이어마다 캐릭터를 다르게 설정하기 위해서는 필요하지 않음.
     // DefaultPawnClass = AChampion_Alistar::StaticClass();
+
+    HUDClass = ALOL_HUD::StaticClass();
 }  
 
 UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(AController* InController)
