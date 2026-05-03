@@ -7,6 +7,8 @@
 #include "LOL_PlayerController.h"
 #include "BaseChampion.h"
 
+#include "Widget/LOL_CursorWidget.h"
+
 #include "Net/UnrealNetwork.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -17,9 +19,6 @@
 
 ALOL_PlayerController::ALOL_PlayerController()
 {
-	bShowMouseCursor = true;
-	DefaultMouseCursor = EMouseCursor::Crosshairs;
-
 	bAutoManageActiveCameraTarget = false;
 
 	static ConstructorHelpers::FObjectFinder<UInputMappingContext> IMC_Default(TEXT("/Game/Level/input/IMC_Default.IMC_Default"));
@@ -59,16 +58,34 @@ ALOL_PlayerController::ALOL_PlayerController()
 	{
 		SpaceBarAction = IA_SpaceBar.Object;
 	}
+
+	static ConstructorHelpers::FClassFinder<ULOL_CursorWidget> CursorWidgetAsset(TEXT("/Game/UI/Cursor/Wbp_CursorWidget.Wbp_CursorWidget_C"));
+	if (CursorWidgetAsset.Succeeded())
+	{
+		CursorWidgetClass = CursorWidgetAsset.Class;
+	}
 }
 
 void ALOL_PlayerController::BeginPlay()
 {
 	Super::BeginPlay();
-	FInputModeGameAndUI InputMode;
-	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::LockAlways);
-	InputMode.SetHideCursorDuringCapture(false);
-	SetInputMode(InputMode);
+	if (IsLocalController())
+	{
+		FInputModeGameAndUI InputMode;
+		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::LockAlways);
+		InputMode.SetHideCursorDuringCapture(false);
+		SetInputMode(InputMode);
 
+		if (CursorWidgetClass)
+		{
+			MyCursorWidget = CreateWidget<ULOL_CursorWidget>(this, CursorWidgetClass);
+			if (MyCursorWidget)
+			{
+				SetMouseCursorWidget(EMouseCursor::Default, MyCursorWidget);
+				bShowMouseCursor = true;
+			}
+		}
+	}
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
 		if (DefaultMappingContext)
@@ -85,7 +102,7 @@ void ALOL_PlayerController::BeginPlay()
 	{
 		CameraAnchor->SetFollowTarget(GetPawn());
 		SetViewTarget(CameraAnchor);
-	}	
+	}
 }
 
 void ALOL_PlayerController::PlayerTick(float DeltaTime)
@@ -239,3 +256,7 @@ void ALOL_PlayerController::OnSkillR()
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("R Skill (Ultimate) Used!"));
 }
 
+void ALOL_PlayerController::ChangeCursorType(FString StateNam)
+{
+
+}
