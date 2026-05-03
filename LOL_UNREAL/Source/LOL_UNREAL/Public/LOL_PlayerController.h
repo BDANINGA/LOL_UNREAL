@@ -29,7 +29,8 @@ public:
 	UPROPERTY(EditAnywhere, Category = "UI")
 	TSubclassOf<class ULOL_CursorWidget> CursorWidgetClass;
 
-	void ChangeCursorType(FString StateName);
+	void UpdateCursorSelection();
+	void ChangeCursorType(FString NewStateName);
 
 protected:
 	virtual void BeginPlay() override;
@@ -62,4 +63,5 @@ private:
 
 	UPROPERTY()
 	class ULOL_CursorWidget* MyCursorWidget;
+	FString LastCursorState;
 };

@@ -109,6 +109,12 @@ void ALOL_PlayerController::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
 
+	if (IsLocalController())
+	{
+		UpdateCursorSelection(); // 커서 상태 업데이트 함수 호출
+		FreeCameraEdgeScroll(DeltaTime);
+	}
+
 	FreeCameraEdgeScroll(DeltaTime);
 }
 
@@ -255,8 +261,31 @@ void ALOL_PlayerController::OnSkillR()
 	}
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("R Skill (Ultimate) Used!"));
 }
-
-void ALOL_PlayerController::ChangeCursorType(FString StateNam)
+void ALOL_PlayerController::UpdateCursorSelection()
 {
+	if (!MyCursorWidget) return;
 
+	FHitResult Hit;
+	if (GetHitResultUnderCursor(ECC_Visibility, false, Hit))
+	{
+		AActor* TargetActor = Hit.GetActor();
+		ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
+
+		ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
+		if (TargetChampion && TargetChampion != MyPawn)
+		{
+			ChangeCursorType(TEXT("Attack")); // 공격용 칼 모양
+			return;
+		}
+	}
+
+	ChangeCursorType(TEXT("Normal")); 
+}
+void ALOL_PlayerController::ChangeCursorType(FString NewStateName)
+{
+	if (MyCursorWidget && LastCursorState != NewStateName)
+	{
+		MyCursorWidget->SwitchCursorState(NewStateName);
+		LastCursorState = NewStateName;
+	}
 }

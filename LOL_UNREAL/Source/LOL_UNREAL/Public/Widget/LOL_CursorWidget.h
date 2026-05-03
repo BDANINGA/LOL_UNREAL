@@ -4,6 +4,7 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/Image.h"
+#include "PaperSprite.h"
 #include "LOL_CursorWidget.generated.h"
 
 UCLASS()
@@ -12,10 +13,9 @@ class LOL_UNREAL_API ULOL_CursorWidget : public UUserWidget
 	GENERATED_BODY()
 	
 public:
-    ULOL_CursorWidget(const FObjectInitializer& ObjectInitializer);
 
-    UPROPERTY()
-    TMap<FString, UTexture2D*> CursorTable;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cursor")
+    TMap<FString, UPaperSprite*> CursorTable;
 
     UPROPERTY(meta = (BindWidget))
     UImage* CursorImage;    
