@@ -22,13 +22,13 @@ public:
 	void SetMaxHp(float InMaxHp) { CachedMaxHP = InMaxHp; }
 	void SetMaxMp(float InMaxMp) { CachedMaxMP = InMaxMp; }
 
-	class UWidgetComponent* GetChampionProgressBar() { return ChampionProgressBar; }
-	
+	class UWidgetComponent* GetChampionWidget() { return ChampionWidget;}
+
 protected:
 	virtual void BeginPlay() override;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI")
-	class UWidgetComponent* ChampionProgressBar;
+	class UWidgetComponent* ChampionWidget;
 
 private:
 	float CachedMaxHP = -1.f;
