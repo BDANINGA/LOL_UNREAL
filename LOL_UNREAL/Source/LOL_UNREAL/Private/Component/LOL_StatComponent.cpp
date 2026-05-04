@@ -6,6 +6,7 @@
 #include "Net/UnrealNetwork.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/DataTable.h"
+#include "Widget/LOL_HUD.h"
 
 ULOL_StatComponent::ULOL_StatComponent()
 {
@@ -63,6 +64,32 @@ void ULOL_StatComponent::InitializeStat()
 			BaseStat = *FoundRow;
 			BaseStat.CurrentHP = BaseStat.MaxHP;
 			BaseStat.CurrentMP = BaseStat.MaxMP;
+
+			AActor* OwnerActor = GetOwner();
+			if (OwnerActor)
+			{
+				APawn* OwnerPawn = Cast<APawn>(OwnerActor);
+				if (OwnerPawn)
+				{
+					APlayerController* PC = Cast<APlayerController>(OwnerPawn->GetController());
+					if (PC && PC->GetHUD())
+					{
+						ALOL_HUD* MyHUD = Cast<ALOL_HUD>(PC->GetHUD());
+						if (MyHUD)
+						{
+							MyHUD->UpdateAD(BaseStat.AttackDamage);
+							MyHUD->UpdateAP(BaseStat.AbilityPower);
+							MyHUD->UpdateAR(BaseStat.Armor);
+							MyHUD->UpdateMR(BaseStat.SpellBlock);
+							MyHUD->UpdateAS(BaseStat.AttackSpeed);
+							MyHUD->UpdateCD(BaseStat.AbilityHaste);
+							MyHUD->UpdateCR(BaseStat.CriticalChance);
+							MyHUD->UpdateSP(BaseStat.MoveSpeed);
+
+						}
+					}
+				}
+			}
 		}
 	}
 }
