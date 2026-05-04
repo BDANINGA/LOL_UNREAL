@@ -48,7 +48,7 @@ void ALOL_GameModeBase::RequestRespawn(ABaseChampion* DeadChampion)
         FTimerHandle RespawnTimer;
         FTimerDelegate RespawnDelegate;
 
-        // 핵심 수정: 바인딩 대상을 컴포넌트와 컴포넌트의 Respawn 함수로 변경합니다.[cite: 14, 15]
+        // 핵심 수정: 바인딩 대상을 컴포넌트와 컴포넌트의 Respawn 함수로 변경합니다.
         RespawnDelegate.BindUObject(LifeCycleComp, &ULOL_LifeCycleComponent::Respawn);
 
         GetWorldTimerManager().SetTimer(RespawnTimer, RespawnDelegate, RespawnDelay, false);
