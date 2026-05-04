@@ -19,6 +19,7 @@ public:
 
 	virtual void Skill_Q() override;
 	virtual void Skill_W() override;
+	virtual void Skill_R() override;
 
 	virtual void Tick(float DeltaTime) override;
 
@@ -31,4 +32,12 @@ protected:
 
 	// 넉백 적용 함수
 	void ApplyWKnockback(ACharacter* Target);
+
+	bool Server_Skill_W(AActor* Target);
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_PlayQMontage();
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_PlayWMontage();
 };

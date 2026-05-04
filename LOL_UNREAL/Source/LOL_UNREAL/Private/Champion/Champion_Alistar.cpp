@@ -4,6 +4,7 @@
 #include "Champion/Champion_Alistar.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Net/UnrealNetwork.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 
@@ -38,11 +39,51 @@ AChampion_Alistar::AChampion_Alistar()
 		{
 			DeathMontage = AlistarDeathMtg.Object;
 		}
+
+        // 2026 05 01 
+        static ConstructorHelpers::FObjectFinder<UAnimMontage> AlistarQMtg(
+            TEXT("/Game/Level/alistar/am_alistar_spell1.am_alistar_spell1"));
+        if (AlistarQMtg.Succeeded())
+        {
+            QMontage = AlistarQMtg.Object;
+        }
+
+        static ConstructorHelpers::FObjectFinder<UAnimMontage> AlistarWMtg(
+            TEXT("/Game/Level/alistar/am_alistar_spell2.am_alistar_spell2"));
+        if (AlistarWMtg.Succeeded())
+        {
+            WMontage = AlistarWMtg.Object;
+        }
+
+        static ConstructorHelpers::FObjectFinder<UAnimMontage> AlistarRMtg(
+            TEXT("/Game/Level/alistar/am_alistar_spell4.am_alistar_spell4"));
+        if (AlistarRMtg.Succeeded())
+        {
+            RMontage = AlistarRMtg.Object;
+        }
 	}
+}
+
+void AChampion_Alistar::Multicast_PlayQMontage_Implementation()
+{
+    if (QMontage)
+    {
+        PlayAnimMontage(QMontage, 1.0f);
+    }
+}
+
+void AChampion_Alistar::Multicast_PlayWMontage_Implementation()
+{
+    if (WMontage)
+    {
+        PlayAnimMontage(WMontage, 2.0f);
+    }
 }
 
 void AChampion_Alistar::Skill_Q()
 {
+
+    Multicast_PlayQMontage();
     // 1. 마나 체크
     /*if (!ChampionComponent->ConsumeMana(50.0f))
         return;*/
@@ -108,8 +149,17 @@ void AChampion_Alistar::Skill_Q()
         }
     }
 
-    // 6. 이펙트 (선택)
-    // UGameplayStatics::SpawnEmitterAtLocation(...)
+    // 7. 모션 -------------2026 05 01
+    if (QMontage)
+    {
+        PlayAnimMontage(QMontage, 2.0f);
+    }
+}
+
+bool AChampion_Alistar::Server_Skill_W(AActor* Target)
+{
+    if (!IsValid(Target)) return false;
+    return true;
 }
 
 void AChampion_Alistar::Skill_W()
@@ -117,40 +167,35 @@ void AChampion_Alistar::Skill_W()
     // 1. 마우스 아래의 캐릭터 타겟팅
     APlayerController* PC = Cast<APlayerController>(GetController());
     if (!PC) return;
-
     FHitResult HitResult;
     // 마우스 커서 아래의 'Pawn' 또는 'Visibility' 채널 체크
     if (PC->GetHitResultUnderCursor(ECC_Pawn, false, HitResult))
     {
         ACharacter* Target = Cast<ACharacter>(HitResult.GetActor());
-
         // 2. 유효성 검사 (타겟 존재 여부, 자기 자신 제외)
         if (!Target || Target == this) return;
-
         // 3. 사거리 체크
         float SkillRange = 550.0f; // 알리스타 W 평균 사거리
         float Distance = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
-
         if (Distance <= SkillRange)
         {
             // 타겟 저장 (추적용)
             CurrentWTarget = Target;
-
             // 돌진 상태 시작
             bIsW_Dashing = true;
-
             // 4. 돌진 방향 및 속도 계산
             FVector DashDirection = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal();
             float DashSpeed = 1200.0f;
 
+            FRotator LookRotation = DashDirection.Rotation();
+            LookRotation.Pitch = 0.0f;
+            LookRotation.Roll = 0.0f;
+            SetActorRotation(LookRotation);
+
             // 돌진 시작
             LaunchCharacter(DashDirection * DashSpeed, true, true);
 
-            UE_LOG(LogTemp, Warning, TEXT("박치기 시작: %s"), *Target->GetName());
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("사거리가 너무 멉니다."));
+            Multicast_PlayWMontage();
         }
     }
 }
@@ -249,4 +294,12 @@ void AChampion_Alistar::ApplyWKnockback(ACharacter* Target)
     // 상태 변수 초기화
     bIsW_Dashing = false;
     CurrentWTarget = nullptr;
+}
+
+void AChampion_Alistar::Skill_R()
+{
+    if (RMontage)
+    {
+        PlayAnimMontage(RMontage, 1.0f);
+    }
 }

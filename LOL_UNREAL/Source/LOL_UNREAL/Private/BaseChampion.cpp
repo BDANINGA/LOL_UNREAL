@@ -184,6 +184,12 @@ void ABaseChampion::StartAttack()
 			nullptr
 		);
 
+		ACharacter* TargetCharacter = Cast<ACharacter>(CombatTarget);
+		if (TargetCharacter)
+		{
+			OnBasicAttackHit(TargetCharacter);
+		}
+
 		FVector LookAtLocation = CombatTarget->GetActorLocation();
 		FVector Direction = LookAtLocation - GetActorLocation();
 		Direction.Z = 0.f;
