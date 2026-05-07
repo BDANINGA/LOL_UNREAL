@@ -15,10 +15,25 @@ void ALOL_HUD::BeginPlay()
 {
     Super::BeginPlay();
 
-    if (MainHUDClass)
+    APlayerController* PC = GetOwningPlayerController();
+    if (PC && PC->IsLocalController())
     {
-        MainHUDWidget = CreateWidget<ULOL_HUDWidget>(GetWorld(), MainHUDClass);
-        if (MainHUDWidget) MainHUDWidget->AddToViewport();
+        // 기존에 혹시 남아있을지 모를 위젯 정리 (Leak 방지)
+        if (MainHUDWidget)
+        {
+            MainHUDWidget->RemoveFromParent();
+            MainHUDWidget = nullptr;
+        }
+
+        // 위젯 생성
+        if (MainHUDClass)
+        {
+            MainHUDWidget = CreateWidget<ULOL_HUDWidget>(PC, MainHUDClass);
+            if (MainHUDWidget)
+            {
+                MainHUDWidget->AddToViewport();
+            }
+        }
     }
 }
 

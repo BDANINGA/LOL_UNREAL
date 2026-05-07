@@ -154,14 +154,14 @@ void ULOL_StatComponent::ChampionStatUpdate()
 				ALOL_HUD* MyHUD = Cast<ALOL_HUD>(PC->GetHUD());
 				if (MyHUD)
 				{
-					MyHUD->UpdateAD(BaseStat.AttackDamage);
-					MyHUD->UpdateAP(BaseStat.AbilityPower);
-					MyHUD->UpdateAR(BaseStat.Armor);
-					MyHUD->UpdateMR(BaseStat.SpellBlock);
-					MyHUD->UpdateAS(BaseStat.AttackSpeed);
-					MyHUD->UpdateCD(BaseStat.AbilityHaste);
-					MyHUD->UpdateCR(BaseStat.CriticalChance);
-					MyHUD->UpdateSP(BaseStat.MoveSpeed);
+					MyHUD->UpdateAttackDamage(BaseStat.AttackDamage);
+					MyHUD->UpdateAbilityPower(BaseStat.AbilityPower);
+					MyHUD->UpdateArmor(BaseStat.Armor);
+					MyHUD->UpdateSpellBlock(BaseStat.SpellBlock);
+					MyHUD->UpdateAttackSpeed(BaseStat.AttackSpeed);
+					MyHUD->UpdateAbilityHaste(BaseStat.AbilityHaste);
+					MyHUD->UpdateCriticalRate(BaseStat.CriticalChance);
+					MyHUD->UpdateMoveSpeed(BaseStat.MoveSpeed);
 				}
 			}
 		}
