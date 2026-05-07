@@ -21,7 +21,7 @@ void ULOL_AttackComponent::BeginPlay()
 }
 void ULOL_AttackComponent::UpdateAttackLogic()
 {
-    if (!Owner || !Owner->CombatTarget || Owner->LifeCycleComponent->bIsDead) return;
+    if (!Owner || !Owner->CombatTarget || Owner->LifeCycleComponent->bIsDead || Owner == Owner->CombatTarget) return;
 
     float Distance = Owner->GetDistanceTo(Owner->CombatTarget);
     auto StatComp = Owner->StatComponent;

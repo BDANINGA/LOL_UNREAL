@@ -2,13 +2,11 @@
 
 #include "Component/LOL_UIComponent.h"
 #include "Component/LOL_StatComponent.h"
-
-#include "Components/ProgressBar.h"
 #include "Components/WidgetComponent.h"
 
-#include "BaseChampion.h"
+#include "Widget/LOL_ChampionWidget.h"
 
-#include "Net/UnrealNetwork.h"
+#include "BaseChampion.h"
 #include "UObject/ConstructorHelpers.h"
 
 ULOL_UIComponent::ULOL_UIComponent()
@@ -16,28 +14,14 @@ ULOL_UIComponent::ULOL_UIComponent()
     PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
 
-    HpBar = CreateDefaultSubobject<UWidgetComponent>(TEXT("HpBar"));
-    HpBar->SetRelativeLocation(FVector(0.0f, 0.0f, 300.0f));
-    HpBar->SetWidgetSpace(EWidgetSpace::Screen);
-    HpBar->SetDrawSize(FVector2D(150.0f, 20.0f));
-    HpBar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
-    static ConstructorHelpers::FClassFinder<UUserWidget> HpBarWidgetRef(TEXT("/Game/UI/HPbar.HPbar_C"));
-    if (HpBarWidgetRef.Succeeded())
+    ChampionWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("ChampionWidget"));
+    ChampionWidget->SetRelativeLocation(FVector(0.0f, 0.0f, 200.0f)); // 적절한 높이 조절
+    ChampionWidget->SetWidgetSpace(EWidgetSpace::Screen);
+    ChampionWidget->SetDrawSize(FVector2D(10.f, 5.f));
+    static ConstructorHelpers::FClassFinder<UUserWidget> ChampionWidgetRef(TEXT("/Game/UI/Wbp_healthbar.Wbp_healthbar_C"));
+    if (ChampionWidgetRef.Succeeded())
     {
-        HpBar->SetWidgetClass(HpBarWidgetRef.Class);
-    }
-
-    MpBar = CreateDefaultSubobject<UWidgetComponent>(TEXT("MpBar"));
-    MpBar->SetRelativeLocation(FVector(0.0f, 0.0f, 275.0f));
-    MpBar->SetWidgetSpace(EWidgetSpace::Screen);
-    MpBar->SetDrawSize(FVector2D(150.0f, 10.0f));
-    MpBar->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
-    static ConstructorHelpers::FClassFinder<UUserWidget> MpBarWidgetRef(TEXT("/Game/UI/MPbar.MPbar_C"));
-    if (MpBarWidgetRef.Succeeded())
-    {
-        MpBar->SetWidgetClass(MpBarWidgetRef.Class);
+        ChampionWidget->SetWidgetClass(ChampionWidgetRef.Class);
     }
 }
 
@@ -47,13 +31,17 @@ void ULOL_UIComponent::BeginPlay()
 
     if (ABaseChampion* OwnerChampion = Cast<ABaseChampion>(GetOwner()))
     {
-        HpBar->AttachToComponent(OwnerChampion->GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
-        MpBar->AttachToComponent(OwnerChampion->GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
+        ChampionWidget->AttachToComponent(OwnerChampion->GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
 
         if (OwnerChampion->StatComponent)
         {
-            CachedMaxHP = OwnerChampion->StatComponent->GetStat().MaxHP; 
-            UpdateHpFromStat(OwnerChampion->StatComponent->GetStat().CurrentHP); 
+            const FChampionStat& CurrentStat = OwnerChampion->StatComponent->GetStat();
+
+            CachedMaxMP = CurrentStat.MaxMP;
+            CachedMaxHP = CurrentStat.MaxHP;
+
+            UpdateHpFromStat(OwnerChampion->StatComponent->GetStat().CurrentHP);
+            UpdateMpFromStat(OwnerChampion->StatComponent->GetStat().CurrentMP);
         }
     }
 }
@@ -61,11 +49,18 @@ void ULOL_UIComponent::UpdateHpFromStat(float NewHp)
 {
     if (CachedMaxHP <= 0.f) return;
 
-    if (UUserWidget* WidgetObj = HpBar->GetUserWidgetObject())
+    if (ULOL_ChampionWidget* ChampWidgetObj = Cast<ULOL_ChampionWidget>(ChampionWidget->GetUserWidgetObject()))
     {
-        if (UProgressBar* HpProgressBar = Cast<UProgressBar>(WidgetObj->GetWidgetFromName(TEXT("HPbar"))))
-        {
-            HpProgressBar->SetPercent(NewHp / CachedMaxHP);
-        }
+        ChampWidgetObj->UpdateHP(NewHp / CachedMaxHP);
+    }
+}
+
+void ULOL_UIComponent::UpdateMpFromStat(float NewMp)
+{
+    if (CachedMaxMP <= 0.f) return;
+
+    if (ULOL_ChampionWidget* ChampWidgetObj = Cast<ULOL_ChampionWidget>(ChampionWidget->GetUserWidgetObject()))
+    {
+        ChampWidgetObj->UpdateMP(NewMp / CachedMaxMP);
     }
 }

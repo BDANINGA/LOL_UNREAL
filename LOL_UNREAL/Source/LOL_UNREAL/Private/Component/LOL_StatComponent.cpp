@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+	// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "Component/LOL_StatComponent.h"
@@ -6,6 +6,7 @@
 #include "Net/UnrealNetwork.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/DataTable.h"
+#include "LOL_HUD.h"
 
 ULOL_StatComponent::ULOL_StatComponent()
 {
@@ -21,8 +22,6 @@ ULOL_StatComponent::ULOL_StatComponent()
 void ULOL_StatComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
-	InitializeStat();
 
 	SetHp(BaseStat.MaxHP);
 	SetMp(BaseStat.MaxMP);
@@ -45,7 +44,12 @@ inline void ULOL_StatComponent::SetHp(float NewHp)
 }
 inline void ULOL_StatComponent::SetMp(float NewMp)
 {
+	BaseStat.CurrentMP = FMath::Clamp<float>(NewMp, 0, BaseStat.MaxMP);
 
+	if (OnMpChanged.IsBound())
+	{
+		OnMpChanged.Broadcast(BaseStat.CurrentMP);
+	}
 }
 
 void ULOL_StatComponent::InitializeStat()
@@ -60,6 +64,8 @@ void ULOL_StatComponent::InitializeStat()
 			BaseStat = *FoundRow;
 			BaseStat.CurrentHP = BaseStat.MaxHP;
 			BaseStat.CurrentMP = BaseStat.MaxMP;
+
+			ChampionStatUpdate();
 		}
 	}
 }
@@ -67,31 +73,97 @@ void ULOL_StatComponent::InitializeStat()
 void ULOL_StatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	// 컴포넌트가 소유한 BaseStat을 복제 등록합니다.
 	DOREPLIFETIME(ULOL_StatComponent, BaseStat);
 }
 
 void ULOL_StatComponent::OnRep_BaseStat()
 {
-	// 클라이언트의 위젯들에게 HP가 변했음을 알립니다.
+	// 클라이언트의 위젯들에게 스탯이 변했음을 알립니다.
 	if (OnHpChanged.IsBound())
 	{
 		OnHpChanged.Broadcast(BaseStat.CurrentHP);
 	}
+	if (OnMpChanged.IsBound())
+	{
+		OnMpChanged.Broadcast(BaseStat.CurrentMP);
+	}
 }
 
-float ULOL_StatComponent::ApplyDamage(float InDamage)
+float ULOL_StatComponent::ApplyDamage(float InDamage, EDamageType DamageType)
 {
 	if (InDamage <= 0.f || BaseStat.CurrentHP <= 0.f) return 0.f;
 
-	const float ActualDamage = FMath::Clamp(InDamage, 0.f, BaseStat.CurrentHP);
+	float FinalDamage = CalculateReducedDamage(InDamage, DamageType);
+
+	const float ActualDamage = FMath::Clamp(FinalDamage, 0.f, BaseStat.CurrentHP);
 	SetHp(BaseStat.CurrentHP - ActualDamage);
 
 	if (BaseStat.CurrentHP <= 0.f)
 	{
-		OnHpZero.Broadcast(); // 사망 이벤트 발생
+		OnHpZero.Broadcast();
 	}
 
 	return ActualDamage;
+}
+float ULOL_StatComponent::CalculateReducedDamage(float RawDamage, EDamageType Type)
+{
+	float DefenseStat = 0.f;
+	float PenPercent = 0.f;
+	float PenFlat = 0.f;
+
+	// 1. 데미지 타입에 따른 방어력 및 관통력 스탯 선택
+	if (Type == EDamageType::Physical)
+	{
+		DefenseStat = BaseStat.Armor;
+		PenPercent = BaseStat.PhysicalPenetrationPercent; 
+		PenFlat = BaseStat.PhysicalPenetration;           
+	}
+	else if (Type == EDamageType::Magic)
+	{
+		DefenseStat = BaseStat.SpellBlock;
+		PenPercent = BaseStat.MagicPenetrationPercent;    
+		PenFlat = BaseStat.MagicPenetration;          
+	}
+	else if (Type == EDamageType::TrueDamage)
+	{
+		return RawDamage;
+	}
+
+	// 롤 공식: 최종 방어력 = (기본 방어력 * (1 - 퍼센트관통력)) - 고정관통력
+	float EffectiveDefense = (DefenseStat * (1.0f - PenPercent)) - PenFlat;
+
+	EffectiveDefense = FMath::Max(0.f, EffectiveDefense);
+
+	// 3. 최종 데미지 배율 적용 100 / (100 + 방어력)
+	float DamageMultiplier = 100.f / (100.f + EffectiveDefense);
+
+	return RawDamage * DamageMultiplier;
+}
+
+void ULOL_StatComponent::ChampionStatUpdate()
+{
+	AActor* OwnerActor = GetOwner();
+	if (OwnerActor)
+	{
+		APawn* OwnerPawn = Cast<APawn>(OwnerActor);
+		if (OwnerPawn)
+		{
+			APlayerController* PC = Cast<APlayerController>(OwnerPawn->GetController());
+			if (PC && PC->GetHUD())
+			{
+				ALOL_HUD* MyHUD = Cast<ALOL_HUD>(PC->GetHUD());
+				if (MyHUD)
+				{
+					MyHUD->UpdateAD(BaseStat.AttackDamage);
+					MyHUD->UpdateAP(BaseStat.AbilityPower);
+					MyHUD->UpdateAR(BaseStat.Armor);
+					MyHUD->UpdateMR(BaseStat.SpellBlock);
+					MyHUD->UpdateAS(BaseStat.AttackSpeed);
+					MyHUD->UpdateCD(BaseStat.AbilityHaste);
+					MyHUD->UpdateCR(BaseStat.CriticalChance);
+					MyHUD->UpdateSP(BaseStat.MoveSpeed);
+				}
+			}
+		}
+	}
 }

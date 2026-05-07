@@ -14,20 +14,20 @@
 
 #include "NiagaraFunctionLibrary.h" 
 #include "NiagaraSystem.h"
+#include "Engine/DamageEvents.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
-#include "Components/WidgetComponent.h"
 
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_AttackComponent.h"
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_UIComponent.h"
+#include "Component/Champion_SkillComponent.h"
 
 #include "UObject/ConstructorHelpers.h"
 
-// Sets default values
 ABaseChampion::ABaseChampion()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -46,6 +46,9 @@ ABaseChampion::ABaseChampion()
 
 	// UI
 	UIComponent = CreateDefaultSubobject<ULOL_UIComponent>(TEXT("UIComponent"));
+
+	// Skill
+	SkillComponent = CreateDefaultSubobject<UChampion_SkillComponent>(TEXT("SkillComponent"));
 
 	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> FXAsset(TEXT("/Game/UI/NS_ClickIndicator.NS_ClickIndicator"));
 	if (FXAsset.Succeeded())
@@ -77,10 +80,21 @@ void ABaseChampion::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (StatComponent) StatComponent->InitializeStat();
+
+	if (SkillComponent) SkillComponent->InitializeSkills();
+
 	if (StatComponent && UIComponent)
 	{
+		UIComponent->SetMaxHp(StatComponent->GetStat().MaxHP);
+		UIComponent->SetMaxMp(StatComponent->GetStat().MaxMP);
+
 		StatComponent->OnHpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateHpFromStat);
+		StatComponent->OnMpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateMpFromStat);
 		StatComponent->OnHpZero.AddUObject(LifeCycleComponent, &ULOL_LifeCycleComponent::Server_HandleDeath);
+
+		UIComponent->UpdateHpFromStat(StatComponent->GetStat().CurrentHP);
+		UIComponent->UpdateMpFromStat(StatComponent->GetStat().CurrentMP);
 	}
 }
 void ABaseChampion::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -106,7 +120,19 @@ float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 	if (StatComponent)
 	{
-		ActualDamage = StatComponent->ApplyDamage(ActualDamage);
+		EDamageType Type = EDamageType::Physical; // 기본값
+
+		if (DamageEvent.DamageTypeClass == ULOL_DamageMagic::StaticClass())
+		{
+			Type = EDamageType::Magic;
+		}
+		else if (DamageEvent.DamageTypeClass == ULOL_DamageTrueDamage::StaticClass())
+		{
+			Type = EDamageType::TrueDamage;
+		}
+
+		// 2. 판별된 타입을 포함하여 StatComponent 호출
+		ActualDamage = StatComponent->ApplyDamage(ActualDamage, Type);
 	}
 
 	return ActualDamage;
@@ -197,26 +223,7 @@ void ABaseChampion::SetIsKnockedBack(bool bInKnockback)
 	bIsKnockedBack = bInKnockback;
 }
 
-//스킬Q
-void ABaseChampion::Skill_Q()
-{
-
-}
-
-//스킬W
-void ABaseChampion::Skill_W()
-{
-
-}
-
-//스킬E
-void ABaseChampion::Skill_E()
-{
-
-}
-
-//스킬R
-void ABaseChampion::Skill_R()
-{
-
-}
+void ABaseChampion::Skill_Q(){}
+void ABaseChampion::Skill_W(){}
+void ABaseChampion::Skill_E(){}
+void ABaseChampion::Skill_R(){}

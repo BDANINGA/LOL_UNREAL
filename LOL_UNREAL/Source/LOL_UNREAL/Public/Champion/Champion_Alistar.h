@@ -19,6 +19,7 @@ public:
 
 	virtual void Skill_Q() override;
 	virtual void Skill_W() override;
+	virtual void Skill_R() override;
 
 	virtual void Tick(float DeltaTime) override;
 
@@ -26,9 +27,17 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Skill")
 
 	TObjectPtr<class ACharacter> CurrentWTarget;
-	// µ¹Áø »óÅÂ
+	// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	bool bIsW_Dashing = false;
 
-	// ³Ë¹é Àû¿ë ÇÔ¼ö
+	// ï¿½Ë¹ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½
 	void ApplyWKnockback(ACharacter* Target);
+
+	bool Server_Skill_W(AActor* Target);
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_PlayQMontage();
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_PlayWMontage();
 };
