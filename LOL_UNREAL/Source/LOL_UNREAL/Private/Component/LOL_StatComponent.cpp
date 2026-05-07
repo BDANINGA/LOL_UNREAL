@@ -65,31 +65,7 @@ void ULOL_StatComponent::InitializeStat()
 			BaseStat.CurrentHP = BaseStat.MaxHP;
 			BaseStat.CurrentMP = BaseStat.MaxMP;
 
-			AActor* OwnerActor = GetOwner();
-			if (OwnerActor)
-			{
-				APawn* OwnerPawn = Cast<APawn>(OwnerActor);
-				if (OwnerPawn)
-				{
-					APlayerController* PC = Cast<APlayerController>(OwnerPawn->GetController());
-					if (PC && PC->GetHUD())
-					{
-						ALOL_HUD* MyHUD = Cast<ALOL_HUD>(PC->GetHUD());
-						if (MyHUD)
-						{
-							MyHUD->UpdateAD(BaseStat.AttackDamage);
-							MyHUD->UpdateAP(BaseStat.AbilityPower);
-							MyHUD->UpdateAR(BaseStat.Armor);
-							MyHUD->UpdateMR(BaseStat.SpellBlock);
-							MyHUD->UpdateAS(BaseStat.AttackSpeed);
-							MyHUD->UpdateCD(BaseStat.AbilityHaste);
-							MyHUD->UpdateCR(BaseStat.CriticalChance);
-							MyHUD->UpdateSP(BaseStat.MoveSpeed);
-
-						}
-					}
-				}
-			}
+			ChampionStatUpdate();
 		}
 	}
 }
@@ -162,4 +138,32 @@ float ULOL_StatComponent::CalculateReducedDamage(float RawDamage, EDamageType Ty
 	float DamageMultiplier = 100.f / (100.f + EffectiveDefense);
 
 	return RawDamage * DamageMultiplier;
+}
+
+void ULOL_StatComponent::ChampionStatUpdate()
+{
+	AActor* OwnerActor = GetOwner();
+	if (OwnerActor)
+	{
+		APawn* OwnerPawn = Cast<APawn>(OwnerActor);
+		if (OwnerPawn)
+		{
+			APlayerController* PC = Cast<APlayerController>(OwnerPawn->GetController());
+			if (PC && PC->GetHUD())
+			{
+				ALOL_HUD* MyHUD = Cast<ALOL_HUD>(PC->GetHUD());
+				if (MyHUD)
+				{
+					MyHUD->UpdateAD(BaseStat.AttackDamage);
+					MyHUD->UpdateAP(BaseStat.AbilityPower);
+					MyHUD->UpdateAR(BaseStat.Armor);
+					MyHUD->UpdateMR(BaseStat.SpellBlock);
+					MyHUD->UpdateAS(BaseStat.AttackSpeed);
+					MyHUD->UpdateCD(BaseStat.AbilityHaste);
+					MyHUD->UpdateCR(BaseStat.CriticalChance);
+					MyHUD->UpdateSP(BaseStat.MoveSpeed);
+				}
+			}
+		}
+	}
 }

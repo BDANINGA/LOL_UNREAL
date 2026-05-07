@@ -26,9 +26,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Skill")
 
 	TObjectPtr<class ACharacter> CurrentWTarget;
-	// µ¹Áø »óÅÂ
+	// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	bool bIsW_Dashing = false;
 
-	// ³Ë¹é Àû¿ë ÇÔ¼ö
+	// ï¿½Ë¹ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½
 	void ApplyWKnockback(ACharacter* Target);
 };
