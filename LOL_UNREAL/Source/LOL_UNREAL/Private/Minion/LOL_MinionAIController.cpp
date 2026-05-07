@@ -1,4 +1,4 @@
-#include "LOL_MinionAIController.h"
+#include "Minion/LOL_MinionAIController.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
 #include "BehaviorTree/BehaviorTree.h"

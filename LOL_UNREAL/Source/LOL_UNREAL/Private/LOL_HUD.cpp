@@ -1,5 +1,5 @@
 // HUD
-#include "Widget/LOL_HUD.h"
+#include "LOL_HUD.h"
 #include "Blueprint/UserWidget.h"
 
 ALOL_HUD::ALOL_HUD()

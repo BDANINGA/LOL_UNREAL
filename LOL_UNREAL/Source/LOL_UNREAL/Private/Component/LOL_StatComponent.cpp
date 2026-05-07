@@ -6,7 +6,7 @@
 #include "Net/UnrealNetwork.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/DataTable.h"
-#include "Widget/LOL_HUD.h"
+#include "LOL_HUD.h"
 
 ULOL_StatComponent::ULOL_StatComponent()
 {

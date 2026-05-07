@@ -76,11 +76,11 @@ public:
 
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
 	AActor* CombatTarget;
-	
-	void SetIsKnockedBack(bool bInKnockback);
 
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_PlayAttackMontage(FRotator TargetRotation);
+	
+	void SetIsKnockedBack(bool bInKnockback);
 
 protected:
 	virtual void BeginPlay() override;
@@ -89,9 +89,6 @@ protected:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
-
-	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_PlayAttackMontage(FRotator TargetRotation);
 
 	//2026 05 01 (q,w,e,r모션 만들기 위해 더 추가)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")

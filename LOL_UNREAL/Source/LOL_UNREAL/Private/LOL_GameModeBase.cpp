@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "LOL_GameModeBase.h"
 #include "LOL_PlayerController.h"
-#include "Widget/LOL_HUD.h"
+#include "LOL_HUD.h"
 
 #include "Component/LOL_LifeCycleComponent.h"
 
@@ -30,7 +30,7 @@ UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(ACont
     }
 
     // 2. 그 외에 접속하는 클라이언트 플레이어들
-    return AChampion_Blitz::StaticClass();
+    return AChampion_Vayne::StaticClass();
 }
 
 void ALOL_GameModeBase::BeginPlay()
