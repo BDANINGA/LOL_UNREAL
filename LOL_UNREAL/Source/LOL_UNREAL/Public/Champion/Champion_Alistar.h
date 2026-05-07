@@ -40,4 +40,27 @@ protected:
 
 	UFUNCTION(NetMulticast, Unreliable)
 	void Multicast_PlayWMontage();
+	
+	// --- R 스킬: 불굴의 의지 ---
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|R")
+	float UltDuration = 7.0f;  // 지속시간
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|R")
+	float UltDamageReduction = 0.5f;  // 받는 피해 50% 감소
+
+	UPROPERTY(Replicated)
+	bool bIsUltActive = false;
+
+	FTimerHandle UltTimerHandle;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_Skill_R();
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_PlayRMontage();
+
+	void StartUlt();
+	void EndUlt();
+
+	void ClearCCExceptKnockup();
 };
