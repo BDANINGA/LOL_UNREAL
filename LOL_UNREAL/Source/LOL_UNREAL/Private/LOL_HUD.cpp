@@ -1,6 +1,6 @@
 // HUD
 #include "LOL_HUD.h"
-#include "Blueprint/UserWidget.h"
+#include "Widget/LOL_HUDWidget.h"
 
 ALOL_HUD::ALOL_HUD()
 {
@@ -17,53 +17,42 @@ void ALOL_HUD::BeginPlay()
 
     if (MainHUDClass)
     {
-        MainHUDWidget = CreateWidget<UUserWidget>(GetWorld(), MainHUDClass);
-        if (MainHUDWidget)
-        {
-            MainHUDWidget->AddToViewport();
-        }
+        MainHUDWidget = CreateWidget<ULOL_HUDWidget>(GetWorld(), MainHUDClass);
+        if (MainHUDWidget) MainHUDWidget->AddToViewport();
     }
 }
 
-void ALOL_HUD::UpdateAD(float CurrentAD)
+void ALOL_HUD::UpdateAttackDamage(float CurrentAttackDamage)
 {
-    if (ad_tex)
-        ad_tex->SetText(FText::AsNumber(CurrentAD));
+    if (MainHUDWidget) MainHUDWidget->SetAttackDamage(CurrentAttackDamage);
 }
-void ALOL_HUD::UpdateAP(float CurrentAP)
+void ALOL_HUD::UpdateAbilityPower(float CurrentAbilityPower)
 {
-    if (ap_tex)
-        ap_tex->SetText(FText::AsNumber(CurrentAP));
+    if (MainHUDWidget) MainHUDWidget->SetAbilityPower(CurrentAbilityPower);
 }
-void ALOL_HUD::UpdateAR(float CurrentAR)
+void ALOL_HUD::UpdateArmor(float CurrentArmor)
 {
-    if (armor_tex)
-        armor_tex->SetText(FText::AsNumber(CurrentAR));
+    if (MainHUDWidget) MainHUDWidget->SetArmor(CurrentArmor);
 }
 
-void ALOL_HUD::UpdateMR(float CurrentMR)
+void ALOL_HUD::UpdateSpellBlock(float CurrentSpellBlock)
 {
-    if (magic_resis_tex)
-        magic_resis_tex->SetText(FText::AsNumber(CurrentMR));
+    if (MainHUDWidget) MainHUDWidget->SetSpellBlock(CurrentSpellBlock);
 }
 
-void ALOL_HUD::UpdateAS(float CurrentAS)
+void ALOL_HUD::UpdateAttackSpeed(float CurrentAttackSpeed)
 {
-    if (attack_sp_tex)
-        attack_sp_tex->SetText(FText::AsNumber(CurrentAS));
+    if (MainHUDWidget) MainHUDWidget->SetAttackSpeed(CurrentAttackSpeed);
 }
-void ALOL_HUD::UpdateCD(float CurrentCD)
+void ALOL_HUD::UpdateAbilityHaste(float CurrentAbilityHaste)
 {
-    if (cooldown_tex)
-        cooldown_tex->SetText(FText::AsNumber(CurrentCD));
+    if (MainHUDWidget) MainHUDWidget->SetAbilityHaste(CurrentAbilityHaste);
 }
-void ALOL_HUD::UpdateCR(float CurrentCR)
+void ALOL_HUD::UpdateCriticalRate(float CurrentCriticalRate)
 {
-    if (critical_rate_tex)
-        critical_rate_tex->SetText(FText::AsNumber(CurrentCR));
+    if (MainHUDWidget) MainHUDWidget->SetCriticalRate(CurrentCriticalRate);
 }
-void ALOL_HUD::UpdateSP(float CurrentSP)
+void ALOL_HUD::UpdateMoveSpeed(float CurrentMoveSpeed)
 {
-    if (speed_tex)
-        speed_tex->SetText(FText::AsNumber(CurrentSP));
+    if (MainHUDWidget) MainHUDWidget->SetMoveSpeed(CurrentMoveSpeed);
 }

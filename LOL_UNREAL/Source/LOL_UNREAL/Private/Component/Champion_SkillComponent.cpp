@@ -71,8 +71,5 @@ bool UChampion_SkillComponent::TryCastSkill(FSkillData& SkillData, int32 SkillLe
 
     SkillData.CooldownEndTime = CurrentTime + FinalCooldown;
 
-    // 5. 데미지 적용
-
-
     return true;
 }
