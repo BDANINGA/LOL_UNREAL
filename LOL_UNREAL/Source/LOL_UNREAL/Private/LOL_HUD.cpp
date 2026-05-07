@@ -18,7 +18,6 @@ void ALOL_HUD::BeginPlay()
     APlayerController* PC = GetOwningPlayerController();
     if (PC && PC->IsLocalController())
     {
-        // 기존에 혹시 남아있을지 모를 위젯 정리 (Leak 방지)
         if (MainHUDWidget)
         {
             MainHUDWidget->RemoveFromParent();
