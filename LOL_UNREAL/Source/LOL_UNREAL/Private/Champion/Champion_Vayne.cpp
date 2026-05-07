@@ -6,6 +6,8 @@
 #include "UObject/ConstructorHelpers.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/GameplayStatics.h"     // 2026 05 01 
+#include "GameFramework/DamageType.h"   // 2026 05 01 (UDamageType용)
 
 
 AChampion_Vayne::AChampion_Vayne()
@@ -37,11 +39,27 @@ AChampion_Vayne::AChampion_Vayne()
 			AttackMontage = VayneAttackMtg.Object;
 		}
 
-		/*static ConstructorHelpers::FObjectFinder<UAnimMontage> VayneDeathMtg(TEXT("/Game/Level/vain_real/am_attack_1.am_attack_1"));
-		if (VayneDeathMtg.Succeeded())
-		{
-			DeathMontage = VayneDeathMtg.Object;
-		}*/
+        // 2026 05 01 (몽타주 생성) 
+        static ConstructorHelpers::FObjectFinder<UAnimMontage> VayneQMtg(
+            TEXT("/Game/Level/vain_real/AM_Skill_Q.am_Skill_Q"));
+        if (VayneQMtg.Succeeded())
+        {
+            QMontage = VayneQMtg.Object;
+        }
+
+        static ConstructorHelpers::FObjectFinder<UAnimMontage> VayneEMtg(
+            TEXT("/Game/Level/vain_real/AM_skill_E.am_skill_E"));
+        if (VayneEMtg.Succeeded())
+        {
+            EMontage = VayneEMtg.Object;
+        }
+
+        static ConstructorHelpers::FObjectFinder<UAnimMontage> VayneRMtg(
+            TEXT("/Game/Level/vain_real/am_vain_ult_idle.am_vain_ult_idle"));
+        if (VayneRMtg.Succeeded())
+        {
+            RMontage = VayneRMtg.Object;
+        }
 	}
 }
 
@@ -52,23 +70,34 @@ void AChampion_Vayne::Skill_Q()
     APlayerController* PC = Cast<APlayerController>(GetController());
     if (!PC) return;
 
+    // 2026 05 01 수정
     FHitResult Hit;
-    PC->GetHitResultUnderCursor(ECC_Visibility, false, Hit);
-
-    // 서버에 대시 요청
+    if (!PC->GetHitResultUnderCursor(ECC_Visibility, false, Hit)) return;
     Server_Skill_Q(Hit.Location);
 }
 
 bool AChampion_Vayne::Server_Skill_Q_Validate(FVector QLocation) { return true; }
 
+void AChampion_Vayne::Multicast_PlayQMontage_Implementation()
+{
+    if (QMontage)
+    {
+        PlayAnimMontage(QMontage, 1.0f);
+    }
+}
+
 void AChampion_Vayne::Server_Skill_Q_Implementation(FVector QLocation)
 {
+    if (bIsDashing) return;
+
     FVector Start = GetActorLocation();
 
-    // 1. 수평 방향 계산 (Z값 무시)
-    FVector Direction = QLocation - Start;
-    Direction.Z = 0.0f;
-    Direction.Normalize();
+    // 1. 수평 방향 계산 (Z값 무시) ------- 2026 05 01 수정
+    FVector Direction = (QLocation - Start).GetSafeNormal2D();  // Z=0 + Normalize 한 번에
+    if (Direction.IsNearlyZero()) return;
+
+    // 2026 05 04 추가
+    Multicast_PlayQMontage();
 
     DashStart = Start;
 
@@ -124,14 +153,79 @@ void AChampion_Vayne::Tick(float DeltaTime)
     }
 }
 
-  
 void AChampion_Vayne::Skill_W()
 {
+    UE_LOG(LogTemp, Log, TEXT("[Vayne W] 은빛 화살은 패시브입니다."));
+}
 
+void AChampion_Vayne::OnBasicAttackHit(ACharacter* Target)
+{
+    // 서버 권한 체크 — 카운트는 서버에서만 굴림
+    if (!HasAuthority()) return;
+    if (!IsValid(Target) || Target == this) return;
+
+    TWeakObjectPtr<ACharacter> Key(Target);
+
+    // 1. 해당 타겟의 스택 +1
+    int32& Stack = SilverBoltsStack.FindOrAdd(Key);
+    Stack++;
+
+    UE_LOG(LogTemp, Log, TEXT("[Vayne W] %s 스택: %d / %d"),
+        *Target->GetName(), Stack, BoltsThreshold);
+
+    // 2. 임계값 도달 → 발동
+    if (Stack >= BoltsThreshold)
+    {
+        TriggerSilverBolts(Target);
+        Stack = 0;  // 리셋
+
+        // 발동했으니 만료 타이머도 정리
+        if (FTimerHandle* ExistingTimer = SilverBoltsTimers.Find(Key))
+        {
+            GetWorld()->GetTimerManager().ClearTimer(*ExistingTimer);
+            SilverBoltsTimers.Remove(Key);
+        }
+        return;
+    }
+
+    // 3. 아직 임계값 미달 → 만료 타이머 갱신
+    //    (4초간 같은 적 안 때리면 스택 사라짐)
+    FTimerHandle& TimerHandle = SilverBoltsTimers.FindOrAdd(Key);
+    GetWorld()->GetTimerManager().ClearTimer(TimerHandle);  // 기존 타이머 취소
+
+    GetWorld()->GetTimerManager().SetTimer(TimerHandle,
+        FTimerDelegate::CreateLambda([this, Key]()
+            {
+                if (!IsValid(this)) return;
+                SilverBoltsStack.Remove(Key);
+                SilverBoltsTimers.Remove(Key);
+
+                UE_LOG(LogTemp, Log, TEXT("[Vayne W] 스택 만료"));
+            }),
+        BoltsStackDuration, false);
+}
+
+void AChampion_Vayne::TriggerSilverBolts(ACharacter* Target)
+{
+    if (!IsValid(Target)) return;
+
+    // 1. 추가 피해 적용 (서버에서)
+    UGameplayStatics::ApplyDamage(
+        Target,
+        BoltsBonusDamage,
+        GetController(),
+        this,
+        UDamageType::StaticClass()
+    );
+
+    UE_LOG(LogTemp, Warning, TEXT("[Vayne W] 은빛 화살 발동! %s에게 %.0f 고정 피해"),
+        *Target->GetName(), BoltsBonusDamage);
 }
 
 void AChampion_Vayne::Skill_E()
 {
+    if (!IsLocallyControlled()) return;
+
     // 1. 클라이언트(내 화면)에서 타겟팅 수행
     APlayerController* PC = Cast<APlayerController>(GetController());
     if (PC && PC->IsLocalController())
@@ -144,6 +238,17 @@ void AChampion_Vayne::Skill_E()
             // 거리 체크 (500)
             if (Target && Target != this && FVector::Dist(GetActorLocation(), Target->GetActorLocation()) <= 500.0f)
             {
+                // ★ 추가 — 본인 화면에서 즉시 회전 (반응성 향상)
+                FVector Direction = Target->GetActorLocation() - GetActorLocation();
+                Direction.Z = 0.0f;
+                if (!Direction.IsNearlyZero())
+                {
+                    FRotator LookRotation = Direction.Rotation();
+                    LookRotation.Pitch = 0.0f;
+                    LookRotation.Roll = 0.0f;
+                    SetActorRotation(LookRotation);
+                }
+
                 // 2. 서버에 실행 요청 (인자로 타겟 전달)
                 Server_ExecuteCondemn(Target);
             }
@@ -151,9 +256,23 @@ void AChampion_Vayne::Skill_E()
     }
 }
 
+void AChampion_Vayne::Multicast_PlayEMontage_Implementation()
+{
+    if (EMontage)
+    {
+        PlayAnimMontage(EMontage, 2.0f);
+    }
+}
+
+void AChampion_Vayne::Multicast_SetCondemnRotation_Implementation(FRotator NewRotation)
+{
+    SetActorRotation(NewRotation);
+}
+
 // 서버 RPC 검증
 bool AChampion_Vayne::Server_ExecuteCondemn_Validate(ACharacter* Target)
 {
+    if (!IsValid(Target)) return false; 
     return true;
 }
 
@@ -162,29 +281,29 @@ void AChampion_Vayne::Server_ExecuteCondemn_Implementation(ACharacter* Target)
 {
     if (!Target || !Target->GetCharacterMovement()) return;
 
-    // 3. 물리 계산 (서버에서 수행)
+    // ★ 회전 멀티캐스트 (모든 클라에서 베인이 적을 향해 돎)
+    FVector RotDirection = Target->GetActorLocation() - GetActorLocation();
+    RotDirection.Z = 0.0f;
+    if (!RotDirection.IsNearlyZero())
+    {
+        FRotator LookRotation = RotDirection.Rotation();
+        LookRotation.Pitch = 0.0f;
+        LookRotation.Roll = 0.0f;
+        Multicast_SetCondemnRotation(LookRotation);
+    }
+
+    // ★ 모션 멀티캐스트 (모든 클라에서 E 모션 재생) ← 이게 핵심!
+    Multicast_PlayEMontage();
+
+    // 밀쳐내기
     FVector MyLoc = GetActorLocation();
     FVector TargetLoc = Target->GetActorLocation();
-
-    // 밀어낼 방향 (나 -> 상대)
     FVector PushDir = (TargetLoc - MyLoc).GetSafeNormal2D();
-
-    // 4. 발사 속도 계산 (속도 = 거리 / 시간)
-    // 0.4초 동안 600 유닛을 이동시키기 위한 초기 속도 설정
     FVector LaunchVelocity = (PushDir * PushDistance) / PushTime;
-
-    // 공중에 살짝 뜨는 느낌을 주고 싶다면 Z축 값 추가 (선택)
-    // LaunchVelocity.Z = 300.0f;
-
-    // 5. 핵심 함수 실행
-    // XYOverride, ZOverride를 true로 설정하여 기존 이동 속도를 무시하고 즉시 발사
     Target->LaunchCharacter(LaunchVelocity, true, true);
-
-    // (참고) LaunchCharacter는 서버에서 호출 시 CharacterMovementComponent를 통해 
-    // 모든 클라이언트에 위치와 가속도가 자동으로 동기화됩니다.
 }
 
 void AChampion_Vayne::Skill_R()
 {
-
+    
 }

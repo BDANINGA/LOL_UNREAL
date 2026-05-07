@@ -7,6 +7,7 @@
 
 #include "Champion/Champion_Alistar.h"
 #include "Champion/Champion_Vayne.h"
+#include "Champion/Champion_Blitz.h"
 
 ALOL_GameModeBase::ALOL_GameModeBase()
 {
@@ -28,8 +29,8 @@ UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(ACont
         return AChampion_Alistar::StaticClass();
     }
 
-    // 2. 그 외에 접속하는 클라이언트 플레이어들은 베인
-    return AChampion_Vayne::StaticClass();
+    // 2. 그 외에 접속하는 클라이언트 플레이어들
+    return AChampion_Blitz::StaticClass();
 }
 
 void ALOL_GameModeBase::BeginPlay()
