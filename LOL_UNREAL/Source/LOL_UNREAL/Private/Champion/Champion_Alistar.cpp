@@ -82,7 +82,6 @@ void AChampion_Alistar::Multicast_PlayWMontage_Implementation()
 
 void AChampion_Alistar::Skill_Q()
 {
-
     Multicast_PlayQMontage();
     // 1. 마나 체크
     /*if (!ChampionComponent->ConsumeMana(50.0f))
@@ -147,12 +146,6 @@ void AChampion_Alistar::Skill_Q()
                 }
             }
         }
-    }
-
-    // 7. 모션 -------------2026 05 01
-    if (QMontage)
-    {
-        PlayAnimMontage(QMontage, 2.0f);
     }
 }
 
