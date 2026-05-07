@@ -62,8 +62,11 @@ void ULOL_StatComponent::InitializeStat()
 		if (FoundRow)
 		{
 			BaseStat = *FoundRow;
+			BaseStat.MaxMP = 100000000;
 			BaseStat.CurrentHP = BaseStat.MaxHP;
 			BaseStat.CurrentMP = BaseStat.MaxMP;
+			BaseStat.AbilityHaste = 100000000;
+			
 
 			ChampionStatUpdate();
 		}

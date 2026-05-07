@@ -86,13 +86,19 @@ void AChampion_Alistar::Multicast_PlayWMontage_Implementation()
     }
 }
 
+void AChampion_Alistar::Multicast_PlayRMontage_Implementation()
+{
+    if (RMontage)
+    {
+        PlayAnimMontage(RMontage, 1.0f);
+    }
+}
+
 void AChampion_Alistar::Skill_Q()
 {
     if (!SkillComponent->TryCastSkill(SkillComponent->GetQ_Data(), 1)) return;
     Multicast_PlayQMontage();
     // 2. 범위 설정
-    float Radius = 300.0f;
-
     FVector Center = GetActorLocation();
 
     // 3. 충돌 결과 저장
@@ -170,6 +176,7 @@ bool AChampion_Alistar::Server_Skill_W(AActor* Target)
 
 void AChampion_Alistar::Skill_W()
 {
+    if (!SkillComponent->TryCastSkill(SkillComponent->GetW_Data(), 1)) return;
     // 1. 마우스 아래의 캐릭터 타겟팅
     APlayerController* PC = Cast<APlayerController>(GetController());
     if (!PC) return;
@@ -248,6 +255,7 @@ void AChampion_Alistar::ApplyWKnockback(ACharacter* Target)
 
     if (Enemy)
     {
+        
         // [중요] 2. 상대방의 자율 이동 및 공격 로직 일시 중단
         // BaseChampion의 Tick(CheckAttackRange)에서 이 변수를 체크하여 
         // StopMovementImmediately()가 호출되는 것을 막아야 합니다.
@@ -304,8 +312,69 @@ void AChampion_Alistar::ApplyWKnockback(ACharacter* Target)
 
 void AChampion_Alistar::Skill_R()
 {
-    if (RMontage)
+    if (!IsLocallyControlled()) return;
+    Server_Skill_R();
+}
+
+bool AChampion_Alistar::Server_Skill_R_Validate()
+{
+    return true;
+}
+
+void AChampion_Alistar::Server_Skill_R_Implementation()
+{
+    if (bIsUltActive) return;  // 이미 켜져 있으면 무시
+
+    StartUlt();
+    Multicast_PlayRMontage();
+}
+
+void AChampion_Alistar::StartUlt()
+{
+    bIsUltActive = true;
+
+    // ★ CC 해제 — 에어본 빼고
+    ClearCCExceptKnockup();
+
+    UE_LOG(LogTemp, Warning, TEXT("[Alistar R] 불굴의 의지 발동! %.1f초간 무적"), UltDuration);
+
+    // 7초 후 자동 종료
+    GetWorld()->GetTimerManager().SetTimer(
+        UltTimerHandle,
+        this,
+        &AChampion_Alistar::EndUlt,
+        UltDuration,
+        false
+    );
+}
+
+void AChampion_Alistar::ClearCCExceptKnockup()
+{
+    // 스턴 해제
+    if (bIsStunned)
     {
-        PlayAnimMontage(RMontage, 1.0f);
+        ClearStun();
+        UE_LOG(LogTemp, Log, TEXT("[Alistar R] 스턴 해제"));
     }
+
+    // 진행 중인 스턴 타이머도 정리
+    if (GetWorldTimerManager().IsTimerActive(StunHandle))
+    {
+        GetWorldTimerManager().ClearTimer(StunHandle);
+    }
+
+    // ❗ bIsKnockedBack은 건드리지 않음 — 에어본은 유지
+    // 만약 베인 E 같은 다른 CC가 추가되면 여기서 같이 해제
+}
+
+void AChampion_Alistar::EndUlt()
+{
+    bIsUltActive = false;
+    UE_LOG(LogTemp, Warning, TEXT("[Alistar R] 불굴의 의지 종료"));
+}
+
+void AChampion_Alistar::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(AChampion_Alistar, bIsUltActive);
 }
