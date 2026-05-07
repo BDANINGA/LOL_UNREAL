@@ -188,6 +188,8 @@ public:
 
 	float CalculateReducedDamage(float RawDamage, EDamageType Type);
 
+	void ChampionStatUpdate();
+
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 protected:
 	// 능력치 관련

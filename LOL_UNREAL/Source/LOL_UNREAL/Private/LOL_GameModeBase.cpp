@@ -1,12 +1,13 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "LOL_GameModeBase.h"
 #include "LOL_PlayerController.h"
-#include "Widget/LOL_HUD.h"
+#include "LOL_HUD.h"
 
 #include "Component/LOL_LifeCycleComponent.h"
 
 #include "Champion/Champion_Alistar.h"
 #include "Champion/Champion_Vayne.h"
+#include "Champion/Champion_Blitz.h"
 
 ALOL_GameModeBase::ALOL_GameModeBase()
 {
@@ -28,7 +29,7 @@ UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(ACont
         return AChampion_Alistar::StaticClass();
     }
 
-    // 2. 그 외에 접속하는 클라이언트 플레이어들은 베인
+    // 2. 그 외에 접속하는 클라이언트 플레이어들
     return AChampion_Vayne::StaticClass();
 }
 
@@ -48,7 +49,7 @@ void ALOL_GameModeBase::RequestRespawn(ABaseChampion* DeadChampion)
         FTimerHandle RespawnTimer;
         FTimerDelegate RespawnDelegate;
 
-        // 핵심 수정: 바인딩 대상을 컴포넌트와 컴포넌트의 Respawn 함수로 변경합니다.[cite: 14, 15]
+        // 핵심 수정: 바인딩 대상을 컴포넌트와 컴포넌트의 Respawn 함수로 변경합니다.
         RespawnDelegate.BindUObject(LifeCycleComp, &ULOL_LifeCycleComponent::Respawn);
 
         GetWorldTimerManager().SetTimer(RespawnTimer, RespawnDelegate, RespawnDelay, false);

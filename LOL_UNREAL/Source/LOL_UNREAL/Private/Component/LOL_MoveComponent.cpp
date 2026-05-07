@@ -43,7 +43,8 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
 
 void ULOL_MoveComponent::SetMoveTarget(FVector NewLocation, AActor* TargetActor)
 {
-    if (TargetActor && TargetActor != Owner) {
+    ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
+    if (TargetChampion && TargetChampion != Owner) {
         bIsMoving = false;
     }
     else {

@@ -21,7 +21,7 @@ public:
 	UPROPERTY(Replicated)
 	FVector TargetLocation;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Status")
 	bool bIsMoving = false;
 
 protected:

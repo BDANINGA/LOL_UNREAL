@@ -69,7 +69,7 @@ void ULOL_LifeCycleComponent::Respawn()
 		Owner->StatComponent->SetMp(Owner->StatComponent->GetStat().MaxMP);
 	}
 
-	Owner->SetActorLocation(FVector(0, 0, 100));
+	Owner->SetActorLocation(FVector(-4803.230668, 5708.599208, -1461.45844));
 	Multicast_OnRespawn();
 }
 void ULOL_LifeCycleComponent::Multicast_OnRespawn_Implementation()
