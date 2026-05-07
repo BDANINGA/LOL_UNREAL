@@ -26,6 +26,21 @@ AChampion_Alistar::AChampion_Alistar()
 		GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -90.f));
 		GetMesh()->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
 
+        // HUD 이미지 연결
+        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionPortrait_Image(TEXT("/Game/Level/alistar/alistar_portrait/alistar_circle.alistar_circle"));
+        if (ChampionPortrait_Image.Succeeded()) Portrait_Image = ChampionPortrait_Image.Object;
+        else { UE_LOG(LogTemp, Error, TEXT("Image Load Failed!")); }
+        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionSkillQ_Image(TEXT("/Game/Level/alistar/alistar_skill_tex/AlistarQ.AlistarQ"));
+        if (ChampionSkillQ_Image.Succeeded()) SkillQ_Image = ChampionSkillQ_Image.Object;
+        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionSkillW_Image(TEXT("/Game/Level/alistar/alistar_skill_tex/AlistarW.AlistarW"));
+        if (ChampionSkillW_Image.Succeeded()) SkillW_Image = ChampionSkillW_Image.Object;
+        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionSkillE_Image(TEXT("/Game/Level/alistar/alistar_skill_tex/AlistarE.AlistarE"));
+        if (ChampionSkillE_Image.Succeeded()) SkillE_Image = ChampionSkillE_Image.Object;
+        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionSkillR_Image(TEXT("/Game/Level/alistar/alistar_skill_tex/AlistarR.AlistarR"));
+        if (ChampionSkillR_Image.Succeeded()) SkillR_Image = ChampionSkillR_Image.Object;
+        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionSkillP_Image(TEXT("/Game/Level/alistar/alistar_skill_tex/AlistarP.AlistarP"));
+        if (ChampionSkillP_Image.Succeeded()) SkillP_Image = ChampionSkillP_Image.Object;
+
 		// 애니메이션 블루프린트 연결
 		static ConstructorHelpers::FClassFinder<UAnimInstance> AlistarABP(TEXT("/Game/Level/alistar/abp_alistar.abp_alistar_C"));
 		if (AlistarABP.Succeeded())

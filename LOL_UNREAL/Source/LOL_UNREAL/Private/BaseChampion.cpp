@@ -6,8 +6,9 @@
 // 3. 공격 대상 지정
 // ----------------------------------------------------------------------------------
 #include "BaseChampion.h"
-#include "LOL_PlayerController.h"
 #include "LOL_GameModeBase.h"
+#include "LOL_PlayerController.h"
+#include "LOL_HUD.h"
 
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
@@ -96,6 +97,19 @@ void ABaseChampion::BeginPlay()
 		UIComponent->UpdateHpFromStat(StatComponent->GetStat().CurrentHP);
 		UIComponent->UpdateMpFromStat(StatComponent->GetStat().CurrentMP);
 	}
+	if (IsLocallyControlled())
+	{
+		APlayerController* PC = Cast<APlayerController>(GetController());
+		if (PC)
+		{
+			ALOL_HUD* MyHUD = Cast<ALOL_HUD>(PC->GetHUD());
+			if (MyHUD && MyHUD->MainHUDWidget)
+			{
+				MyHUD->UpdateAll_Images(this);
+			}
+		}
+	}
+
 }
 void ABaseChampion::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {

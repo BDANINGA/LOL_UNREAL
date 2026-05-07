@@ -7,6 +7,7 @@
 #include "LOL_HUD.generated.h"
 
 class ULOL_HUDWidget;
+class ABaseChampion;
 
 UCLASS()
 class LOL_UNREAL_API ALOL_HUD : public AHUD
@@ -30,6 +31,8 @@ public:
     void UpdateAbilityHaste(float CurrentAbilityHaste);
     void UpdateCriticalRate(float CurrentCriticalRate);
     void UpdateMoveSpeed(float CurrentMoveSpeed);
+
+    void UpdateAll_Images(ABaseChampion* MYChamp);
 
 protected:
     virtual void BeginPlay() override;

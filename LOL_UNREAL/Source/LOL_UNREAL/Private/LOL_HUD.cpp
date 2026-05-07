@@ -1,5 +1,6 @@
 // HUD
 #include "LOL_HUD.h"
+#include "BaseChampion.h"
 #include "Widget/LOL_HUDWidget.h"
 
 ALOL_HUD::ALOL_HUD()
@@ -18,7 +19,6 @@ void ALOL_HUD::BeginPlay()
     APlayerController* PC = GetOwningPlayerController();
     if (PC && PC->IsLocalController())
     {
-        // 기존에 혹시 남아있을지 모를 위젯 정리 (Leak 방지)
         if (MainHUDWidget)
         {
             MainHUDWidget->RemoveFromParent();
@@ -70,4 +70,14 @@ void ALOL_HUD::UpdateCriticalRate(float CurrentCriticalRate)
 void ALOL_HUD::UpdateMoveSpeed(float CurrentMoveSpeed)
 {
     if (MainHUDWidget) MainHUDWidget->SetMoveSpeed(CurrentMoveSpeed);
+}
+
+void ALOL_HUD::UpdateAll_Images(ABaseChampion* MyChamp)
+{
+    if (MyChamp->Portrait_Image) MainHUDWidget->Portrait_Image->SetBrushFromTexture(MyChamp->Portrait_Image);
+    if (MyChamp->SkillQ_Image) MainHUDWidget->SkillQ_Image->SetBrushFromTexture(MyChamp->SkillQ_Image);
+    if (MyChamp->SkillW_Image) MainHUDWidget->SkillW_Image->SetBrushFromTexture(MyChamp->SkillW_Image);
+    if (MyChamp->SkillE_Image) MainHUDWidget->SkillE_Image->SetBrushFromTexture(MyChamp->SkillE_Image);
+    if (MyChamp->SkillR_Image) MainHUDWidget->SkillR_Image->SetBrushFromTexture(MyChamp->SkillR_Image);
+    if (MyChamp->SkillP_Image) MainHUDWidget->SkillP_Image->SetBrushFromTexture(MyChamp->SkillP_Image);
 }

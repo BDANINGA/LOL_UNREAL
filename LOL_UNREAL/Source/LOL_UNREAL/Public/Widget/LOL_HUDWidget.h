@@ -4,6 +4,7 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/TextBlock.h"
+#include "Components/Image.h"
 #include "LOL_HUDWidget.generated.h"
 
 UCLASS()
@@ -12,6 +13,20 @@ class LOL_UNREAL_API ULOL_HUDWidget : public UUserWidget
 	GENERATED_BODY()
 	
 public:
+    UPROPERTY(meta = (BindWidget))
+    class UImage* Portrait_Image;
+    UPROPERTY(meta = (BindWidget))
+    class UImage* SkillQ_Image;
+    UPROPERTY(meta = (BindWidget))
+    class UImage* SkillW_Image;
+    UPROPERTY(meta = (BindWidget))
+    class UImage* SkillE_Image;
+    UPROPERTY(meta = (BindWidget))
+    class UImage* SkillR_Image;
+    UPROPERTY(meta = (BindWidget))
+    class UImage* SkillP_Image;
+
+
     UPROPERTY(meta = (BindWidget))
     UTextBlock* Txt_AD;
 

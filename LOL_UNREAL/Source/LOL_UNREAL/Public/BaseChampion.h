@@ -46,6 +46,20 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class UChampion_SkillComponent* SkillComponent;
 
+	// UI Image
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* Portrait_Image;
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* SkillQ_Image;
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* SkillW_Image;
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* SkillE_Image;
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* SkillR_Image;
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* SkillP_Image;
+
 	FName GetChampionName() const { return ChampionName; }
 
 	// 추가: 캐릭터 스킬 함수 구현
