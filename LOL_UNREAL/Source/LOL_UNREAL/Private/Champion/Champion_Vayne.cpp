@@ -46,7 +46,6 @@ void AChampion_Vayne::SetChampionData(FName RowName)
             SkillP_Image = Data->SkillP_Image;
 
             AttackMontage = Data->AttackMontage;
-            DeathMontage = Data->DeathMontage;
             QMontage = Data->QMontage;
             WMontage = Data->WMontage;
             EMontage = Data->EMontage;
