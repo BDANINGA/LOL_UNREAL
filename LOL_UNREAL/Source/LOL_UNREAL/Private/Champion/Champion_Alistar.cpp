@@ -13,76 +13,51 @@
 
 AChampion_Alistar::AChampion_Alistar()
 {
-    // 데이터 테이블 연결
     ChampionName = TEXT("Alistar");
+    SetChampionData(ChampionName);
+}
 
-	// 스켈레탈 메쉬 에셋 연결
-	static ConstructorHelpers::FObjectFinder<USkeletalMesh> AlistarMesh(TEXT("/Game/Level/alistar/unrea_alistar_real_1.unrea_alistar_real_1"));
+void AChampion_Alistar::SetChampionData(FName RowName)
+{
+    static ConstructorHelpers::FObjectFinder<UDataTable> ChampionResource(TEXT("/Game/LOL_Data/Data_Champions/Data_ChampionResource.Data_ChampionResource"));
+    if (ChampionResource.Succeeded())
+    {
+        UDataTable* DataTable = ChampionResource.Object;
 
-	if (AlistarMesh.Succeeded())
-	{
-		GetMesh()->SetSkeletalMesh(AlistarMesh.Object);
+        FChampionData* Data = DataTable->FindRow<FChampionData>(RowName, TEXT(""));
 
-		GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -90.f));
-		GetMesh()->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
-
-        // HUD 이미지 연결
-        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionPortrait_Image(TEXT("/Game/Level/alistar/alistar_portrait/alistar_circle.alistar_circle"));
-        if (ChampionPortrait_Image.Succeeded()) Portrait_Image = ChampionPortrait_Image.Object;
-        else { UE_LOG(LogTemp, Error, TEXT("Image Load Failed!")); }
-        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionSkillQ_Image(TEXT("/Game/Level/alistar/alistar_skill_tex/AlistarQ.AlistarQ"));
-        if (ChampionSkillQ_Image.Succeeded()) SkillQ_Image = ChampionSkillQ_Image.Object;
-        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionSkillW_Image(TEXT("/Game/Level/alistar/alistar_skill_tex/AlistarW.AlistarW"));
-        if (ChampionSkillW_Image.Succeeded()) SkillW_Image = ChampionSkillW_Image.Object;
-        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionSkillE_Image(TEXT("/Game/Level/alistar/alistar_skill_tex/AlistarE.AlistarE"));
-        if (ChampionSkillE_Image.Succeeded()) SkillE_Image = ChampionSkillE_Image.Object;
-        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionSkillR_Image(TEXT("/Game/Level/alistar/alistar_skill_tex/AlistarR.AlistarR"));
-        if (ChampionSkillR_Image.Succeeded()) SkillR_Image = ChampionSkillR_Image.Object;
-        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionSkillP_Image(TEXT("/Game/Level/alistar/alistar_skill_tex/AlistarP.AlistarP"));
-        if (ChampionSkillP_Image.Succeeded()) SkillP_Image = ChampionSkillP_Image.Object;
-
-		// 애니메이션 블루프린트 연결
-		static ConstructorHelpers::FClassFinder<UAnimInstance> AlistarABP(TEXT("/Game/Level/alistar/abp_alistar.abp_alistar_C"));
-		if (AlistarABP.Succeeded())
-		{
-			GetMesh()->SetAnimInstanceClass(AlistarABP.Class);
-			GetMesh()->SetAnimationMode(EAnimationMode::AnimationBlueprint);
-		}
-
-		static ConstructorHelpers::FObjectFinder<UAnimMontage> AlistarAttackMtg(TEXT("/Game/Level/alistar/am_alistar_attack1.am_alistar_attack1"));
-		if (AlistarAttackMtg.Succeeded())
-		{
-			AttackMontage = AlistarAttackMtg.Object;
-		}
-
-		static ConstructorHelpers::FObjectFinder<UAnimMontage> AlistarDeathMtg(TEXT("/Game/Level/alistar/am_alistar_death.am_alistar_death"));
-		if (AlistarDeathMtg.Succeeded())
-		{
-			DeathMontage = AlistarDeathMtg.Object;
-		}
-
-        // 2026 05 01 
-        static ConstructorHelpers::FObjectFinder<UAnimMontage> AlistarQMtg(
-            TEXT("/Game/Level/alistar/am_alistar_spell1.am_alistar_spell1"));
-        if (AlistarQMtg.Succeeded())
+        if (Data)
         {
-            QMontage = AlistarQMtg.Object;
-        }
+            if (Data->Mesh)
+            {
+                GetMesh()->SetSkeletalMesh(Data->Mesh);
+                GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -90.f));
+                GetMesh()->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
+            }
+            if (Data->AnimBlueprint)
+            {
+                GetMesh()->SetAnimInstanceClass(Data->AnimBlueprint);
+                GetMesh()->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+            }
+            Portrait = Data->Portrait;
+            Portrait_Circle = Data->Portrait_Circle;
+            Portrait_Loading = Data->Portrait_Loading;
 
-        static ConstructorHelpers::FObjectFinder<UAnimMontage> AlistarWMtg(
-            TEXT("/Game/Level/alistar/am_alistar_spell2.am_alistar_spell2"));
-        if (AlistarWMtg.Succeeded())
-        {
-            WMontage = AlistarWMtg.Object;
-        }
+            SkillQ_Image = Data->SkillQ_Image;
+            SkillW_Image = Data->SkillW_Image;
+            SkillE_Image = Data->SkillE_Image;
+            SkillR_Image = Data->SkillR_Image;
+            SkillP_Image = Data->SkillP_Image;
 
-        static ConstructorHelpers::FObjectFinder<UAnimMontage> AlistarRMtg(
-            TEXT("/Game/Level/alistar/am_alistar_spell4.am_alistar_spell4"));
-        if (AlistarRMtg.Succeeded())
-        {
-            RMontage = AlistarRMtg.Object;
+            AttackMontage = Data->AttackMontage;
+            DeathMontage = Data->DeathMontage;
+            QMontage = Data->QMontage;
+            WMontage = Data->WMontage;
+            EMontage = Data->EMontage;
+            RMontage = Data->RMontage;
+            PMontage = Data->PMontage;
         }
-	}
+    }
 }
 
 void AChampion_Alistar::Multicast_PlayQMontage_Implementation()
@@ -111,7 +86,7 @@ void AChampion_Alistar::Multicast_PlayRMontage_Implementation()
 
 void AChampion_Alistar::Skill_Q()
 {
-    if (!SkillComponent->TryCastSkill(SkillComponent->GetQ_Data(), 1)) return;
+
     Multicast_PlayQMontage();
     // 2. 범위 설정
     FVector Center = GetActorLocation();
@@ -191,7 +166,6 @@ bool AChampion_Alistar::Server_Skill_W(AActor* Target)
 
 void AChampion_Alistar::Skill_W()
 {
-    if (!SkillComponent->TryCastSkill(SkillComponent->GetW_Data(), 1)) return;
     // 1. 마우스 아래의 캐릭터 타겟팅
     APlayerController* PC = Cast<APlayerController>(GetController());
     if (!PC) return;

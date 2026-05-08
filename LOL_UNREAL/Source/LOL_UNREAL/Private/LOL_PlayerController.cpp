@@ -226,9 +226,8 @@ void ALOL_PlayerController::OnSkillQ()
 
 	if (MyPawn)
 	{
-		MyPawn->Skill_Q();
+		MyPawn->PressSkill('q');
 	}
-	// 화면 왼쪽 위에 3초 동안 빨간색 글씨를 띄웁니다
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Q Skill Used!"));
 }
 void ALOL_PlayerController::OnSkillW()
@@ -237,7 +236,7 @@ void ALOL_PlayerController::OnSkillW()
 
 	if (MyPawn)
 	{
-		MyPawn->Skill_W();
+		MyPawn->PressSkill('w');
 	}
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green, TEXT("W Skill Used!"));
 }
@@ -247,7 +246,7 @@ void ALOL_PlayerController::OnSkillE()
 
 	if (MyPawn)
 	{
-		MyPawn->Skill_E();
+		MyPawn->PressSkill('e');
 	}
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Blue, TEXT("E Skill Used!"));
 }
@@ -257,7 +256,7 @@ void ALOL_PlayerController::OnSkillR()
 
 	if (MyPawn)
 	{
-		MyPawn->Skill_R();
+		MyPawn->PressSkill('r');
 	}
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("R Skill (Ultimate) Used!"));
 }

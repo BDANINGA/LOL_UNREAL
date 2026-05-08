@@ -1,7 +1,5 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "Champion/Champion_Vayne.h"
+
 #include "Components/CapsuleComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -9,72 +7,53 @@
 #include "Kismet/GameplayStatics.h"     // 2026 05 01 
 #include "GameFramework/DamageType.h"   // 2026 05 01 (UDamageType용)
 
-
 AChampion_Vayne::AChampion_Vayne()
 {
-    // 데이터 테이블 연결
     ChampionName = TEXT("Vayne");
+    SetChampionData(ChampionName);
+}
 
-	// 스켈레탈 메쉬 에셋 연결
-	static ConstructorHelpers::FObjectFinder<USkeletalMesh> VayneMesh(TEXT("/Game/Level/vain_real/unreal_vain_idle.unreal_vain_idle"));
+void AChampion_Vayne::SetChampionData(FName RowName)
+{
+    static ConstructorHelpers::FObjectFinder<UDataTable> ChampionResource(TEXT("/Game/LOL_Data/Data_Champions/Data_ChampionResource.Data_ChampionResource"));
+    if (ChampionResource.Succeeded())
+    {
+        UDataTable* DataTable = ChampionResource.Object;
 
-	if (VayneMesh.Succeeded())
-	{
-		GetMesh()->SetSkeletalMesh(VayneMesh.Object);
+        FChampionData* Data = DataTable->FindRow<FChampionData>(RowName, TEXT(""));
 
-		GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -90.f));
-		GetMesh()->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
-
-        // HUD 이미지 연결
-        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionPortrait_Image(TEXT("/Game/Level/alistar/alistar_portrait/alistar_circle.alistar_circle"));
-        if (ChampionPortrait_Image.Succeeded()) Portrait_Image = ChampionPortrait_Image.Object;
-        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionSkillQ_Image(TEXT("/Game/Level/vain_real/vain_spell_tex/VayneQ.VayneQ"));
-        if (ChampionSkillQ_Image.Succeeded()) SkillQ_Image = ChampionSkillQ_Image.Object;
-        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionSkillW_Image(TEXT("/Game/Level/vain_real/vain_spell_tex/VayneW.VayneW"));
-        if (ChampionSkillW_Image.Succeeded()) SkillW_Image = ChampionSkillW_Image.Object;
-        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionSkillE_Image(TEXT("/Game/Level/vain_real/vain_spell_tex/VayneE.VayneE"));
-        if (ChampionSkillE_Image.Succeeded()) SkillE_Image = ChampionSkillE_Image.Object;
-        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionSkillR_Image(TEXT("/Game/Level/vain_real/vain_spell_tex/VayneR.VayneR"));
-        if (ChampionSkillR_Image.Succeeded()) SkillR_Image = ChampionSkillR_Image.Object;
-        static ConstructorHelpers::FObjectFinder<UTexture2D> ChampionSkillP_Image(TEXT("/Game/Level/vain_real/vain_spell_tex/VayneP.VayneP"));
-        if (ChampionSkillP_Image.Succeeded()) SkillP_Image = ChampionSkillP_Image.Object;
-
-		// 애니메이션 블루프린트 연결
-		static ConstructorHelpers::FClassFinder<UAnimInstance> VayneABP(TEXT("/Game/Level/vain_real/abp_unreal_vain.abp_unreal_vain_C"));
-		if (VayneABP.Succeeded())
-		{
-			GetMesh()->SetAnimInstanceClass(VayneABP.Class);
-			GetMesh()->SetAnimationMode(EAnimationMode::AnimationBlueprint);
-		}
-
-		static ConstructorHelpers::FObjectFinder<UAnimMontage> VayneAttackMtg(TEXT("/Game/Level/vain_real/am_attack_1.am_attack_1"));
-		if (VayneAttackMtg.Succeeded())
-		{
-			AttackMontage = VayneAttackMtg.Object;
-		}
-
-        // 2026 05 01 (몽타주 생성) 
-        static ConstructorHelpers::FObjectFinder<UAnimMontage> VayneQMtg(
-            TEXT("/Game/Level/vain_real/AM_Skill_Q.am_Skill_Q"));
-        if (VayneQMtg.Succeeded())
+        if (Data)
         {
-            QMontage = VayneQMtg.Object;
-        }
+            if (Data->Mesh)
+            {
+                GetMesh()->SetSkeletalMesh(Data->Mesh);
+                GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -90.f));
+                GetMesh()->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
+            }
+            if (Data->AnimBlueprint)
+            {
+                GetMesh()->SetAnimInstanceClass(Data->AnimBlueprint);
+                GetMesh()->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+            }
+            Portrait = Data->Portrait;
+            Portrait_Circle = Data->Portrait_Circle;
+            Portrait_Loading = Data->Portrait_Loading;
 
-        static ConstructorHelpers::FObjectFinder<UAnimMontage> VayneEMtg(
-            TEXT("/Game/Level/vain_real/AM_skill_E.am_skill_E"));
-        if (VayneEMtg.Succeeded())
-        {
-            EMontage = VayneEMtg.Object;
-        }
+            SkillQ_Image = Data->SkillQ_Image;
+            SkillW_Image = Data->SkillW_Image;
+            SkillE_Image = Data->SkillE_Image;
+            SkillR_Image = Data->SkillR_Image;
+            SkillP_Image = Data->SkillP_Image;
 
-        static ConstructorHelpers::FObjectFinder<UAnimMontage> VayneRMtg(
-            TEXT("/Game/Level/vain_real/am_vain_ult_idle.am_vain_ult_idle"));
-        if (VayneRMtg.Succeeded())
-        {
-            RMontage = VayneRMtg.Object;
+            AttackMontage = Data->AttackMontage;
+            DeathMontage = Data->DeathMontage;
+            QMontage = Data->QMontage;
+            WMontage = Data->WMontage;
+            EMontage = Data->EMontage;
+            RMontage = Data->RMontage;
+            PMontage = Data->PMontage;
         }
-	}
+    }
 }
 
 void AChampion_Vayne::Skill_Q()

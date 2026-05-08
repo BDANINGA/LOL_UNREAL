@@ -1,15 +1,60 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-// BaseChampion.h
 // 챔피언의 기본 설정
-// 1. 카메라 설정
-// 2. 기본 능력치
-// 3. 공격 대상 지정
 // ----------------------------------------------------------------------------------
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "BaseChampion.generated.h"
+
+// 챔피언 리소스 데이터 테이블
+USTRUCT(BlueprintType)
+struct FChampionData : public FTableRowBase
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditAnywhere, Category = "Name")
+	FString ChampionName;
+
+	UPROPERTY(EditAnywhere, Category = "Mesh")
+	USkeletalMesh* Mesh;
+
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* Portrait;
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* Portrait_Circle;
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* Portrait_Loading;
+
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* SkillP_Image;
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* SkillQ_Image;
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* SkillW_Image;
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* SkillE_Image;
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* SkillR_Image;
+
+	UPROPERTY(EditAnywhere, Category = "ABP")
+	TSubclassOf<UAnimInstance> AnimBlueprint;
+
+	UPROPERTY(EditAnywhere, Category = "AM")
+	UAnimMontage* AttackMontage;
+	UPROPERTY(EditAnywhere, Category = "AM")
+	UAnimMontage* DeathMontage;
+	UPROPERTY(EditAnywhere, Category = "AM")
+	UAnimMontage* QMontage;
+	UPROPERTY(EditAnywhere, Category = "AM")
+	UAnimMontage* WMontage;
+	UPROPERTY(EditAnywhere, Category = "AM")
+	UAnimMontage* EMontage;
+	UPROPERTY(EditAnywhere, Category = "AM")
+	UAnimMontage* RMontage;
+	UPROPERTY(EditAnywhere, Category = "AM")
+	UAnimMontage* PMontage;
+};
 
 UCLASS()
 class LOL_UNREAL_API ABaseChampion : public ACharacter
@@ -48,7 +93,11 @@ public:
 
 	// UI Image
 	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* Portrait_Image;
+	UTexture2D* Portrait;
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* Portrait_Circle;
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* Portrait_Loading;
 	UPROPERTY(EditAnywhere, Category = "UI")
 	UTexture2D* SkillQ_Image;
 	UPROPERTY(EditAnywhere, Category = "UI")
@@ -62,11 +111,13 @@ public:
 
 	FName GetChampionName() const { return ChampionName; }
 
-	// 추가: 캐릭터 스킬 함수 구현
-	virtual void Skill_Q();
-	virtual void Skill_W();
-	virtual void Skill_E();
-	virtual void Skill_R();
+	void PressSkill(char skilltype);
+
+	virtual void SetChampionData(FName RowName) {};
+	virtual void Skill_Q() {};
+	virtual void Skill_W() {};
+	virtual void Skill_E() {};
+	virtual void Skill_R() {};
 
 	//스턴 변수
 	void ApplyStun(float Duration);
@@ -104,25 +155,22 @@ protected:
 
 	float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
+	FName ChampionName;
+
 	//2026 05 01 (q,w,e,r모션 만들기 위해 더 추가)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 	class UAnimMontage* AttackMontage;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
-	class UAnimMontage* QMontage;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
-	class UAnimMontage* WMontage;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
-	class UAnimMontage* EMontage;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
-	class UAnimMontage* RMontage;
-
 	UPROPERTY(EditAnywhere, Category = "Animation")
 	class UAnimMontage* DeathMontage;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
-	FName ChampionName;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+	class UAnimMontage* QMontage;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+	class UAnimMontage* WMontage;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+	class UAnimMontage* EMontage;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+	class UAnimMontage* RMontage;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+	class UAnimMontage* PMontage;
 };

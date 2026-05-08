@@ -1,21 +1,23 @@
-#include "Champion/Champion_Blitz.h"
+#include "Champion/Champion_Garen.h"
 
 #include "Component/Champion_SkillComponent.h"
 #include "Component/LOL_StatComponent.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "Components/CapsuleComponent.h"
 
 #include "Kismet/GameplayStatics.h"
+#include "Net/UnrealNetwork.h"
+
 #include "GameFramework/CharacterMovementComponent.h"
 
 #include "UObject/ConstructorHelpers.h"
 
-AChampion_Blitz::AChampion_Blitz()
+AChampion_Garen::AChampion_Garen()
 {
-	ChampionName = TEXT("Blitzcrank");
-	SetChampionData(ChampionName);
+    ChampionName = TEXT("Garen");
+    SetChampionData(ChampionName);
 }
-void AChampion_Blitz::SetChampionData(FName RowName)
+
+void AChampion_Garen::SetChampionData(FName RowName)
 {
     static ConstructorHelpers::FObjectFinder<UDataTable> ChampionResource(TEXT("/Game/LOL_Data/Data_Champions/Data_ChampionResource.Data_ChampionResource"));
     if (ChampionResource.Succeeded())
@@ -58,7 +60,18 @@ void AChampion_Blitz::SetChampionData(FName RowName)
     }
 }
 
-void AChampion_Blitz::Skill_Q() {}
-void AChampion_Blitz::Skill_W() {}
-void AChampion_Blitz::Skill_E() {}
-void AChampion_Blitz::Skill_R() {}
+void AChampion_Garen::Skill_Q()
+{
+}
+
+void AChampion_Garen::Skill_W()
+{
+}
+
+void AChampion_Garen::Skill_E()
+{
+}
+
+void AChampion_Garen::Skill_R()
+{
+}

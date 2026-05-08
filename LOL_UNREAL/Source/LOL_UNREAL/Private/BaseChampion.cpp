@@ -193,6 +193,26 @@ bool ABaseChampion::Server_ProcessMoveInput_Validate(FVector ClickLocation, AAct
 	return true;
 }
 
+void ABaseChampion::PressSkill(char skilltype)
+{
+	if (skilltype == 'q') {
+		if (not SkillComponent->TryCastSkill(SkillComponent->GetQ_Data(), 1)) return;
+		Skill_Q();
+	}
+	if (skilltype == 'w') {
+		if (not SkillComponent->TryCastSkill(SkillComponent->GetW_Data(), 1)) return;
+		Skill_W();
+	}
+	if (skilltype == 'e') {
+		if (not SkillComponent->TryCastSkill(SkillComponent->GetE_Data(), 1)) return;
+		Skill_E();
+	}
+	if (skilltype == 'r') {
+		if (not SkillComponent->TryCastSkill(SkillComponent->GetR_Data(), 1)) return;
+		Skill_R();
+	}
+}
+
 //스턴 로직
 void ABaseChampion::ApplyStun(float Duration)
 {
@@ -236,8 +256,3 @@ void ABaseChampion::SetIsKnockedBack(bool bInKnockback)
 	// 실제 로직 (예: 변수 업데이트)
 	bIsKnockedBack = bInKnockback;
 }
-
-void ABaseChampion::Skill_Q(){}
-void ABaseChampion::Skill_W(){}
-void ABaseChampion::Skill_E(){}
-void ABaseChampion::Skill_R(){}

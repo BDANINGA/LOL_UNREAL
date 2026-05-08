@@ -74,7 +74,7 @@ void ALOL_HUD::UpdateMoveSpeed(float CurrentMoveSpeed)
 
 void ALOL_HUD::UpdateAll_Images(ABaseChampion* MyChamp)
 {
-    if (MyChamp->Portrait_Image) MainHUDWidget->Portrait_Image->SetBrushFromTexture(MyChamp->Portrait_Image);
+    if (MyChamp->Portrait_Circle) MainHUDWidget->Portrait_Image->SetBrushFromTexture(MyChamp->Portrait_Circle);
     if (MyChamp->SkillQ_Image) MainHUDWidget->SkillQ_Image->SetBrushFromTexture(MyChamp->SkillQ_Image);
     if (MyChamp->SkillW_Image) MainHUDWidget->SkillW_Image->SetBrushFromTexture(MyChamp->SkillW_Image);
     if (MyChamp->SkillE_Image) MainHUDWidget->SkillE_Image->SetBrushFromTexture(MyChamp->SkillE_Image);
