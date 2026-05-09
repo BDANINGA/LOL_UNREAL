@@ -43,8 +43,6 @@ public:
 	UPROPERTY(EditAnywhere, Category = "AM")
 	UAnimMontage* AttackMontage;
 	UPROPERTY(EditAnywhere, Category = "AM")
-	UAnimMontage* DeathMontage;
-	UPROPERTY(EditAnywhere, Category = "AM")
 	UAnimMontage* QMontage;
 	UPROPERTY(EditAnywhere, Category = "AM")
 	UAnimMontage* WMontage;
@@ -161,8 +159,6 @@ protected:
 	//2026 05 01 (q,w,e,r모션 만들기 위해 더 추가)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 	class UAnimMontage* AttackMontage;
-	UPROPERTY(EditAnywhere, Category = "Animation")
-	class UAnimMontage* DeathMontage;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 	class UAnimMontage* QMontage;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
