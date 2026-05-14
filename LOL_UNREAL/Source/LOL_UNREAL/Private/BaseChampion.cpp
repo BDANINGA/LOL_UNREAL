@@ -97,13 +97,20 @@ void ABaseChampion::BeginPlay()
 		UIComponent->UpdateMpFromStat(StatComponent->GetStat().CurrentMP);
 	}
 }
+
 void ABaseChampion::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 }
+
 void ABaseChampion::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (bIsKnockedBack)
+	{
+		return;
+	}
 
 	if (LifeCycleComponent->bIsDead) return;
 
@@ -167,6 +174,8 @@ void ABaseChampion::ProcessMoveInput(FVector ClickLocation, AActor* TargetActor)
 }
 void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation, AActor* TargetActor)
 {
+	if (bIsKnockedBack) return;
+
 	if (LifeCycleComponent->bIsDead) return;
 
 	ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
@@ -198,7 +207,6 @@ void ABaseChampion::ApplyStun(float Duration)
 //스턴해제
 void ABaseChampion::ClearStun()
 {
-
 	GetCharacterMovement()->SetMovementMode(MOVE_Walking); // 이동 복구
 
 	bIsStunned = false;

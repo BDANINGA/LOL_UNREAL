@@ -74,7 +74,7 @@ void AChampion_Alistar::Multicast_PlayQMontage_Implementation()
 {
     if (QMontage)
     {
-        PlayAnimMontage(QMontage, 1.0f);
+        PlayAnimMontage(QMontage, 2.0f);
     }
 }
 
@@ -94,9 +94,21 @@ void AChampion_Alistar::Multicast_PlayRMontage_Implementation()
     }
 }
 
+void AChampion_Alistar::EndQCast()
+{
+    // 이동 복구
+    GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+    bCanAttack = true;
+}
+
 void AChampion_Alistar::Skill_Q()
 {
     if (!SkillComponent->TryCastSkill(SkillComponent->GetQ_Data(), 1)) return;
+
+    // ★ 본인 시전 잠금
+    GetCharacterMovement()->DisableMovement();
+    GetCharacterMovement()->StopMovementImmediately();
+
     Multicast_PlayQMontage();
     // 2. 범위 설정
     FVector Center = GetActorLocation();
@@ -137,6 +149,9 @@ void AChampion_Alistar::Skill_Q()
                     MoveComp->SetMovementMode(MOVE_Falling);
                 }
 
+                // ★ 추가 — 적이 알리스타 캡슐을 무시하도록 (옆으로 안 밀리게)
+                Target->MoveIgnoreActorAdd(this);
+
                 // 4. 에어본 발사
                 Target->LaunchCharacter(FVector(0, 0, 600.0f), true, true);
 
@@ -146,15 +161,24 @@ void AChampion_Alistar::Skill_Q()
                     // 그래야 상대방 Tick 로직에서 다시 이동을 시도하지 못합니다.
                     Champ->SetIsKnockedBack(true);
                     Champ->ApplyStun(2.0f);
-
+           
                     // 2초 뒤(스턴 종료 시) 상태 복구 타이머 추가 필요
                     FTimerHandle AirTimer;
-                    GetWorld()->GetTimerManager().SetTimer(AirTimer, [Champ]() {
-                        if (IsValid(Champ)) Champ->SetIsKnockedBack(false);
+                    GetWorld()->GetTimerManager().SetTimer(AirTimer, [Champ, this]() {
+                        if (IsValid(Champ))
+                        {
+                            Champ->SetIsKnockedBack(false); 
+                            
+                            // ★ 추가 — 충돌 무시 해제
+                            if (IsValid(this))
+                            {
+                                Champ->MoveIgnoreActorRemove(this);
+                            }
+                        }
                         }, 1.0f, false); // 에어본 체공 시간만큼 설정
                 }
 
-                float SkillDamage = SkillComponent->GetQ_Data().BaseDamage[0] + StatComponent->GetStat().AbilityPower * 0.5f;
+                float SkillDamage = SkillComponent->GetQ_Data().BaseDamage[0] + StatComponent->GetStat().AttackDamage * 0.8f;
 
                 UGameplayStatics::ApplyDamage(
                     Target,
@@ -166,6 +190,15 @@ void AChampion_Alistar::Skill_Q()
             }
         }
     }
+
+    // ★ Q_CastTime(0.5초) 후 이동 복구
+    GetWorld()->GetTimerManager().SetTimer(
+        Q_CastTimerHandle,
+        this,
+        &AChampion_Alistar::EndQCast,
+        Q_CastTime,
+        false
+    );
 }
 
 bool AChampion_Alistar::Server_Skill_W(AActor* Target)
@@ -210,6 +243,16 @@ void AChampion_Alistar::Skill_W()
 
             Multicast_PlayWMontage();
         }
+
+        float SkillDamage = SkillComponent->GetW_Data().BaseDamage[0] + StatComponent->GetStat().AbilityPower * 1.0f;
+
+        UGameplayStatics::ApplyDamage(
+            Target,
+            SkillDamage,
+            this->GetController(),
+            this,
+            ULOL_DamageMagic::StaticClass()
+        );
     }
 }
 
@@ -308,6 +351,140 @@ void AChampion_Alistar::ApplyWKnockback(ACharacter* Target)
     // 상태 변수 초기화
     bIsW_Dashing = false;
     CurrentWTarget = nullptr;
+}
+
+void AChampion_Alistar::Skill_E()
+{
+    if (!IsLocallyControlled()) return;
+    if (!SkillComponent->TryCastSkill(SkillComponent->GetE_Data(), 1)) return;
+
+    // 마우스 타겟팅 없음 — 자기 주변에 영역 효과
+    Server_Skill_E();
+}
+
+bool AChampion_Alistar::Server_Skill_E_Validate()
+{
+    return true;
+}
+
+void AChampion_Alistar::Server_Skill_E_Implementation()
+{
+    UE_LOG(LogTemp, Warning, TEXT("[Alistar E] 광역 DoT 발동! %d회 데미지"), E_MaxTicks);
+
+    // 틱 카운터 초기화
+    E_CurrentTick = 0;
+
+    // ★ 반복 타이머 — 1초마다 ApplyEDamageTick 호출
+    GetWorld()->GetTimerManager().SetTimer(
+        E_TickTimerHandle,
+        this,
+        &AChampion_Alistar::ApplyEDamageTick,
+        E_TickInterval,
+        true   // ★ true = 반복!
+    );
+
+    // 즉시 한 번 발동 (선택사항 — 첫 데미지가 1초 후 들어가지 말고 즉시)
+    ApplyEDamageTick();
+}
+
+void AChampion_Alistar::ApplyEDamageTick()
+{
+    E_CurrentTick++;
+
+    UE_LOG(LogTemp, Log, TEXT("[Alistar E] %d/%d 틱 발동"),
+        E_CurrentTick, E_MaxTicks);
+
+    // 주변 적 검출
+    FVector Center = GetActorLocation();
+    TArray<FHitResult> Hits;
+    FCollisionShape Sphere = FCollisionShape::MakeSphere(E_Radius);
+
+    bool bHit = GetWorld()->SweepMultiByChannel(
+        Hits,
+        Center,
+        Center,
+        FQuat::Identity,
+        ECC_Pawn,
+        Sphere
+    );
+
+    if (bHit)
+    {
+        // 데미지 계산
+        float TotalDamage = SkillComponent->GetE_Data().BaseDamage[0] +
+            StatComponent->GetStat().AbilityPower * 7.0f;
+
+        float SkillDamage = TotalDamage / E_MaxTicks;
+
+        // 각 적에게 적용
+        for (auto& Hit : Hits)
+        {
+            ACharacter* Target = Cast<ACharacter>(Hit.GetActor());
+            if (Target && Target != this)
+            {
+                UGameplayStatics::ApplyDamage(
+                    Target,
+                    SkillDamage,
+                    GetController(),
+                    this,
+                    ULOL_DamageMagic::StaticClass()
+                );
+
+                UE_LOG(LogTemp, Log, TEXT("[Alistar E] %s에게 %.0f 피해"),
+                    *Target->GetName(), SkillDamage);
+            }
+        }
+    }
+
+    // ★ 최대 틱 도달하면 타이머 정리
+    if (E_CurrentTick >= E_MaxTicks)
+    {
+        GetWorldTimerManager().ClearTimer(E_TickTimerHandle);
+        UE_LOG(LogTemp, Warning, TEXT("[Alistar E] DoT 종료"));
+
+        // ★ 추가 — 다음 평타 스턴 플래그 ON
+        bNextAttackStun = true;
+        UE_LOG(LogTemp, Warning, TEXT("[Alistar E] 다음 평타 강화 (스턴)"));
+
+        // 5초간 못 쓰면 만료
+        GetWorld()->GetTimerManager().SetTimer(
+            E_StunBuffTimerHandle,
+            this,
+            &AChampion_Alistar::EndStunBuff,
+            E_StunBuffDuration,
+            false
+        );
+    }
+}
+
+void AChampion_Alistar::EndStunBuff()
+{
+    if (bNextAttackStun)
+    {
+        bNextAttackStun = false;
+        UE_LOG(LogTemp, Warning, TEXT("[Alistar E] 강화 평타 만료 (사용 안 함)"));
+    }
+}
+
+void AChampion_Alistar::OnBasicAttackHit(ACharacter* Target)
+{
+    if (!HasAuthority()) return;
+    if (!IsValid(Target) || Target == this) return;
+
+    // 강화 평타 플래그가 켜져 있으면 스턴
+    if (bNextAttackStun)
+    {
+        if (ABaseChampion* Enemy = Cast<ABaseChampion>(Target))
+        {
+            Enemy->ApplyStun(E_StunDuration);
+            UE_LOG(LogTemp, Warning, TEXT("[Alistar E] 강화 평타! %s에게 %.1f초 스턴"),
+                *Enemy->GetName(), E_StunDuration);
+        }
+
+        // 한 번 쓰고 플래그 끄기
+        bNextAttackStun = false;
+        GetWorldTimerManager().ClearTimer(E_StunBuffTimerHandle);
+    }
 }
 
 void AChampion_Alistar::Skill_R()

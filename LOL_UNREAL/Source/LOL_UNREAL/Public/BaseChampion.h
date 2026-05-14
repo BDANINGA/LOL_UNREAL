@@ -82,6 +82,8 @@ public:
 	
 	void SetIsKnockedBack(bool bInKnockback);
 
+	virtual void OnBasicAttackHit(ACharacter* Target) {};
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -89,6 +91,9 @@ protected:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+
+	//2026 05 12  평타강화데미지 로직
+	
 
 	//2026 05 01 (q,w,e,r모션 만들기 위해 더 추가)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
