@@ -23,6 +23,8 @@ public:
 
 	bool CanAttack() const { return bCanAttack; }
 
+	void OnBasicAttackHit(ACharacter* Target);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -32,4 +34,6 @@ private:
 
 	FTimerHandle AttackTimerHandle;
 	bool bCanAttack = true;
+
+	
 };

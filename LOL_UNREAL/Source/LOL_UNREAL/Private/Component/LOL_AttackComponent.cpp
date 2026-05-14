@@ -65,6 +65,8 @@ void ULOL_AttackComponent::StartAttack()
             nullptr
         );
 
+        Owner->OnBasicAttackHit(Cast<ACharacter>(Owner->CombatTarget));
+
         FVector Direction = Owner->CombatTarget->GetActorLocation() - Owner->GetActorLocation();
         Direction.Z = 0.f;
 
@@ -77,6 +79,8 @@ void ULOL_AttackComponent::StartAttack()
 
     float AttackDelay = 1.0f / Owner->StatComponent->GetStat().AttackSpeed;
     GetWorld()->GetTimerManager().SetTimer(AttackTimerHandle, this, &ULOL_AttackComponent::ResetAttack, AttackDelay, false);
+
+    
 }
 
 void ULOL_AttackComponent::ResetAttack()

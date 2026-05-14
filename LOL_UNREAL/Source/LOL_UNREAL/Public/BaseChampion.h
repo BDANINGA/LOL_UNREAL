@@ -154,6 +154,8 @@ public:
 	FORCENOINLINE bool GetIsPressA() const { return bIsPressA; }
 	void SetIsPressA(bool toggle);
 
+	virtual void OnBasicAttackHit(ACharacter* Target) {};
+
 protected:
 	virtual void BeginPlay() override;
 

@@ -1,10 +1,14 @@
 #include "Champion/Champion_Vayne.h"
+#include "Component/Champion_SkillComponent.h"
+#include "Component/LOL_StatComponent.h"
 
 #include "Components/CapsuleComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"     // 2026 05 01 
+#include "Champion/VayneArrow.h"    //2026 05 07
 #include "GameFramework/DamageType.h"   // 2026 05 01 (UDamageType용)
 
 AChampion_Vayne::AChampion_Vayne()
@@ -22,7 +26,7 @@ void AChampion_Vayne::SetChampionData(FName RowName)
 
         FChampionData* Data = DataTable->FindRow<FChampionData>(RowName, TEXT(""));
 
-        if (Data)
+        if (Data)        
         {
             if (Data->Mesh)
             {
@@ -120,6 +124,20 @@ void AChampion_Vayne::Server_Skill_Q_Implementation(FVector QLocation)
     DashElapsed = 0.0f;
     GetCharacterMovement()->SetMovementMode(MOVE_None);
     bIsDashing = true;
+
+    // ★ 추가 — 다음 평타 강화 플래그 ON
+    bQEmpowered = true;
+
+    UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 다음 평타 강화!"));
+
+    // 만료 타이머 (6초 안에 평타 안 치면 사라짐)
+    GetWorld()->GetTimerManager().SetTimer(
+        Q_EmpoweredTimerHandle,
+        this,
+        &AChampion_Vayne::EndQEmpower,
+        Q_EmpowerDuration,
+        false
+    );
 }
 
 void AChampion_Vayne::Tick(float DeltaTime)
@@ -150,11 +168,87 @@ void AChampion_Vayne::Skill_W()
     UE_LOG(LogTemp, Log, TEXT("[Vayne W] 은빛 화살은 패시브입니다."));
 }
 
+void AChampion_Vayne::EndQEmpower()
+{
+    if (bQEmpowered)
+    {
+        bQEmpowered = false;
+        UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 강화 평타 만료 (사용 안 함)"));
+    }
+}
+
 void AChampion_Vayne::OnBasicAttackHit(ACharacter* Target)
 {
-    // 서버 권한 체크 — 카운트는 서버에서만 굴림
-    if (!HasAuthority()) return;
-    if (!IsValid(Target) || Target == this) return;
+    if (!HasAuthority())
+    {
+        return;
+    }
+
+    if (!IsValid(Target) || Target == this)
+    {
+        return;
+    }
+
+    if (bQEmpowered)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 강화 평타 발동!"));
+
+        // ★ 1단계 — Target 확인
+        UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 1단계: Target = %s"),
+            IsValid(Target) ? *Target->GetName() : TEXT("nullptr"));
+
+        // ★ 2단계 — SkillComponent 확인
+        if (!SkillComponent)
+        {
+            UE_LOG(LogTemp, Error, TEXT("[Vayne Q] SkillComponent가 nullptr!"));
+            return;
+        }
+        UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 2단계: SkillComponent OK"));
+
+        // ★ 3단계 — Q 데이터 확인
+        const FSkillData& QData = SkillComponent->GetQ_Data();
+        UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 3단계: BaseDamage 크기 = %d"),
+            QData.BaseDamage.Num());
+
+        if (QData.BaseDamage.Num() == 0)
+        {
+            UE_LOG(LogTemp, Error, TEXT("[Vayne Q] BaseDamage 배열이 비어 있음!"));
+            bQEmpowered = false;
+            return;
+        }
+
+        // ★ 4단계 — StatComponent 확인
+        if (!StatComponent)
+        {
+            UE_LOG(LogTemp, Error, TEXT("[Vayne Q] StatComponent가 nullptr!"));
+            return;
+        }
+
+        // ★ 5단계 — 데미지 계산
+        float SkillDamage = QData.BaseDamage[0] +
+            StatComponent->GetStat().AttackDamage * 0.5f;
+
+        UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 5단계: SkillDamage = %.1f"), SkillDamage);
+
+        // ★ 6단계 — ApplyDamage 호출
+        UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 6단계: ApplyDamage 호출 직전"));
+
+        UGameplayStatics::ApplyDamage(
+            Target,
+            SkillDamage,
+            GetController(),
+            this,
+            UDamageType::StaticClass()
+        );
+
+        UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 7단계: ApplyDamage 호출 완료, 적 HP 줄었어야 함"));
+
+        bQEmpowered = false;
+        GetWorldTimerManager().ClearTimer(Q_EmpoweredTimerHandle);
+    }
+
+    // ★ 추가 — 화살 시각 효과 (모든 클라에 전파)
+    Multicast_SpawnArrow(Target->GetActorLocation());
 
     TWeakObjectPtr<ACharacter> Key(Target);
 
@@ -197,14 +291,47 @@ void AChampion_Vayne::OnBasicAttackHit(ACharacter* Target)
         BoltsStackDuration, false);
 }
 
+void AChampion_Vayne::Multicast_SpawnArrow_Implementation(FVector TargetLocation)
+{
+    UE_LOG(LogTemp, Warning, TEXT("[Vayne] Multicast_SpawnArrow_Implementation 실행됨"));
+
+    FVector StartLoc = GetActorLocation() + FVector(0, 0, 50);
+
+    UE_LOG(LogTemp, Warning, TEXT("[Vayne] StartLoc: %s, TargetLoc: %s"),
+        *StartLoc.ToString(), *TargetLocation.ToString());
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.Owner = this;
+    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+    AVayneArrow* Arrow = GetWorld()->SpawnActor<AVayneArrow>(
+        AVayneArrow::StaticClass(),
+        StartLoc,
+        FRotator::ZeroRotator,
+        SpawnParams
+    );
+
+    if (Arrow)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[Vayne] 화살 스폰 성공"));
+        Arrow->InitArrow(StartLoc, TargetLocation);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("[Vayne] 화살 스폰 실패!"));
+    }
+}
+
 void AChampion_Vayne::TriggerSilverBolts(ACharacter* Target)
 {
     if (!IsValid(Target)) return;
 
+    float SkillDamage = SkillComponent->GetE_Data().BaseDamage[0] + StatComponent->GetStat().AttackDamage * 0.5f + BoltsBonusDamage;
+
     // 1. 추가 피해 적용 (서버에서)
     UGameplayStatics::ApplyDamage(
         Target,
-        BoltsBonusDamage,
+        SkillDamage,
         GetController(),
         this,
         UDamageType::StaticClass()
@@ -293,9 +420,67 @@ void AChampion_Vayne::Server_ExecuteCondemn_Implementation(ACharacter* Target)
     FVector PushDir = (TargetLoc - MyLoc).GetSafeNormal2D();
     FVector LaunchVelocity = (PushDir * PushDistance) / PushTime;
     Target->LaunchCharacter(LaunchVelocity, true, true);
+
+    float SkillDamage = SkillComponent->GetE_Data().BaseDamage[0] + StatComponent->GetStat().AttackDamage * 0.5f;
+
+    UGameplayStatics::ApplyDamage(
+        Target,
+        SkillDamage,
+        this->GetController(),
+        this,
+        ULOL_DamageMagic::StaticClass()
+    );
 }
 
 void AChampion_Vayne::Skill_R()
 {
-    
+    // 로컬 컨트롤러에서 서버로 요청
+    if (IsLocallyControlled())
+    {
+        Server_Skill_R();
+    }
+}
+
+bool AChampion_Vayne::Server_Skill_R_Validate() { return true; }
+
+void AChampion_Vayne::Server_Skill_R_Implementation()
+{
+    // 1. 상태 활성화 및 스태츠 버프 (서버)
+    bIsFinalHourActive = true;
+    // 실제 데미지 계산 로직이 StatComponent 등에 있다면 해당 수치를 가산하세요.
+    // 예: StatComponent->AddAttackDamage(R_BonusAD);
+
+    // 2. 타이머 설정 (종료 예약)
+    GetWorldTimerManager().ClearTimer(R_TimerHandle);
+    GetWorldTimerManager().SetTimer(R_TimerHandle, this, &AChampion_Vayne::End_Skill_R, R_Duration, false);
+
+    // 3. 연출 실행 (멀티캐스트)
+    Multicast_PlayRMontage();
+
+    UE_LOG(LogTemp, Log, TEXT("[Vayne] 결전의 시간 발동!"));
+}
+
+void AChampion_Vayne::Multicast_PlayRMontage_Implementation()
+{
+    if (RMontage)
+    {
+        PlayAnimMontage(RMontage);
+    }
+}
+
+void AChampion_Vayne::End_Skill_R()
+{
+    bIsFinalHourActive = false;
+    // StatComponent->AddAttackDamage(-R_BonusAD); // 버프 회수
+
+    UE_LOG(LogTemp, Log, TEXT("[Vayne] 결전의 시간 종료"));
+}
+
+void AChampion_Vayne::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+    DOREPLIFETIME(AChampion_Vayne, bQEmpowered);   // ★ 추가
+
+    DOREPLIFETIME(AChampion_Vayne, bIsFinalHourActive);
 }

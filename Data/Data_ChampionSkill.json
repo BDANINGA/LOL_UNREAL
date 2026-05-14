@@ -22,6 +22,17 @@
     "SecondaryValue": [ 700.0, 700.0, 700.0, 700.0, 700.0 ]
   },
   {
+    "Name": "Alistar_E",
+  "SkillName": "Trample",
+  "BaseDamage": [ 80.0, 110.0, 140.0, 170.0, 200.0 ],
+  "ManaCost": [ 50.0, 60.0, 70.0, 80.0, 90.0 ],
+  "Cooldown": [ 12.0, 11.5, 11.0, 10.5, 10.0 ],
+  "Range": [ 350.0, 350.0, 350.0, 350.0, 350.0 ],
+  "Duration": [ 5.0, 5.0, 5.0, 5.0, 5.0 ],
+  "CastTime": 0.0,
+  "SecondaryValue": [ 20.0, 40.0, 60.0, 80.0, 100.0 ]
+  },
+  {
     "Name": "Alistar_R",
     "SkillName": "Unbreakable Will",
     "BaseDamage": [ 0.0, 0.0, 0.0 ],
@@ -35,7 +46,7 @@
   {
     "Name": "Vayne_Q",
     "SkillName": "Tumble",
-    "BaseDamage": [ 0.0, 0.0, 0.0, 0.0, 0.0 ],
+    "BaseDamage": [ 75.0, 85.0, 95.0, 105.0, 115.0 ],
     "ManaCost": [ 30.0, 30.0, 30.0, 30.0, 30.0 ],
     "Cooldown": [ 6.0, 5.0, 4.0, 3.0, 2.0 ],
     "Range": [ 300.0, 300.0, 300.0, 300.0, 300.0 ],
@@ -46,7 +57,7 @@
   {
     "Name": "Vayne_W",
     "SkillName": "Silver Bolts",
-    "BaseDamage": [ 0.0, 0.0, 0.0, 0.0, 0.0 ],
+    "BaseDamage": [ 50.0, 65.0, 80.0, 95.0, 110.0 ],
     "ManaCost": [ 0.0, 0.0, 0.0, 0.0, 0.0 ],
     "Cooldown": [ 0.0, 0.0, 0.0, 0.0, 0.0 ],
     "Range": [ 0.0, 0.0, 0.0, 0.0, 0.0 ],
