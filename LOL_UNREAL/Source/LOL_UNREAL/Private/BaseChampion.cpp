@@ -19,6 +19,7 @@
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/SphereComponent.h"
 
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_AttackComponent.h"
@@ -62,6 +63,11 @@ ABaseChampion::ABaseChampion()
 	GetCapsuleComponent()->SetCollisionProfileName(TEXT("Pawn"));
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 
+	AttackRangeSphere = CreateDefaultSubobject<USphereComponent>(TEXT("AttackRangeSphere"));
+	AttackRangeSphere->SetupAttachment(RootComponent);
+	AttackRangeSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
+	AttackRangeSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+
 	// 캐릭터가 컨트롤러의 회전값을 직접 상속받지 않도록 확실히 차단
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
@@ -87,6 +93,10 @@ void ABaseChampion::BeginPlay()
 
 	if (StatComponent && UIComponent)
 	{
+		AttackRangeSphere->OnComponentBeginOverlap.AddDynamic(this, &ABaseChampion::OnEnemyEnterRange);
+		AttackRangeSphere->OnComponentEndOverlap.AddDynamic(this, &ABaseChampion::OnEnemyLeaveRange);
+		AttackRangeSphere->SetSphereRadius(StatComponent->GetStat().AttackRange);
+
 		StatComponent->OnHpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateHpFromStat);
 		StatComponent->OnMpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateMpFromStat);
 		StatComponent->OnHpZero.AddUObject(LifeCycleComponent, &ULOL_LifeCycleComponent::Server_HandleDeath);
@@ -96,6 +106,7 @@ void ABaseChampion::BeginPlay()
 
 		UIComponent->UpdateHpFromStat(StatComponent->GetCurrentHP());
 		UIComponent->UpdateMpFromStat(StatComponent->GetCurrentMP());
+
 
 		if (IsLocallyControlled())
 		{
@@ -158,6 +169,29 @@ float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 	}
 
 	return ActualDamage;
+}
+void ABaseChampion::OnEnemyEnterRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	if (!HasAuthority()) return;
+
+	ABaseChampion* Enemy = Cast<ABaseChampion>(OtherActor);
+
+	// 팀 조건 추가해야함.
+	if (Enemy && Enemy != this && !Enemy->LifeCycleComponent->bIsDead)
+	{
+		EnemiesInRange.AddUnique(Enemy);
+	}
+}
+void ABaseChampion::OnEnemyLeaveRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	if (!HasAuthority()) return;
+
+	ABaseChampion* Enemy = Cast<ABaseChampion>(OtherActor);
+
+	if (Enemy && EnemiesInRange.Contains(Enemy))
+	{
+		EnemiesInRange.Remove(Enemy);
+	}
 }
 void ABaseChampion::Multicast_PlayAttackMontage_Implementation(FRotator TargetRotation)
 {
@@ -263,4 +297,9 @@ void ABaseChampion::SetIsKnockedBack(bool bInKnockback)
 {
 	// 실제 로직 (예: 변수 업데이트)
 	bIsKnockedBack = bInKnockback;
+}
+
+inline void ABaseChampion::SetIsPressA(bool toggle)
+{
+	bIsPressA = toggle;
 }

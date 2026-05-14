@@ -137,6 +137,12 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_ProcessMoveInput(FVector ClickLocation, AActor* TargetActor);
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
+	class USphereComponent* AttackRangeSphere;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
+	TArray<ABaseChampion*> EnemiesInRange;
+
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
 	AActor* CombatTarget;
 
@@ -144,6 +150,9 @@ public:
 	void Multicast_PlayAttackMontage(FRotator TargetRotation);
 	
 	void SetIsKnockedBack(bool bInKnockback);
+	
+	FORCENOINLINE bool GetIsPressA() const { return bIsPressA; }
+	void SetIsPressA(bool toggle);
 
 protected:
 	virtual void BeginPlay() override;
@@ -155,6 +164,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	FName ChampionName;
+	
+	UPROPERTY()
+	bool bIsPressA = false;
 
 	//2026 05 01 (q,w,e,r모션 만들기 위해 더 추가)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
@@ -169,4 +181,10 @@ protected:
 	class UAnimMontage* RMontage;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 	class UAnimMontage* PMontage;
+
+	UFUNCTION()
+	void OnEnemyEnterRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void OnEnemyLeaveRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 };

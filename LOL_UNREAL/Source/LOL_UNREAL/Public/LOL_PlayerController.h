@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
-#include "Camera.h"
 #include "LOL_PlayerController.generated.h"
 
 UCLASS()
@@ -15,11 +14,13 @@ class LOL_UNREAL_API ALOL_PlayerController : public APlayerController
 public:
 	ALOL_PlayerController();
 
-	void OnClickMove();
+	void OnRightClick();
+	void OnLeftClick();
 	void OnSkillQ();
 	void OnSkillW();
 	void OnSkillE();
 	void OnSkillR();
+	void OnAKey();
 
 	void OnToggleCamera();
 	void FreeCameraEdgeScroll(float DeltaTime);
@@ -35,31 +36,36 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void PlayerTick(float DeltaTime) override;
+	virtual void OnPossess(APawn* InPawn) override;
+	virtual void OnRep_Pawn() override;
 
 	virtual void SetupInputComponent() override;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	class UInputMappingContext* DefaultMappingContext;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	class UInputAction* ClickMoveAction;
-
+	class UInputAction* RightClickAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	class UInputAction* LeftClickAction;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	class UInputAction* SkillQAction;
-
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	class UInputAction* SkillWAction;
-
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	class UInputAction* SkillEAction;
-
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	class UInputAction* SkillRAction;
-
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	class UInputAction* SpaceBarAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	class UInputAction* AKeyAction;
 
 private:
 	UPROPERTY()
-	ACamera* CameraAnchor;
+	class ACamera* CameraAnchor;
+
+	UPROPERTY()
+	class ABaseChampion* MyChampion;
+
 
 	UPROPERTY()
 	class ULOL_CursorWidget* MyCursorWidget;

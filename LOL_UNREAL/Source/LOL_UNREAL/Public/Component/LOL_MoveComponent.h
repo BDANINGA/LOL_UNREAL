@@ -24,6 +24,9 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Status")
 	bool bIsMoving = false;
 
+	UPROPERTY(Replicated)
+	bool bIsSearchAttack = false;
+
 protected:
 	virtual void BeginPlay() override;
 

@@ -6,8 +6,11 @@
 
 #include "LOL_PlayerController.h"
 #include "BaseChampion.h"
+#include "Camera.h"
 
 #include "Widget/LOL_CursorWidget.h"
+
+#include "Component/LOL_MoveComponent.h"
 
 #include "Net/UnrealNetwork.h"
 #include "EnhancedInputComponent.h"
@@ -27,10 +30,15 @@ ALOL_PlayerController::ALOL_PlayerController()
 		DefaultMappingContext = IMC_Default.Object;
 	}
 
-	static ConstructorHelpers::FObjectFinder<UInputAction> IA_ClickMove(TEXT("/Game/Level/input/IA_ClickMove.IA_ClickMove"));
-	if (IA_ClickMove.Succeeded())
+	static ConstructorHelpers::FObjectFinder<UInputAction> IA_RightClick(TEXT("/Game/Level/input/IA_RightClick.IA_RightClick"));
+	if (IA_RightClick.Succeeded())
 	{
-		ClickMoveAction = IA_ClickMove.Object;
+		RightClickAction = IA_RightClick.Object;
+	}
+	static ConstructorHelpers::FObjectFinder<UInputAction> IA_LeftClick(TEXT("/Game/Level/input/IA_LeftClick.IA_LeftClick"));
+	if (IA_LeftClick.Succeeded())
+	{
+		LeftClickAction = IA_LeftClick.Object;
 	}
 
 	static ConstructorHelpers::FObjectFinder<UInputAction> IA_SkillQ(TEXT("/Game/Level/input/IA_SkillQ.IA_SkillQ"));
@@ -57,6 +65,12 @@ ALOL_PlayerController::ALOL_PlayerController()
 	if (IA_SpaceBar.Succeeded())
 	{
 		SpaceBarAction = IA_SpaceBar.Object;
+	}
+
+	static ConstructorHelpers::FObjectFinder<UInputAction> IA_AKey(TEXT("/Game/Level/input/IA_A.IA_A"));
+	if (IA_AKey.Succeeded())
+	{
+		AKeyAction = IA_AKey.Object;
 	}
 
 	static ConstructorHelpers::FClassFinder<ULOL_CursorWidget> CursorWidgetAsset(TEXT("/Game/UI/Cursor/Wbp_CursorWidget.Wbp_CursorWidget_C"));
@@ -104,14 +118,24 @@ void ALOL_PlayerController::BeginPlay()
 		SetViewTarget(CameraAnchor);
 	}
 }
+void ALOL_PlayerController::OnPossess(APawn* InPawn)
+{
+	Super::OnPossess(InPawn);
+	MyChampion = Cast<ABaseChampion>(InPawn);
+}
 
+void ALOL_PlayerController::OnRep_Pawn()
+{
+	Super::OnRep_Pawn();
+	MyChampion = Cast<ABaseChampion>(GetPawn());
+}
 void ALOL_PlayerController::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
 
 	if (IsLocalController())
 	{
-		UpdateCursorSelection(); // 커서 상태 업데이트 함수 호출
+		UpdateCursorSelection();
 		FreeCameraEdgeScroll(DeltaTime);
 	}
 
@@ -124,24 +148,43 @@ void ALOL_PlayerController::SetupInputComponent()
 
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
 	{
-		EnhancedInputComponent->BindAction(ClickMoveAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnClickMove);
+		EnhancedInputComponent->BindAction(RightClickAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnRightClick);
+		EnhancedInputComponent->BindAction(LeftClickAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnLeftClick);
 		EnhancedInputComponent->BindAction(SkillQAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSkillQ);
 		EnhancedInputComponent->BindAction(SkillWAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSkillW);
 		EnhancedInputComponent->BindAction(SkillEAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSkillE);
 		EnhancedInputComponent->BindAction(SkillRAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnSkillR);
 		EnhancedInputComponent->BindAction(SpaceBarAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnToggleCamera);
 		EnhancedInputComponent->BindAction(SpaceBarAction, ETriggerEvent::Completed, this, &ALOL_PlayerController::OnToggleCamera);
+		EnhancedInputComponent->BindAction(AKeyAction, ETriggerEvent::Started, this, &ALOL_PlayerController::OnAKey);
 	}
 }
-void ALOL_PlayerController::OnClickMove()
+void ALOL_PlayerController::OnRightClick()
 {
 	FHitResult HitResult;
 	if (GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
 	{
-		ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
-		if (MyPawn && MyPawn->IsLocallyControlled())
+		if (MyChampion && MyChampion->IsLocallyControlled())
 		{
-			MyPawn->ProcessMoveInput(HitResult.Location, HitResult.GetActor());
+			MyChampion->ProcessMoveInput(HitResult.Location, HitResult.GetActor());
+			MyChampion->SetIsPressA(false);
+			MyChampion->MoveComponent->bIsSearchAttack = false;
+		}
+	}
+}
+void ALOL_PlayerController::OnLeftClick()
+{
+	if (MyChampion && MyChampion->IsLocallyControlled())
+	{
+		if (MyChampion->GetIsPressA())
+		{
+			FHitResult HitResult;
+			if (GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
+			{
+				MyChampion->ProcessMoveInput(HitResult.Location, HitResult.GetActor());
+				MyChampion->SetIsPressA(false);
+				MyChampion->MoveComponent->bIsSearchAttack = true;
+			}
 		}
 	}
 }
@@ -222,47 +265,51 @@ void ALOL_PlayerController::InitCameraAnchor(APawn* TargetPawn)
 
 void ALOL_PlayerController::OnSkillQ()
 {
-	ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
-
-	if (MyPawn)
+	if (MyChampion)
 	{
-		MyPawn->PressSkill('q');
+		MyChampion->PressSkill('q');
+		MyChampion->SetIsPressA(false);
 	}
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Q Skill Used!"));
 }
 void ALOL_PlayerController::OnSkillW()
 {
-	ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
-
-	if (MyPawn)
+	if (MyChampion)
 	{
-		MyPawn->PressSkill('w');
+		MyChampion->PressSkill('w');
+		MyChampion->SetIsPressA(false);
 	}
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green, TEXT("W Skill Used!"));
 }
 void ALOL_PlayerController::OnSkillE()
 {
-	ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
-
-	if (MyPawn)
+	if (MyChampion)
 	{
-		MyPawn->PressSkill('e');
+		MyChampion->PressSkill('e');
+		MyChampion->SetIsPressA(false);
 	}
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Blue, TEXT("E Skill Used!"));
 }
 void ALOL_PlayerController::OnSkillR()
 {
-	ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
-
-	if (MyPawn)
+	if (MyChampion)
 	{
-		MyPawn->PressSkill('r');
+		MyChampion->PressSkill('r');
+		MyChampion->SetIsPressA(false);
 	}
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("R Skill (Ultimate) Used!"));
 }
+void ALOL_PlayerController::OnAKey()
+{
+	if (MyChampion)
+	{
+		MyChampion->SetIsPressA(true);
+	}
+}
 void ALOL_PlayerController::UpdateCursorSelection()
 {
-	if (!MyCursorWidget) return;
+	if (!IsLocalController() || !MyCursorWidget) return;
+	if (!MyChampion) return;
 
 	FHitResult Hit;
 	if (GetHitResultUnderCursor(ECC_Visibility, false, Hit))
@@ -270,10 +317,14 @@ void ALOL_PlayerController::UpdateCursorSelection()
 		AActor* TargetActor = Hit.GetActor();
 		ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
 
-		ABaseChampion* MyPawn = Cast<ABaseChampion>(GetPawn());
-		if (TargetChampion && TargetChampion != MyPawn)
+		if (TargetChampion && TargetChampion != MyChampion)
 		{
 			ChangeCursorType(TEXT("Attack")); // 공격용 칼 모양
+			return;
+		}
+		else if (MyChampion->GetIsPressA())
+		{
+			ChangeCursorType(TEXT("SearchAttack")); // 공격용 칼 모양
 			return;
 		}
 	}

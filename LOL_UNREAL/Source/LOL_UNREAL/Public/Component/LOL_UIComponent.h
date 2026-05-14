@@ -24,6 +24,9 @@ public:
 
 	class UWidgetComponent* GetChampionWidget() { return ChampionWidget;}
 
+	void ShowRangeIndicator();
+	void HideRangeIndicator();
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -32,6 +35,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI")
 	class UWidgetComponent* ChampionWidget;
+
+	UPROPERTY()
+	class UStaticMeshComponent* RangeIndicator;
 
 private:
 	float CachedMaxHP = -1.f;

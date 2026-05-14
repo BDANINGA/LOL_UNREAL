@@ -24,6 +24,15 @@ ULOL_UIComponent::ULOL_UIComponent()
     {
         ChampionWidget->SetWidgetClass(ChampionWidgetRef.Class);
     }
+
+    RangeIndicator = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RangeIndicator"));
+    RangeIndicator->SetRelativeLocation(FVector(0.f, 0.f, -90.f)); 
+    RangeIndicator->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    RangeIndicator->SetCastShadow(false);
+    RangeIndicator->SetHiddenInGame(true);
+
+    RangeIndicator->bIsEditorOnly = false;
+    RangeIndicator->SetComponentTickEnabled(false);
 }
 
 void ULOL_UIComponent::BeginPlay()
@@ -34,8 +43,30 @@ void ULOL_UIComponent::BeginPlay()
     if (Owner && Owner->StatComponent)
     {
         ChampionWidget->AttachToComponent(Owner->GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
+        RangeIndicator->AttachToComponent(Owner->GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
     }
 }
+
+void ULOL_UIComponent::ShowRangeIndicator()
+{
+    if (!Owner->IsLocallyControlled() || !RangeIndicator) return;
+
+    float Range{};
+    if (Owner->StatComponent) Range = Owner->StatComponent->GetStat().AttackRange;
+
+    float ScaleValue = (Range * 2.0f) / 100.0f;
+    RangeIndicator->SetRelativeScale3D(FVector(ScaleValue, ScaleValue, 1.f));
+
+    RangeIndicator->SetHiddenInGame(false);
+}
+
+void ULOL_UIComponent::HideRangeIndicator()
+{
+    if (!Owner->IsLocallyControlled() || !RangeIndicator) return;
+
+    RangeIndicator->SetHiddenInGame(true);
+}
+
 void ULOL_UIComponent::UpdateHpFromStat(float NewHp)
 {
     if (CachedMaxHP <= 0.f) return;
