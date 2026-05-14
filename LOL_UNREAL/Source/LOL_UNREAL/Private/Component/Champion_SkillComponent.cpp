@@ -55,14 +55,14 @@ bool UChampion_SkillComponent::TryCastSkill(FSkillData& SkillData, int32 SkillLe
     int32 SkillLevelIdx = FMath::Clamp(SkillLevel - 1, 0, 4);
 
     float Cost = SkillData.ManaCost[SkillLevelIdx];
-    float Mp = Owner->StatComponent->GetStat().CurrentMP;
+    float Mp = Owner->StatComponent->GetCurrentMP();
 
     if (Mp < Cost) return false;
 
     // ---------- 스킬 사용 확정 -------------
 
     // 3. 자원 소모
-    Owner->StatComponent->SetMp(Mp - Cost);
+    Owner->StatComponent->SetMP(Mp - Cost);
 
     // 4. 쿨타임 계산
     float BaseCooldown = SkillData.Cooldown[SkillLevelIdx];

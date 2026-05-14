@@ -23,17 +23,17 @@ public:
     UPROPERTY()
     ULOL_HUDWidget* MainHUDWidget;
 
-    void UpdateAttackDamage(float CurrentAttackDamage);
-    void UpdateAbilityPower(float CurrentAbilityPower);
-    void UpdateArmor(float CurrentArmor);
-    void UpdateSpellBlock(float CurrentSpellBlock);
-    void UpdateAttackSpeed(float CurrentAttackSpeed);
-    void UpdateAbilityHaste(float CurrentAbilityHaste);
-    void UpdateCriticalRate(float CurrentCriticalRate);
-    void UpdateMoveSpeed(float CurrentMoveSpeed);
+    void UpdateStat(const struct FChampionStat& CurrentStat);
 
     void UpdateAll_Images(ABaseChampion* MYChamp);
 
+    void UpdateHP(float NewHP);
+    void UpdateMP(float NewMP);
+
+
 protected:
     virtual void BeginPlay() override;
+
+    UPROPERTY()
+    ABaseChampion* MyChampion;
 };

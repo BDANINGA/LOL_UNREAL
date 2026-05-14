@@ -87,28 +87,36 @@ void ABaseChampion::BeginPlay()
 
 	if (StatComponent && UIComponent)
 	{
-		UIComponent->SetMaxHp(StatComponent->GetStat().MaxHP);
-		UIComponent->SetMaxMp(StatComponent->GetStat().MaxMP);
-
 		StatComponent->OnHpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateHpFromStat);
 		StatComponent->OnMpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateMpFromStat);
 		StatComponent->OnHpZero.AddUObject(LifeCycleComponent, &ULOL_LifeCycleComponent::Server_HandleDeath);
+		
+		UIComponent->SetMaxHp(StatComponent->GetStat().MaxHP);
+		UIComponent->SetMaxMp(StatComponent->GetStat().MaxMP);
 
-		UIComponent->UpdateHpFromStat(StatComponent->GetStat().CurrentHP);
-		UIComponent->UpdateMpFromStat(StatComponent->GetStat().CurrentMP);
-	}
-	if (IsLocallyControlled())
-	{
-		APlayerController* PC = Cast<APlayerController>(GetController());
-		if (PC)
+		UIComponent->UpdateHpFromStat(StatComponent->GetCurrentHP());
+		UIComponent->UpdateMpFromStat(StatComponent->GetCurrentMP());
+
+		if (IsLocallyControlled())
 		{
-			ALOL_HUD* MyHUD = Cast<ALOL_HUD>(PC->GetHUD());
-			if (MyHUD && MyHUD->MainHUDWidget)
+			APlayerController* PC = Cast<APlayerController>(GetController());
+			if (PC)
 			{
-				MyHUD->UpdateAll_Images(this);
+				ALOL_HUD* MyHUD = Cast<ALOL_HUD>(PC->GetHUD());
+				if (MyHUD && MyHUD->MainHUDWidget)
+				{
+					StatComponent->OnStatChanged.AddUObject(MyHUD, &ALOL_HUD::UpdateStat);
+					StatComponent->OnHpChanged.AddUObject(MyHUD, &ALOL_HUD::UpdateHP);
+					StatComponent->OnMpChanged.AddUObject(MyHUD, &ALOL_HUD::UpdateMP);
+					MyHUD->UpdateAll_Images(this);
+					MyHUD->UpdateStat(StatComponent->GetStat());
+					MyHUD->UpdateHP(StatComponent->GetCurrentHP());
+					MyHUD->UpdateMP(StatComponent->GetCurrentMP());
+				}
 			}
 		}
 	}
+	
 
 }
 void ABaseChampion::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)

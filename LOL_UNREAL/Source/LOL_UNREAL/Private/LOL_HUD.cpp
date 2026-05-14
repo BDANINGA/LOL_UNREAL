@@ -2,10 +2,11 @@
 #include "LOL_HUD.h"
 #include "BaseChampion.h"
 #include "Widget/LOL_HUDWidget.h"
+#include "Component/LOL_StatComponent.h"
 
 ALOL_HUD::ALOL_HUD()
 {
-    static ConstructorHelpers::FClassFinder<UUserWidget> MainHUDAsset(TEXT("/Game/UI/Wbp_lol_hud.Wbp_lol_hud_C"));
+    static ConstructorHelpers::FClassFinder<UUserWidget> MainHUDAsset(TEXT("/Game/UI/HUD/Wbp_lol_hud.Wbp_lol_hud_C"));
     if (MainHUDAsset.Succeeded())
     {
         MainHUDClass = MainHUDAsset.Class;
@@ -37,39 +38,18 @@ void ALOL_HUD::BeginPlay()
     }
 }
 
-void ALOL_HUD::UpdateAttackDamage(float CurrentAttackDamage)
+void ALOL_HUD::UpdateStat(const FChampionStat& CurrentStat)
 {
-    if (MainHUDWidget) MainHUDWidget->SetAttackDamage(CurrentAttackDamage);
-}
-void ALOL_HUD::UpdateAbilityPower(float CurrentAbilityPower)
-{
-    if (MainHUDWidget) MainHUDWidget->SetAbilityPower(CurrentAbilityPower);
-}
-void ALOL_HUD::UpdateArmor(float CurrentArmor)
-{
-    if (MainHUDWidget) MainHUDWidget->SetArmor(CurrentArmor);
-}
-
-void ALOL_HUD::UpdateSpellBlock(float CurrentSpellBlock)
-{
-    if (MainHUDWidget) MainHUDWidget->SetSpellBlock(CurrentSpellBlock);
-}
-
-void ALOL_HUD::UpdateAttackSpeed(float CurrentAttackSpeed)
-{
-    if (MainHUDWidget) MainHUDWidget->SetAttackSpeed(CurrentAttackSpeed);
-}
-void ALOL_HUD::UpdateAbilityHaste(float CurrentAbilityHaste)
-{
-    if (MainHUDWidget) MainHUDWidget->SetAbilityHaste(CurrentAbilityHaste);
-}
-void ALOL_HUD::UpdateCriticalRate(float CurrentCriticalRate)
-{
-    if (MainHUDWidget) MainHUDWidget->SetCriticalRate(CurrentCriticalRate);
-}
-void ALOL_HUD::UpdateMoveSpeed(float CurrentMoveSpeed)
-{
-    if (MainHUDWidget) MainHUDWidget->SetMoveSpeed(CurrentMoveSpeed);
+    if (MainHUDWidget) {
+        MainHUDWidget->SetAttackDamage(CurrentStat.AttackDamage);
+        MainHUDWidget->SetAbilityPower(CurrentStat.AbilityPower);
+        MainHUDWidget->SetArmor(CurrentStat.Armor);
+        MainHUDWidget->SetSpellBlock(CurrentStat.SpellBlock);
+        MainHUDWidget->SetAttackSpeed(CurrentStat.AttackSpeed);
+        MainHUDWidget->SetAbilityHaste(CurrentStat.AbilityHaste);
+        MainHUDWidget->SetCriticalRate(CurrentStat.CriticalChance);
+        MainHUDWidget->SetMoveSpeed(CurrentStat.MoveSpeed);
+    }
 }
 
 void ALOL_HUD::UpdateAll_Images(ABaseChampion* MyChamp)
@@ -80,4 +60,33 @@ void ALOL_HUD::UpdateAll_Images(ABaseChampion* MyChamp)
     if (MyChamp->SkillE_Image) MainHUDWidget->SkillE_Image->SetBrushFromTexture(MyChamp->SkillE_Image);
     if (MyChamp->SkillR_Image) MainHUDWidget->SkillR_Image->SetBrushFromTexture(MyChamp->SkillR_Image);
     if (MyChamp->SkillP_Image) MainHUDWidget->SkillP_Image->SetBrushFromTexture(MyChamp->SkillP_Image);
+}
+
+void ALOL_HUD::UpdateHP(float NewHP)
+{
+    if (MyChampion == nullptr)
+    {
+        APlayerController* PC = GetOwningPlayerController();
+        if (PC)
+        {
+            MyChampion = Cast<ABaseChampion>(PC->GetPawn());
+        }
+    }
+
+    if (MainHUDWidget && MyChampion && MyChampion->StatComponent)
+        MainHUDWidget->UpdateHP(NewHP, MyChampion->StatComponent->GetStat().MaxHP);
+}
+void ALOL_HUD::UpdateMP(float NewMP)
+{
+    if (MyChampion == nullptr)
+    {
+        APlayerController* PC = GetOwningPlayerController();
+        if (PC)
+        {
+            MyChampion = Cast<ABaseChampion>(PC->GetPawn());
+        }
+    }
+
+    if (MainHUDWidget && MyChampion && MyChampion->StatComponent) 
+        MainHUDWidget->UpdateMP(NewMP, MyChampion->StatComponent->GetStat().MaxMP);
 }

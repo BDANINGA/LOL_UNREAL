@@ -14,15 +14,8 @@ struct FChampionStat : public FTableRowBase
 
 public:
 	//------------------------------------------
-	// =============== 가변 능력치 ===============
 	UPROPERTY(EditAnywhere, Category = "Stat|Live")
 	int32 Level = 1;
-
-	UPROPERTY(VisibleAnywhere, Category = "Stat|Live")
-	float CurrentHP{};
-
-	UPROPERTY(VisibleAnywhere, Category = "Stat|Live")
-	float CurrentMP{};
 
 	//------------------------------------------
 	// =========== 기본 능력치 (Base) ===========
@@ -157,8 +150,9 @@ class ULOL_DamageTrueDamage : public UDamageType { GENERATED_BODY() };
 DECLARE_MULTICAST_DELEGATE(FOnHpZeroDelegate);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnHpChangedDelegate, float /*CurrentHp*/);
 
-DECLARE_MULTICAST_DELEGATE(FOnMpZeroDelegate);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMpChangedDelegate, float /*CurrentMp*/);
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnStatChangedDelegate, const FChampionStat&);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class LOL_UNREAL_API ULOL_StatComponent : public UActorComponent
@@ -177,18 +171,21 @@ public:
 
 	FOnMpChangedDelegate OnMpChanged;
 
+	FOnStatChangedDelegate OnStatChanged;
+
 	float ApplyDamage(float InDagame, EDamageType DamageType);
 
-	void SetHp(float NewHp);
-	void SetMp(float NewMp);
+	void SetHP(float NewHP);
+	void SetMP(float NewMP);
+	void SetStat(FChampionStat NewStat);
 
 	FORCEINLINE const FChampionStat GetStat() const { return BaseStat; }
+	FORCEINLINE const float GetCurrentHP() const { return CurrentHP; }
+	FORCEINLINE const float GetCurrentMP() const { return CurrentMP; }
 
 	void InitializeStat();
 
 	float CalculateReducedDamage(float RawDamage, EDamageType Type);
-
-	void ChampionStatUpdate();
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 protected:
@@ -196,8 +193,20 @@ protected:
 	UPROPERTY(ReplicatedUsing = OnRep_BaseStat, EditAnywhere, Category = "Stat|Data")
 	FChampionStat BaseStat;
 
+	UPROPERTY(ReplicatedUsing = OnRep_CurrentHP)
+	float CurrentHP;
+
+	UPROPERTY(ReplicatedUsing = OnRep_CurrentMP)
+	float CurrentMP;
+
 	UFUNCTION()
 	void OnRep_BaseStat();
+
+	UFUNCTION()
+	void OnRep_CurrentHP();
+
+	UFUNCTION()
+	void OnRep_CurrentMP();
 
 	UPROPERTY(EditAnywhere, Category = "Stat|Data")
 	class UDataTable* ChampionDataTable;

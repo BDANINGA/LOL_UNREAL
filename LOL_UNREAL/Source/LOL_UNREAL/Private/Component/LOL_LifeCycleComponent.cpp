@@ -65,8 +65,8 @@ void ULOL_LifeCycleComponent::Respawn()
 
 	if (Owner->StatComponent)
 	{
-		Owner->StatComponent->SetHp(Owner->StatComponent->GetStat().MaxHP);
-		Owner->StatComponent->SetMp(Owner->StatComponent->GetStat().MaxMP);
+		Owner->StatComponent->SetHP(Owner->StatComponent->GetStat().MaxHP);
+		Owner->StatComponent->SetMP(Owner->StatComponent->GetStat().MaxMP);
 	}
 
 	Owner->SetActorLocation(FVector(-4803.230668, 5708.599208, -1461.45844));

@@ -2,6 +2,7 @@
 
 
 #include "Component/LOL_StatComponent.h"
+#include "Component/LOL_UIComponent.h"
 #include "BaseChampion.h"
 #include "Net/UnrealNetwork.h"
 #include "UObject/ConstructorHelpers.h"
@@ -22,10 +23,6 @@ ULOL_StatComponent::ULOL_StatComponent()
 void ULOL_StatComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
-	SetHp(BaseStat.MaxHP);
-	SetMp(BaseStat.MaxMP);
-	
 }
 void ULOL_StatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
@@ -33,22 +30,32 @@ void ULOL_StatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAc
 }
 
 
-inline void ULOL_StatComponent::SetHp(float NewHp)
+inline void ULOL_StatComponent::SetHP(float NewHP)
 {
-	BaseStat.CurrentHP = FMath::Clamp<float>(NewHp, 0, BaseStat.MaxHP);
-
-	if (OnHpChanged.IsBound())
+	if (GetOwnerRole() == ROLE_Authority)
 	{
-		OnHpChanged.Broadcast(BaseStat.CurrentHP);
+		CurrentHP = FMath::Clamp<float>(NewHP, 0, BaseStat.MaxHP);
+
+		OnRep_CurrentHP();
 	}
 }
-inline void ULOL_StatComponent::SetMp(float NewMp)
+inline void ULOL_StatComponent::SetMP(float NewMP)
 {
-	BaseStat.CurrentMP = FMath::Clamp<float>(NewMp, 0, BaseStat.MaxMP);
-
-	if (OnMpChanged.IsBound())
+	if (GetOwnerRole() == ROLE_Authority)
 	{
-		OnMpChanged.Broadcast(BaseStat.CurrentMP);
+		CurrentMP = FMath::Clamp<float>(NewMP, 0, BaseStat.MaxMP);
+
+		OnRep_CurrentMP();
+	}
+}
+
+inline void ULOL_StatComponent::SetStat(FChampionStat NewStat)
+{
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		BaseStat = NewStat;
+
+		OnRep_BaseStat();
 	}
 }
 
@@ -61,14 +68,9 @@ void ULOL_StatComponent::InitializeStat()
 
 		if (FoundRow)
 		{
-			BaseStat = *FoundRow;
-			BaseStat.MaxMP = 100000000;
-			BaseStat.CurrentHP = BaseStat.MaxHP;
-			BaseStat.CurrentMP = BaseStat.MaxMP;
-			BaseStat.AbilityHaste = 100000000;
-			
-
-			ChampionStatUpdate();
+			SetStat(*FoundRow);
+			SetHP(BaseStat.MaxHP);
+			SetMP(BaseStat.MaxMP);
 		}
 	}
 }
@@ -81,33 +83,40 @@ void ULOL_StatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 
 void ULOL_StatComponent::OnRep_BaseStat()
 {
-	// 클라이언트의 위젯들에게 스탯이 변했음을 알립니다.
-	if (OnHpChanged.IsBound())
+	if (OnStatChanged.IsBound())
 	{
-		OnHpChanged.Broadcast(BaseStat.CurrentHP);
+		OnStatChanged.Broadcast(BaseStat);
 	}
-	if (OnMpChanged.IsBound())
-	{
-		OnMpChanged.Broadcast(BaseStat.CurrentMP);
-	}
+}
+
+void ULOL_StatComponent::OnRep_CurrentHP()
+{
+	if (OnHpChanged.IsBound()) OnHpChanged.Broadcast(CurrentHP);
+
+}
+
+void ULOL_StatComponent::OnRep_CurrentMP()
+{
+	if (OnMpChanged.IsBound()) OnMpChanged.Broadcast(CurrentMP);
 }
 
 float ULOL_StatComponent::ApplyDamage(float InDamage, EDamageType DamageType)
 {
-	if (InDamage <= 0.f || BaseStat.CurrentHP <= 0.f) return 0.f;
+	if (InDamage <= 0.f || CurrentHP <= 0.f) return 0.f;
 
 	float FinalDamage = CalculateReducedDamage(InDamage, DamageType);
 
-	const float ActualDamage = FMath::Clamp(FinalDamage, 0.f, BaseStat.CurrentHP);
-	SetHp(BaseStat.CurrentHP - ActualDamage);
+	const float ActualDamage = FMath::Clamp(FinalDamage, 0.f, CurrentHP);
+	SetHP(CurrentHP - ActualDamage);
 
-	if (BaseStat.CurrentHP <= 0.f)
+	if (CurrentHP <= 0.f)
 	{
 		OnHpZero.Broadcast();
 	}
 
 	return ActualDamage;
 }
+
 float ULOL_StatComponent::CalculateReducedDamage(float RawDamage, EDamageType Type)
 {
 	float DefenseStat = 0.f;
@@ -141,32 +150,4 @@ float ULOL_StatComponent::CalculateReducedDamage(float RawDamage, EDamageType Ty
 	float DamageMultiplier = 100.f / (100.f + EffectiveDefense);
 
 	return RawDamage * DamageMultiplier;
-}
-
-void ULOL_StatComponent::ChampionStatUpdate()
-{
-	AActor* OwnerActor = GetOwner();
-	if (OwnerActor)
-	{
-		APawn* OwnerPawn = Cast<APawn>(OwnerActor);
-		if (OwnerPawn)
-		{
-			APlayerController* PC = Cast<APlayerController>(OwnerPawn->GetController());
-			if (PC && PC->GetHUD())
-			{
-				ALOL_HUD* MyHUD = Cast<ALOL_HUD>(PC->GetHUD());
-				if (MyHUD)
-				{
-					MyHUD->UpdateAttackDamage(BaseStat.AttackDamage);
-					MyHUD->UpdateAbilityPower(BaseStat.AbilityPower);
-					MyHUD->UpdateArmor(BaseStat.Armor);
-					MyHUD->UpdateSpellBlock(BaseStat.SpellBlock);
-					MyHUD->UpdateAttackSpeed(BaseStat.AttackSpeed);
-					MyHUD->UpdateAbilityHaste(BaseStat.AbilityHaste);
-					MyHUD->UpdateCriticalRate(BaseStat.CriticalChance);
-					MyHUD->UpdateMoveSpeed(BaseStat.MoveSpeed);
-				}
-			}
-		}
-	}
 }
