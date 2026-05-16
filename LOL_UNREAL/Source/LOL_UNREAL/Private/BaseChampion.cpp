@@ -53,10 +53,10 @@ ABaseChampion::ABaseChampion()
 	SkillComponent = CreateDefaultSubobject<UChampion_SkillComponent>(TEXT("SkillComponent"));
 
 	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> FXAsset(TEXT("/Game/UI/NS_ClickIndicator.NS_ClickIndicator"));
-	if (FXAsset.Succeeded())
-	{
-		ClickFX = FXAsset.Object;
-	}
+	if (FXAsset.Succeeded()) ClickFX = FXAsset.Object;
+
+	static ConstructorHelpers::FObjectFinder<UDataTable> ResourceDataAssetTable(TEXT("/Game/LOL_Data/Data_Champions/Data_ChampionResource.Data_ChampionResource"));
+	if (ResourceDataAssetTable.Succeeded()) DataTable = ResourceDataAssetTable.Object;
 
 	// 캡슐 컴포넌트의 콜리전 설정
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.f);
@@ -81,16 +81,15 @@ ABaseChampion::ABaseChampion()
 
 	// 위치와 회전을 모두 복제하도록 설정
 	bReplicates = true;
-	ACharacter::SetReplicateMovement(true); 
+	ACharacter::SetReplicateMovement(true);
 }
 void ABaseChampion::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	SetChampionData(ChampionName);
 
-	if (StatComponent) StatComponent->InitializeStat();
-
-	if (SkillComponent) SkillComponent->InitializeSkills();
-
+	// UI 설정
 	if (StatComponent && UIComponent)
 	{
 		AttackRangeSphere->OnComponentBeginOverlap.AddDynamic(this, &ABaseChampion::OnEnemyEnterRange);
@@ -106,8 +105,6 @@ void ABaseChampion::BeginPlay()
 
 		UIComponent->UpdateHpFromStat(StatComponent->GetCurrentHP());
 		UIComponent->UpdateMpFromStat(StatComponent->GetCurrentMP());
-
-
 		if (IsLocallyControlled())
 		{
 			APlayerController* PC = Cast<APlayerController>(GetController());
@@ -127,8 +124,46 @@ void ABaseChampion::BeginPlay()
 			}
 		}
 	}
-	
+}
 
+void ABaseChampion::SetChampionData(FName RowName)
+{
+	FChampionResourceData* Data = DataTable->FindRow<FChampionResourceData>(RowName, TEXT(""));
+
+	if (Data)
+	{
+		if (Data->Mesh)
+		{
+			GetMesh()->SetSkeletalMesh(Data->Mesh);
+			GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -90.f));
+			GetMesh()->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
+		}
+		if (Data->AnimBlueprint)
+		{
+			GetMesh()->SetAnimInstanceClass(Data->AnimBlueprint);
+			GetMesh()->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+		}
+		ChampionResource.Portrait = Data->Portrait;
+		ChampionResource.Portrait_Circle = Data->Portrait_Circle;
+		ChampionResource.Portrait_Loading = Data->Portrait_Loading;
+
+		ChampionResource.SkillQ_Image = Data->SkillQ_Image;
+		ChampionResource.SkillW_Image = Data->SkillW_Image;
+		ChampionResource.SkillE_Image = Data->SkillE_Image;
+		ChampionResource.SkillR_Image = Data->SkillR_Image;
+		ChampionResource.SkillP_Image = Data->SkillP_Image;
+
+		ChampionResource.AttackMontage = Data->AttackMontage;
+		ChampionResource.QMontage = Data->QMontage;
+		ChampionResource.WMontage = Data->WMontage;
+		ChampionResource.EMontage = Data->EMontage;
+		ChampionResource.RMontage = Data->RMontage;
+		ChampionResource.PMontage = Data->PMontage;
+	}
+
+	if (StatComponent) StatComponent->InitializeStat();
+
+	if (SkillComponent) SkillComponent->InitializeSkills();
 }
 
 void ABaseChampion::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -204,10 +239,10 @@ void ABaseChampion::Multicast_PlayAttackMontage_Implementation(FRotator TargetRo
 {
 	SetActorRotation(TargetRotation);
 
-	if (AttackMontage)
+	if (ChampionResource.AttackMontage)
 	{
 		// 이 코드가 이제 모든 플레이어의 화면에서 실행됩니다.
-		PlayAnimMontage(AttackMontage);
+		PlayAnimMontage(ChampionResource.AttackMontage);
 	}
 }
 void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
@@ -226,25 +261,27 @@ void ABaseChampion::ProcessMoveInput(FVector ClickLocation, AActor* TargetActor)
 			FRotator(-90.f, 0.f, 0.f)
 		);
 	}
-	Server_ProcessMoveInput(ClickLocation, TargetActor);
+	Server_ProcessMoveInput(ClickLocation, TargetActor, bIsPressA);
 }
-void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation, AActor* TargetActor)
+void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation, AActor* TargetActor, bool bIsSearch)
 {
 	if (bIsKnockedBack) return;
 
 	if (LifeCycleComponent->bIsDead) return;
+
+	MoveComponent->bIsSearchAttack = bIsSearch;
 
 	ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
 	CombatTarget = TargetChampion;
 
 	MoveComponent->SetMoveTarget(ClickLocation, TargetChampion);
 }
-bool ABaseChampion::Server_ProcessMoveInput_Validate(FVector ClickLocation, AActor* TargetActor)
+bool ABaseChampion::Server_ProcessMoveInput_Validate(FVector ClickLocation, AActor* TargetActor, bool bIsSearch)
 {
 	return true;
 }
 
-void ABaseChampion::PressSkill(char skilltype)
+void ABaseChampion::Server_PressSkill_Implementation(const uint8 skilltype)
 {
 	if (skilltype == 'q') {
 		if (not SkillComponent->TryCastSkill(SkillComponent->GetQ_Data(), 1)) return;

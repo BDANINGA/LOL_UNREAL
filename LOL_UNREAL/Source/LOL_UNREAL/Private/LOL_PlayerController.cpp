@@ -267,7 +267,7 @@ void ALOL_PlayerController::OnSkillQ()
 {
 	if (MyChampion)
 	{
-		MyChampion->PressSkill('q');
+		MyChampion->Server_PressSkill('q');
 		MyChampion->SetIsPressA(false);
 	}
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Q Skill Used!"));
@@ -276,7 +276,7 @@ void ALOL_PlayerController::OnSkillW()
 {
 	if (MyChampion)
 	{
-		MyChampion->PressSkill('w');
+		MyChampion->Server_PressSkill('w');
 		MyChampion->SetIsPressA(false);
 	}
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green, TEXT("W Skill Used!"));
@@ -285,7 +285,7 @@ void ALOL_PlayerController::OnSkillE()
 {
 	if (MyChampion)
 	{
-		MyChampion->PressSkill('e');
+		MyChampion->Server_PressSkill('e');
 		MyChampion->SetIsPressA(false);
 	}
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Blue, TEXT("E Skill Used!"));
@@ -294,7 +294,7 @@ void ALOL_PlayerController::OnSkillR()
 {
 	if (MyChampion)
 	{
-		MyChampion->PressSkill('r');
+		MyChampion->Server_PressSkill('r');
 		MyChampion->SetIsPressA(false);
 	}
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("R Skill (Ultimate) Used!"));

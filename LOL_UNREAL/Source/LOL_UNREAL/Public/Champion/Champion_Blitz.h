@@ -12,8 +12,6 @@ class AChampion_Blitz : public ABaseChampion
 public:
     AChampion_Blitz();
 
-    virtual void SetChampionData(FName RowName);
-
     virtual void Skill_Q() override;
     virtual void Skill_W() override;
     virtual void Skill_E() override;

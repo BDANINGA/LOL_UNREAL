@@ -14,49 +14,6 @@
 AChampion_Vayne::AChampion_Vayne()
 {
     ChampionName = TEXT("Vayne");
-    SetChampionData(ChampionName);
-}
-
-void AChampion_Vayne::SetChampionData(FName RowName)
-{
-    static ConstructorHelpers::FObjectFinder<UDataTable> ChampionResource(TEXT("/Game/LOL_Data/Data_Champions/Data_ChampionResource.Data_ChampionResource"));
-    if (ChampionResource.Succeeded())
-    {
-        UDataTable* DataTable = ChampionResource.Object;
-
-        FChampionData* Data = DataTable->FindRow<FChampionData>(RowName, TEXT(""));
-
-        if (Data)        
-        {
-            if (Data->Mesh)
-            {
-                GetMesh()->SetSkeletalMesh(Data->Mesh);
-                GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -90.f));
-                GetMesh()->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
-            }
-            if (Data->AnimBlueprint)
-            {
-                GetMesh()->SetAnimInstanceClass(Data->AnimBlueprint);
-                GetMesh()->SetAnimationMode(EAnimationMode::AnimationBlueprint);
-            }
-            Portrait = Data->Portrait;
-            Portrait_Circle = Data->Portrait_Circle;
-            Portrait_Loading = Data->Portrait_Loading;
-
-            SkillQ_Image = Data->SkillQ_Image;
-            SkillW_Image = Data->SkillW_Image;
-            SkillE_Image = Data->SkillE_Image;
-            SkillR_Image = Data->SkillR_Image;
-            SkillP_Image = Data->SkillP_Image;
-
-            AttackMontage = Data->AttackMontage;
-            QMontage = Data->QMontage;
-            WMontage = Data->WMontage;
-            EMontage = Data->EMontage;
-            RMontage = Data->RMontage;
-            PMontage = Data->PMontage;
-        }
-    }
 }
 
 void AChampion_Vayne::Skill_Q()
@@ -76,9 +33,9 @@ bool AChampion_Vayne::Server_Skill_Q_Validate(FVector QLocation) { return true; 
 
 void AChampion_Vayne::Multicast_PlayQMontage_Implementation()
 {
-    if (QMontage)
+    if (ChampionResource.QMontage)
     {
-        PlayAnimMontage(QMontage, 1.0f);
+        PlayAnimMontage(ChampionResource.QMontage, 1.0f);
     }
 }
 
@@ -377,9 +334,9 @@ void AChampion_Vayne::Skill_E()
 
 void AChampion_Vayne::Multicast_PlayEMontage_Implementation()
 {
-    if (EMontage)
+    if (ChampionResource.EMontage)
     {
-        PlayAnimMontage(EMontage, 2.0f);
+        PlayAnimMontage(ChampionResource.EMontage, 2.0f);
     }
 }
 
@@ -462,9 +419,9 @@ void AChampion_Vayne::Server_Skill_R_Implementation()
 
 void AChampion_Vayne::Multicast_PlayRMontage_Implementation()
 {
-    if (RMontage)
+    if (ChampionResource.RMontage)
     {
-        PlayAnimMontage(RMontage);
+        PlayAnimMontage(ChampionResource.RMontage);
     }
 }
 

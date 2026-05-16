@@ -13,50 +13,7 @@
 AChampion_Blitz::AChampion_Blitz()
 {
 	ChampionName = TEXT("Blitzcrank");
-	SetChampionData(ChampionName);
 }
-void AChampion_Blitz::SetChampionData(FName RowName)
-{
-    static ConstructorHelpers::FObjectFinder<UDataTable> ChampionResource(TEXT("/Game/LOL_Data/Data_Champions/Data_ChampionResource.Data_ChampionResource"));
-    if (ChampionResource.Succeeded())
-    {
-        UDataTable* DataTable = ChampionResource.Object;
-
-        FChampionData* Data = DataTable->FindRow<FChampionData>(RowName, TEXT(""));
-
-        if (Data)
-        {
-            if (Data->Mesh)
-            {
-                GetMesh()->SetSkeletalMesh(Data->Mesh);
-                GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -90.f));
-                GetMesh()->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
-            }
-            if (Data->AnimBlueprint)
-            {
-                GetMesh()->SetAnimInstanceClass(Data->AnimBlueprint);
-                GetMesh()->SetAnimationMode(EAnimationMode::AnimationBlueprint);
-            }
-            Portrait = Data->Portrait;
-            Portrait_Circle = Data->Portrait_Circle;
-            Portrait_Loading = Data->Portrait_Loading;
-
-            SkillQ_Image = Data->SkillQ_Image;
-            SkillW_Image = Data->SkillW_Image;
-            SkillE_Image = Data->SkillE_Image;
-            SkillR_Image = Data->SkillR_Image;
-            SkillP_Image = Data->SkillP_Image;
-
-            AttackMontage = Data->AttackMontage;
-            QMontage = Data->QMontage;
-            WMontage = Data->WMontage;
-            EMontage = Data->EMontage;
-            RMontage = Data->RMontage;
-            PMontage = Data->PMontage;
-        }
-    }
-}
-
 void AChampion_Blitz::Skill_Q() {}
 void AChampion_Blitz::Skill_W() {}
 void AChampion_Blitz::Skill_E() {}

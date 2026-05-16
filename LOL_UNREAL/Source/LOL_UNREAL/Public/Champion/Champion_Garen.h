@@ -13,8 +13,6 @@ class LOL_UNREAL_API AChampion_Garen : public ABaseChampion
 public:
 	AChampion_Garen();
 
-	virtual void SetChampionData(FName RowName) override;
-
 	virtual void Skill_Q() override;
 	virtual void Skill_W() override;
 	virtual void Skill_E() override;

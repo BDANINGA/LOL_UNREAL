@@ -54,12 +54,12 @@ void ALOL_HUD::UpdateStat(const FChampionStat& CurrentStat)
 
 void ALOL_HUD::UpdateAll_Images(ABaseChampion* MyChamp)
 {
-    if (MyChamp->Portrait_Circle) MainHUDWidget->Portrait_Image->SetBrushFromTexture(MyChamp->Portrait_Circle);
-    if (MyChamp->SkillQ_Image) MainHUDWidget->SkillQ_Image->SetBrushFromTexture(MyChamp->SkillQ_Image);
-    if (MyChamp->SkillW_Image) MainHUDWidget->SkillW_Image->SetBrushFromTexture(MyChamp->SkillW_Image);
-    if (MyChamp->SkillE_Image) MainHUDWidget->SkillE_Image->SetBrushFromTexture(MyChamp->SkillE_Image);
-    if (MyChamp->SkillR_Image) MainHUDWidget->SkillR_Image->SetBrushFromTexture(MyChamp->SkillR_Image);
-    if (MyChamp->SkillP_Image) MainHUDWidget->SkillP_Image->SetBrushFromTexture(MyChamp->SkillP_Image);
+    if (MyChamp->ChampionResource.Portrait_Circle) MainHUDWidget->Portrait_Image->SetBrushFromTexture(MyChamp->ChampionResource.Portrait_Circle);
+    if (MyChamp->ChampionResource.SkillQ_Image) MainHUDWidget->SkillQ_Image->SetBrushFromTexture(MyChamp->ChampionResource.SkillQ_Image);
+    if (MyChamp->ChampionResource.SkillW_Image) MainHUDWidget->SkillW_Image->SetBrushFromTexture(MyChamp->ChampionResource.SkillW_Image);
+    if (MyChamp->ChampionResource.SkillE_Image) MainHUDWidget->SkillE_Image->SetBrushFromTexture(MyChamp->ChampionResource.SkillE_Image);
+    if (MyChamp->ChampionResource.SkillR_Image) MainHUDWidget->SkillR_Image->SetBrushFromTexture(MyChamp->ChampionResource.SkillR_Image);
+    if (MyChamp->ChampionResource.SkillP_Image) MainHUDWidget->SkillP_Image->SetBrushFromTexture(MyChamp->ChampionResource.SkillP_Image);
 }
 
 void ALOL_HUD::UpdateHP(float NewHP)

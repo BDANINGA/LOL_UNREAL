@@ -8,7 +8,7 @@
 
 // 챔피언 리소스 데이터 테이블
 USTRUCT(BlueprintType)
-struct FChampionData : public FTableRowBase
+struct FChampionResourceData : public FTableRowBase
 {
 	GENERATED_BODY()
 
@@ -89,29 +89,17 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class UChampion_SkillComponent* SkillComponent;
 
-	// UI Image
-	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* Portrait;
-	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* Portrait_Circle;
-	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* Portrait_Loading;
-	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* SkillQ_Image;
-	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* SkillW_Image;
-	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* SkillE_Image;
-	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* SkillR_Image;
-	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* SkillP_Image;
+	UDataTable* DataTable;
+
+	UPROPERTY()
+	FChampionResourceData ChampionResource;
 
 	FName GetChampionName() const { return ChampionName; }
 
-	void PressSkill(char skilltype);
+	UFUNCTION(Server, Reliable)
+	void Server_PressSkill(const uint8 skilltype);
 
-	virtual void SetChampionData(FName RowName) {};
+	void SetChampionData(FName RowName);
 	virtual void Skill_Q() {};
 	virtual void Skill_W() {};
 	virtual void Skill_E() {};
@@ -135,7 +123,7 @@ public:
 	void ProcessMoveInput(FVector ClickLocation, AActor* TargetActor);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_ProcessMoveInput(FVector ClickLocation, AActor* TargetActor);
+	void Server_ProcessMoveInput(FVector ClickLocation, AActor* TargetActor, bool bIsSearch);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
 	class USphereComponent* AttackRangeSphere;
@@ -169,20 +157,6 @@ protected:
 	
 	UPROPERTY()
 	bool bIsPressA = false;
-
-	//2026 05 01 (q,w,e,r모션 만들기 위해 더 추가)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
-	class UAnimMontage* AttackMontage;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
-	class UAnimMontage* QMontage;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
-	class UAnimMontage* WMontage;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
-	class UAnimMontage* EMontage;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
-	class UAnimMontage* RMontage;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
-	class UAnimMontage* PMontage;
 
 	UFUNCTION()
 	void OnEnemyEnterRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);

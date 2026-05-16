@@ -17,7 +17,7 @@ ULOL_StatComponent::ULOL_StatComponent()
 	static ConstructorHelpers::FObjectFinder<UDataTable> StatTableObject(TEXT("/Game/LOL_Data/Data_Champions/Data_ChampionStats.Data_ChampionStats"));
 	if (StatTableObject.Succeeded())
 	{
-		ChampionDataTable = StatTableObject.Object;
+		StatDataTable = StatTableObject.Object;
 	}
 }
 void ULOL_StatComponent::BeginPlay()
@@ -62,9 +62,9 @@ inline void ULOL_StatComponent::SetStat(FChampionStat NewStat)
 void ULOL_StatComponent::InitializeStat()
 {
 	ABaseChampion* Owner = Cast<ABaseChampion>(GetOwner());
-	if (Owner && ChampionDataTable)
+	if (Owner && StatDataTable)
 	{
-		FChampionStat* FoundRow = ChampionDataTable->FindRow<FChampionStat>(Owner->GetChampionName(), TEXT(""));
+		FChampionStat* FoundRow = StatDataTable->FindRow<FChampionStat>(Owner->GetChampionName(), TEXT(""));
 
 		if (FoundRow)
 		{

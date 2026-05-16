@@ -209,5 +209,5 @@ protected:
 	void OnRep_CurrentMP();
 
 	UPROPERTY(EditAnywhere, Category = "Stat|Data")
-	class UDataTable* ChampionDataTable;
+	class UDataTable* StatDataTable;
 };
