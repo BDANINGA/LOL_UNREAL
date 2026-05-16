@@ -86,8 +86,6 @@ ABaseChampion::ABaseChampion()
 void ABaseChampion::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	SetChampionData(ChampionName);
 
 	// UI 설정
 	if (StatComponent && UIComponent)
@@ -281,7 +279,7 @@ bool ABaseChampion::Server_ProcessMoveInput_Validate(FVector ClickLocation, AAct
 	return true;
 }
 
-void ABaseChampion::Server_PressSkill_Implementation(const uint8 skilltype)
+void ABaseChampion::PressSkill(const uint8 skilltype)
 {
 	if (skilltype == 'q') {
 		if (not SkillComponent->TryCastSkill(SkillComponent->GetQ_Data(), 1)) return;

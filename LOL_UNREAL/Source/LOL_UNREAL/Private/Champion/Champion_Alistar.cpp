@@ -14,6 +14,7 @@
 AChampion_Alistar::AChampion_Alistar()
 {
     ChampionName = TEXT("Alistar");
+    SetChampionData(ChampionName);
 }
 
 void AChampion_Alistar::Multicast_PlayQMontage_Implementation()

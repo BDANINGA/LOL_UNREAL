@@ -14,6 +14,7 @@
 AChampion_Vayne::AChampion_Vayne()
 {
     ChampionName = TEXT("Vayne");
+    SetChampionData(ChampionName);
 }
 
 void AChampion_Vayne::Skill_Q()
@@ -37,6 +38,8 @@ void AChampion_Vayne::Multicast_PlayQMontage_Implementation()
     {
         PlayAnimMontage(ChampionResource.QMontage, 1.0f);
     }
+    else
+        if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("NO (Ultimate) Used!"));
 }
 
 void AChampion_Vayne::Server_Skill_Q_Implementation(FVector QLocation)

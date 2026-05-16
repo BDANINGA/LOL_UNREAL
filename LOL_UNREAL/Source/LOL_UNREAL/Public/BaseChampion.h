@@ -96,10 +96,10 @@ public:
 
 	FName GetChampionName() const { return ChampionName; }
 
-	UFUNCTION(Server, Reliable)
-	void Server_PressSkill(const uint8 skilltype);
-
 	void SetChampionData(FName RowName);
+
+	void PressSkill(const uint8 skilltype);
+
 	virtual void Skill_Q() {};
 	virtual void Skill_W() {};
 	virtual void Skill_E() {};

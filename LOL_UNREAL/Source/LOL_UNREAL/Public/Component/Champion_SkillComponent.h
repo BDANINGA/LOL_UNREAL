@@ -54,6 +54,8 @@ public:
     FSkillData& GetR_Data() { return R_Data; }
 
     bool TryCastSkill(FSkillData& SkillData, int32 SkillLevel);
+
+    class ABaseChampion* Owner;
     
 protected:
 	virtual void BeginPlay() override;
