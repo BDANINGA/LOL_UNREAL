@@ -9,6 +9,7 @@
 #include "Camera.h"
 
 #include "Component/LOL_MoveComponent.h"
+#include "Component/LOL_UIComponent.h"
 
 #include "Net/UnrealNetwork.h"
 #include "EnhancedInputComponent.h"
@@ -151,9 +152,10 @@ void ALOL_PlayerController::OnRightClick()
 	{
 		if (MyChampion && MyChampion->IsLocallyControlled())
 		{
-			MyChampion->ProcessMoveInput(HitResult.Location, HitResult.GetActor());
 			MyChampion->SetIsPressA(false);
 			MyChampion->MoveComponent->bIsSearchAttack = false;
+			MyChampion->UIComponent->HideRangeIndicator();
+			MyChampion->ProcessMoveInput(HitResult.Location, HitResult.GetActor());
 		}
 	}
 }
@@ -169,6 +171,7 @@ void ALOL_PlayerController::OnLeftClick()
 				MyChampion->ProcessMoveInput(HitResult.Location, HitResult.GetActor());
 				MyChampion->SetIsPressA(false);
 				MyChampion->MoveComponent->bIsSearchAttack = true;
+				MyChampion->UIComponent->HideRangeIndicator();
 			}
 		}
 	}
@@ -254,6 +257,7 @@ void ALOL_PlayerController::OnSkillQ()
 	{
 		MyChampion->PressSkill('q');
 		MyChampion->SetIsPressA(false);
+		MyChampion->UIComponent->HideRangeIndicator();
 	}
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Q Skill Used!"));
 }
@@ -263,6 +267,7 @@ void ALOL_PlayerController::OnSkillW()
 	{
 		MyChampion->PressSkill('w');
 		MyChampion->SetIsPressA(false);
+		MyChampion->UIComponent->HideRangeIndicator();
 	}
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green, TEXT("W Skill Used!"));
 }
@@ -272,6 +277,7 @@ void ALOL_PlayerController::OnSkillE()
 	{
 		MyChampion->PressSkill('e');
 		MyChampion->SetIsPressA(false);
+		MyChampion->UIComponent->HideRangeIndicator();
 	}
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Blue, TEXT("E Skill Used!"));
 }
@@ -281,6 +287,7 @@ void ALOL_PlayerController::OnSkillR()
 	{
 		MyChampion->PressSkill('r');
 		MyChampion->SetIsPressA(false);
+		MyChampion->UIComponent->HideRangeIndicator();
 	}
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("R Skill (Ultimate) Used!"));
 }
@@ -289,6 +296,7 @@ void ALOL_PlayerController::OnAKey()
 	if (MyChampion)
 	{
 		MyChampion->SetIsPressA(true);
+		MyChampion->UIComponent->ShowRangeIndicator();
 	}
 }
 void ALOL_PlayerController::UpdateCursorSelection()
