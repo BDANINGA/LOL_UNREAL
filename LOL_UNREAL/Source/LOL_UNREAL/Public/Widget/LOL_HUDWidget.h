@@ -77,4 +77,40 @@ public:
 
     void UpdateHP(float NewHP, float MaxHP);
     void UpdateMP(float NewMP, float MaxMP);
+
+    void SetSkillCooldown(FName SkillName, float CoolLocalEndTime, float CoolEndTime);
+    void SetSkillImage(FName SkillName, UTexture2D* IconTexture);
+protected:
+    UPROPERTY()
+    class UMaterialInstanceDynamic* SkillQ_MID;
+    UPROPERTY()
+    class UMaterialInstanceDynamic* SkillW_MID;
+    UPROPERTY()
+    class UMaterialInstanceDynamic* SkillE_MID;
+    UPROPERTY()
+    class UMaterialInstanceDynamic* SkillR_MID;
+
+    UPROPERTY()
+    float SkillCoolLocalEndTimeQ;
+    UPROPERTY()
+    float SkillCoolEndTimeQ;
+    UPROPERTY()
+    float SkillCoolLocalEndTimeW;
+    UPROPERTY()
+    float SkillCoolEndTimeW;
+    UPROPERTY()
+    float SkillCoolLocalEndTimeE;
+    UPROPERTY()
+    float SkillCoolEndTimeE;
+    UPROPERTY()
+    float SkillCoolLocalEndTimeR;
+    UPROPERTY()
+    float SkillCoolEndTimeR;
+    UPROPERTY()
+    float SkillCoolLocalEndTimeP;
+    UPROPERTY()
+    float SkillCoolEndTimeP;
+
+    virtual void NativeConstruct() override;
+    virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 };

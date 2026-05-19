@@ -53,12 +53,15 @@ public:
     FSkillData& GetE_Data() { return E_Data; }
     FSkillData& GetR_Data() { return R_Data; }
 
-    bool TryCastSkill(FSkillData& SkillData, int32 SkillLevel);
+    bool TryCastSkill(FName SkillName, int32 SkillLevel);
 
     class ABaseChampion* Owner;
     
 protected:
 	virtual void BeginPlay() override;
+
+    UFUNCTION(Client, Reliable)
+    void Client_UpdateHUDCooldown(FName SkillName, float CoolLocalEndTime, float CoolEndTime);
 
 private:
     UPROPERTY(EditAnywhere, Category = "Data")

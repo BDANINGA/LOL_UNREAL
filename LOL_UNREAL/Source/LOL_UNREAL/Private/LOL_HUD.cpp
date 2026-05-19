@@ -55,11 +55,11 @@ void ALOL_HUD::UpdateStat(const FChampionStat& CurrentStat)
 void ALOL_HUD::UpdateAll_Images(ABaseChampion* MyChamp)
 {
     if (MyChamp->ChampionResource.Portrait_Circle) MainHUDWidget->Portrait_Image->SetBrushFromTexture(MyChamp->ChampionResource.Portrait_Circle);
-    if (MyChamp->ChampionResource.SkillQ_Image) MainHUDWidget->SkillQ_Image->SetBrushFromTexture(MyChamp->ChampionResource.SkillQ_Image);
-    if (MyChamp->ChampionResource.SkillW_Image) MainHUDWidget->SkillW_Image->SetBrushFromTexture(MyChamp->ChampionResource.SkillW_Image);
-    if (MyChamp->ChampionResource.SkillE_Image) MainHUDWidget->SkillE_Image->SetBrushFromTexture(MyChamp->ChampionResource.SkillE_Image);
-    if (MyChamp->ChampionResource.SkillR_Image) MainHUDWidget->SkillR_Image->SetBrushFromTexture(MyChamp->ChampionResource.SkillR_Image);
-    if (MyChamp->ChampionResource.SkillP_Image) MainHUDWidget->SkillP_Image->SetBrushFromTexture(MyChamp->ChampionResource.SkillP_Image);
+    if (MyChamp->ChampionResource.SkillQ_Image) MainHUDWidget->SetSkillImage("Q", MyChamp->ChampionResource.SkillQ_Image);
+    if (MyChamp->ChampionResource.SkillW_Image) MainHUDWidget->SetSkillImage("W", MyChamp->ChampionResource.SkillW_Image);
+    if (MyChamp->ChampionResource.SkillE_Image) MainHUDWidget->SetSkillImage("E", MyChamp->ChampionResource.SkillE_Image);
+    if (MyChamp->ChampionResource.SkillR_Image) MainHUDWidget->SetSkillImage("R", MyChamp->ChampionResource.SkillR_Image);
+    if (MyChamp->ChampionResource.SkillP_Image) MainHUDWidget->SetSkillImage("P", MyChamp->ChampionResource.SkillP_Image);
 }
 
 void ALOL_HUD::UpdateHP(float NewHP)
@@ -89,4 +89,10 @@ void ALOL_HUD::UpdateMP(float NewMP)
 
     if (MainHUDWidget && MyChampion && MyChampion->StatComponent) 
         MainHUDWidget->UpdateMP(NewMP, MyChampion->StatComponent->GetStat().MaxMP);
+}
+
+void ALOL_HUD::UpdateSkillCoolDown(FName SkillName, float CoolLocalEndTime, float CoolEndTime)
+{
+    if (MainHUDWidget)
+        MainHUDWidget->SetSkillCooldown(SkillName, CoolLocalEndTime, CoolEndTime);
 }

@@ -30,6 +30,7 @@ public:
     void UpdateHP(float NewHP);
     void UpdateMP(float NewMP);
 
+    void UpdateSkillCoolDown(FName SkillName, float CoolLocalEndTime, float CoolEndTime);
 
 protected:
     virtual void BeginPlay() override;

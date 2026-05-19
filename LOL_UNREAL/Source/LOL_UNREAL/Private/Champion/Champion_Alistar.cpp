@@ -301,7 +301,6 @@ void AChampion_Alistar::ApplyWKnockback(ACharacter* Target)
 void AChampion_Alistar::Skill_E()
 {
     if (!IsLocallyControlled()) return;
-    if (!SkillComponent->TryCastSkill(SkillComponent->GetE_Data(), 1)) return;
 
     // 마우스 타겟팅 없음 — 자기 주변에 영역 효과
     Server_Skill_E();
@@ -314,6 +313,7 @@ bool AChampion_Alistar::Server_Skill_E_Validate()
 
 void AChampion_Alistar::Server_Skill_E_Implementation()
 {
+    if (!SkillComponent->TryCastSkill("E", 1)) return;
     UE_LOG(LogTemp, Warning, TEXT("[Alistar E] 광역 DoT 발동! %d회 데미지"), E_MaxTicks);
 
     // 틱 카운터 초기화

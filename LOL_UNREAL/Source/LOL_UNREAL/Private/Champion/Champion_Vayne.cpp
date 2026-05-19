@@ -45,7 +45,7 @@ void AChampion_Vayne::Multicast_PlayQMontage_Implementation()
 void AChampion_Vayne::Server_Skill_Q_Implementation(FVector QLocation)
 {
     if (bIsDashing) return;
-
+    if (!SkillComponent->TryCastSkill("Q", 1)) return;
     FVector Start = GetActorLocation();
 
     // 1. 수평 방향 계산 (Z값 무시) ------- 2026 05 01 수정
