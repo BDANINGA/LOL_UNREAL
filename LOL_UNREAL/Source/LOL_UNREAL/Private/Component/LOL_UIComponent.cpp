@@ -2,12 +2,15 @@
 
 #include "Component/LOL_UIComponent.h"
 #include "Component/LOL_StatComponent.h"
+
 #include "Components/WidgetComponent.h"
+#include "Components/DecalComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
 
 #include "Widget/LOL_ChampionWidget.h"
 #include "LOL_HUD.h"
-
 #include "BaseChampion.h"
+
 #include "UObject/ConstructorHelpers.h"
 
 ULOL_UIComponent::ULOL_UIComponent()
@@ -25,14 +28,17 @@ ULOL_UIComponent::ULOL_UIComponent()
         ChampionWidget->SetWidgetClass(ChampionWidgetRef.Class);
     }
 
-    RangeIndicator = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RangeIndicator"));
+    RangeIndicator = CreateDefaultSubobject<UDecalComponent>(TEXT("RangeIndicator"));
     RangeIndicator->SetRelativeLocation(FVector(0.f, 0.f, -90.f)); 
-    RangeIndicator->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    RangeIndicator->SetCastShadow(false);
     RangeIndicator->SetHiddenInGame(true);
-
     RangeIndicator->bIsEditorOnly = false;
     RangeIndicator->SetComponentTickEnabled(false);
+
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> DecalMatRef(TEXT("/Game/UI/RangeIndicator/circularrangeindicatorul_mat.circularrangeindicatorul_mat"));
+    if (DecalMatRef.Succeeded())
+    {
+        BaseDecalMaterial = DecalMatRef.Object;
+    }
 }
 
 void ULOL_UIComponent::BeginPlay()
@@ -43,7 +49,13 @@ void ULOL_UIComponent::BeginPlay()
     if (Owner && Owner->StatComponent)
     {
         ChampionWidget->AttachToComponent(Owner->GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
-        RangeIndicator->AttachToComponent(Owner->GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
+        RangeIndicator->AttachToComponent(Owner->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+    }
+    if (BaseDecalMaterial)
+    {
+        // 원본 머티리얼을 기반으로 복사본(MID)을 만들어 데칼에 씌워줍니다.
+        DecalMID = UMaterialInstanceDynamic::Create(BaseDecalMaterial, this);
+        RangeIndicator->SetDecalMaterial(DecalMID);
     }
 }
 
@@ -54,8 +66,13 @@ void ULOL_UIComponent::ShowRangeIndicator()
     float Range{};
     if (Owner->StatComponent) Range = Owner->StatComponent->GetStat().AttackRange;
 
-    float ScaleValue = (Range * 2.0f) / 100.0f;
-    RangeIndicator->SetRelativeScale3D(FVector(ScaleValue, ScaleValue, 1.f));
+    RangeIndicator->DecalSize = FVector(500.f, Range, Range);
+
+    // 머티리얼 노드에서 만들었던 'IndicatorDiameter' 파라미터에 '지름(반지름 * 2)' 값을 전달
+    if (DecalMID)
+    {
+        DecalMID->SetScalarParameterValue(TEXT("IndicatorDiameter"), Range * 2.0f);
+    }
 
     RangeIndicator->SetHiddenInGame(false);
 }

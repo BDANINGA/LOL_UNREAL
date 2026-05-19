@@ -37,7 +37,13 @@ protected:
 	class UWidgetComponent* ChampionWidget;
 
 	UPROPERTY()
-	class UStaticMeshComponent* RangeIndicator;
+	class UDecalComponent* RangeIndicator;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
+	class UMaterialInterface* BaseDecalMaterial;
+
+	UPROPERTY()
+	class UMaterialInstanceDynamic* DecalMID;
 
 private:
 	float CachedMaxHP = -1.f;
