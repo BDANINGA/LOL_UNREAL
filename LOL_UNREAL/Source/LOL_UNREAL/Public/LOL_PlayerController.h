@@ -27,11 +27,7 @@ public:
 	virtual void AcknowledgePossession(APawn* P) override;
 	void InitCameraAnchor(APawn* TargetPawn);
 
-	UPROPERTY(EditAnywhere, Category = "UI")
-	TSubclassOf<class ULOL_CursorWidget> CursorWidgetClass;
-
 	void UpdateCursorSelection();
-	void ChangeCursorType(FString NewStateName);
 
 protected:
 	virtual void BeginPlay() override;
@@ -66,8 +62,4 @@ private:
 	UPROPERTY()
 	class ABaseChampion* MyChampion;
 
-
-	UPROPERTY()
-	class ULOL_CursorWidget* MyCursorWidget;
-	FString LastCursorState;
 };

@@ -87,6 +87,10 @@ void ABaseChampion::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (StatComponent) StatComponent->InitializeStat();
+
+	if (SkillComponent) SkillComponent->InitializeSkills();
+
 	// UI 설정
 	if (StatComponent && UIComponent)
 	{
@@ -158,10 +162,6 @@ void ABaseChampion::SetChampionData(FName RowName)
 		ChampionResource.RMontage = Data->RMontage;
 		ChampionResource.PMontage = Data->PMontage;
 	}
-
-	if (StatComponent) StatComponent->InitializeStat();
-
-	if (SkillComponent) SkillComponent->InitializeSkills();
 }
 
 void ABaseChampion::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)

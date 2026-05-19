@@ -8,8 +8,6 @@
 #include "BaseChampion.h"
 #include "Camera.h"
 
-#include "Widget/LOL_CursorWidget.h"
-
 #include "Component/LOL_MoveComponent.h"
 
 #include "Net/UnrealNetwork.h"
@@ -72,12 +70,6 @@ ALOL_PlayerController::ALOL_PlayerController()
 	{
 		AKeyAction = IA_AKey.Object;
 	}
-
-	static ConstructorHelpers::FClassFinder<ULOL_CursorWidget> CursorWidgetAsset(TEXT("/Game/UI/Cursor/Wbp_CursorWidget.Wbp_CursorWidget_C"));
-	if (CursorWidgetAsset.Succeeded())
-	{
-		CursorWidgetClass = CursorWidgetAsset.Class;
-	}
 }
 
 void ALOL_PlayerController::BeginPlay()
@@ -90,15 +82,8 @@ void ALOL_PlayerController::BeginPlay()
 		InputMode.SetHideCursorDuringCapture(false);
 		SetInputMode(InputMode);
 
-		if (CursorWidgetClass)
-		{
-			MyCursorWidget = CreateWidget<ULOL_CursorWidget>(this, CursorWidgetClass);
-			if (MyCursorWidget)
-			{
-				SetMouseCursorWidget(EMouseCursor::Default, MyCursorWidget);
-				bShowMouseCursor = true;
-			}
-		}
+		bShowMouseCursor = true;
+
 	}
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
@@ -308,7 +293,7 @@ void ALOL_PlayerController::OnAKey()
 }
 void ALOL_PlayerController::UpdateCursorSelection()
 {
-	if (!IsLocalController() || !MyCursorWidget) return;
+	if (!IsLocalController()) return;
 	if (!MyChampion) return;
 
 	FHitResult Hit;
@@ -317,25 +302,21 @@ void ALOL_PlayerController::UpdateCursorSelection()
 		AActor* TargetActor = Hit.GetActor();
 		ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
 
-		if (TargetChampion && TargetChampion != MyChampion)
+		if (TargetChampion && TargetChampion != MyChampion && MyChampion->GetIsPressA())
 		{
-			ChangeCursorType(TEXT("Attack")); // 공격용 칼 모양
+			CurrentMouseCursor = EMouseCursor::GrabHand;
+			return;
+		}
+		else if (TargetChampion && TargetChampion != MyChampion)
+		{
+			CurrentMouseCursor = EMouseCursor::Crosshairs;
 			return;
 		}
 		else if (MyChampion->GetIsPressA())
 		{
-			ChangeCursorType(TEXT("SearchAttack")); // 공격용 칼 모양
+			CurrentMouseCursor = EMouseCursor::Hand;
 			return;
 		}
 	}
-
-	ChangeCursorType(TEXT("Normal")); 
-}
-void ALOL_PlayerController::ChangeCursorType(FString NewStateName)
-{
-	if (MyCursorWidget && LastCursorState != NewStateName)
-	{
-		MyCursorWidget->SwitchCursorState(NewStateName);
-		LastCursorState = NewStateName;
-	}
+	CurrentMouseCursor = EMouseCursor::Default;
 }
