@@ -3,8 +3,6 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "Components/Image.h"
-#include "PaperSprite.h"
 #include "LOL_CursorWidget.generated.h"
 
 UCLASS()
@@ -15,12 +13,14 @@ class LOL_UNREAL_API ULOL_CursorWidget : public UUserWidget
 public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cursor")
-    TMap<FString, UPaperSprite*> CursorTable;
+    TMap<FString, class UPaperSprite*> CursorTable;
 
-    UPROPERTY(meta = (BindWidget))
-    UImage* CursorImage;    
+    virtual void NativeConstruct() override;
 
-    void NativeConstruct();
     void SwitchCursorState(FString StateName);
+
+private:
+    UPROPERTY(meta = (BindWidget))
+    class UImage* CursorImage;
 
 };

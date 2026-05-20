@@ -17,6 +17,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 
+#include "Blueprint/WidgetLayoutLibrary.h"
 #include "InputMappingContext.h"
 #include "InputAction.h"
 #include "UObject/ConstructorHelpers.h"
@@ -86,6 +87,7 @@ void ALOL_PlayerController::BeginPlay()
 	Super::BeginPlay();
 	if (IsLocalController())
 	{
+		bShowMouseCursor = true;
 		FInputModeGameAndUI InputMode;
 		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::LockAlways);
 		InputMode.SetHideCursorDuringCapture(false);
@@ -97,10 +99,10 @@ void ALOL_PlayerController::BeginPlay()
 			if (MyCursorWidget)
 			{
 				SetMouseCursorWidget(EMouseCursor::Default, MyCursorWidget);
-				bShowMouseCursor = true;
 			}
 		}
 	}
+	
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
 		if (DefaultMappingContext)
