@@ -232,16 +232,6 @@ void ABaseChampion::OnEnemyLeaveRange(UPrimitiveComponent* OverlappedComponent, 
 		EnemiesInRange.Remove(Enemy);
 	}
 }
-void ABaseChampion::Multicast_PlayAttackMontage_Implementation(FRotator TargetRotation)
-{
-	SetActorRotation(TargetRotation);
-
-	if (ChampionResource.AttackMontage[AM_Atk_Idx])
-	{
-		// 이 코드가 이제 모든 플레이어의 화면에서 실행됩니다.
-		PlayAnimMontage(ChampionResource.AttackMontage[AM_Atk_Idx], StatComponent->GetStat().AttackSpeed);
-	}
-}
 void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ABaseChampion, CombatTarget);
@@ -379,6 +369,18 @@ void ABaseChampion::SetIsKnockedBack(bool bInKnockback)
 {
 	// 실제 로직 (예: 변수 업데이트)
 	bIsKnockedBack = bInKnockback;
+}
+
+void ABaseChampion::Multicast_PlayMontage_Implementation(UAnimMontage* AnimMontage, float InplayRate)
+{
+	if (AnimMontage) PlayAnimMontage(AnimMontage, InplayRate);
+}
+
+void ABaseChampion::Multicast_SetTargetAndPlayMontage_Implementation(UAnimMontage* AnimMontage, float InplayRate, FRotator TargetRotation)
+{
+	SetActorRotation(TargetRotation);
+
+	if (AnimMontage) PlayAnimMontage(AnimMontage, InplayRate);
 }
 
 inline void ABaseChampion::SetIsPressA(bool toggle)

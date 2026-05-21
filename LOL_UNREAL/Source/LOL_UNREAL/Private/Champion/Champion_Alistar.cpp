@@ -19,25 +19,25 @@ AChampion_Alistar::AChampion_Alistar()
 
 void AChampion_Alistar::Multicast_PlayQMontage_Implementation()
 {
-    if (ChampionResource.QMontage)
+    if (ChampionResource.QMontage[AM_SKIll_Q_IDX])
     {
-        PlayAnimMontage(ChampionResource.QMontage, 2.0f);
+        PlayAnimMontage(ChampionResource.QMontage[AM_SKIll_Q_IDX], 2.0f);
     }
 }
 
 void AChampion_Alistar::Multicast_PlayWMontage_Implementation()
 {
-    if (ChampionResource.WMontage)
+    if (ChampionResource.WMontage[AM_SKIll_W_IDX])
     {
-        PlayAnimMontage(ChampionResource.WMontage, 2.0f);
+        PlayAnimMontage(ChampionResource.WMontage[AM_SKIll_W_IDX], 2.0f);
     }
 }
 
 void AChampion_Alistar::Multicast_PlayRMontage_Implementation()
 {
-    if (ChampionResource.RMontage)
+    if (ChampionResource.RMontage[AM_SKIll_R_IDX])
     {
-        PlayAnimMontage(ChampionResource.RMontage, 1.0f);
+        PlayAnimMontage(ChampionResource.RMontage[AM_SKIll_R_IDX], 1.0f);
     }
 }
 

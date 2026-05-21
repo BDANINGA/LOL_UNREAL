@@ -34,9 +34,9 @@ bool AChampion_Vayne::Server_Skill_Q_Validate(FVector QLocation) { return true; 
 
 void AChampion_Vayne::Multicast_PlayQMontage_Implementation()
 {
-    if (ChampionResource.QMontage)
+    if (ChampionResource.QMontage[AM_SKIll_Q_IDX])
     {
-        PlayAnimMontage(ChampionResource.QMontage, 1.0f);
+        PlayAnimMontage(ChampionResource.QMontage[AM_SKIll_Q_IDX], 1.0f);
     }
     else
         if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("NO (Ultimate) Used!"));
@@ -337,9 +337,9 @@ void AChampion_Vayne::Skill_E()
 
 void AChampion_Vayne::Multicast_PlayEMontage_Implementation()
 {
-    if (ChampionResource.EMontage)
+    if (ChampionResource.EMontage[AM_SKIll_E_IDX])
     {
-        PlayAnimMontage(ChampionResource.EMontage, 2.0f);
+        PlayAnimMontage(ChampionResource.EMontage[AM_SKIll_E_IDX], 2.0f);
     }
 }
 
@@ -424,9 +424,9 @@ void AChampion_Vayne::Server_Skill_R_Implementation()
 
 void AChampion_Vayne::Multicast_PlayRMontage_Implementation()
 {
-    if (ChampionResource.RMontage)
+    if (ChampionResource.RMontage[AM_SKIll_R_IDX])
     {
-        PlayAnimMontage(ChampionResource.RMontage);
+        PlayAnimMontage(ChampionResource.RMontage[AM_SKIll_R_IDX]);
     }
 }
 

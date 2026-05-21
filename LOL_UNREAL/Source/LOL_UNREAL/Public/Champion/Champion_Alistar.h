@@ -104,5 +104,4 @@ protected:
 	FTimerHandle Q_CastTimerHandle;
 
 	void EndQCast();
-
 };

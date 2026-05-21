@@ -71,7 +71,10 @@ void ULOL_AttackComponent::StartAttack()
         if (!Direction.IsNearlyZero())
         {
             FRotator NewRotation = FRotationMatrix::MakeFromX(Direction).Rotator();
-            Owner->Multicast_PlayAttackMontage(NewRotation);
+            Owner->Multicast_SetTargetAndPlayMontage(
+                Owner->ChampionResource.AttackMontage[Owner->GetAM_Atk_Idx()],
+                Owner->StatComponent->GetStat().AttackSpeed,
+                NewRotation);
         }
     }
     float AttackDelay = 1.0f / Owner->StatComponent->GetStat().AttackSpeed;

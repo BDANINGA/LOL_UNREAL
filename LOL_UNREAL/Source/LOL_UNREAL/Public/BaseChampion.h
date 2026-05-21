@@ -43,15 +43,15 @@ public:
 	UPROPERTY(EditAnywhere, Category = "AM")
 	TArray<UAnimMontage*> AttackMontage;
 	UPROPERTY(EditAnywhere, Category = "AM")
-	UAnimMontage* QMontage;
+	TArray<UAnimMontage*> QMontage;
 	UPROPERTY(EditAnywhere, Category = "AM")
-	UAnimMontage* WMontage;
+	TArray<UAnimMontage*> WMontage;
 	UPROPERTY(EditAnywhere, Category = "AM")
-	UAnimMontage* EMontage;
+	TArray<UAnimMontage*> EMontage;
 	UPROPERTY(EditAnywhere, Category = "AM")
-	UAnimMontage* RMontage;
+	TArray<UAnimMontage*> RMontage;
 	UPROPERTY(EditAnywhere, Category = "AM")
-	UAnimMontage* PMontage;
+	TArray<UAnimMontage*> PMontage;
 };
 
 UCLASS()
@@ -137,7 +137,10 @@ public:
 	void Server_ProcessMoveInput(FVector ClickLocation, AActor* TargetActor, bool bIsSearch);
 
 	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_PlayAttackMontage(FRotator TargetRotation);
+	void Multicast_PlayMontage(UAnimMontage* AnimMontage, float InplayRate);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_SetTargetAndPlayMontage(UAnimMontage* AnimMontage, float InplayRate, FRotator TargetRotation);
 
 	FORCENOINLINE bool GetIsPressA() const { return bIsPressA; }
 	void SetIsPressA(bool toggle);
@@ -161,6 +164,8 @@ public:
 
 	virtual void OnBasicAttackHit(ACharacter* Target) {};
 
+	int32 GetAM_Atk_Idx() { return AM_Atk_Idx; }
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -176,7 +181,17 @@ protected:
 	bool bIsPressA = false;
 
 	UPROPERTY(Replicated)
-	int AM_Atk_Idx{};
+	int32 AM_Atk_Idx{};
+	UPROPERTY(Replicated)
+	int32 AM_SKIll_Q_IDX{};
+	UPROPERTY(Replicated)
+	int32 AM_SKIll_W_IDX{};
+	UPROPERTY(Replicated)
+	int32 AM_SKIll_E_IDX{};
+	UPROPERTY(Replicated)
+	int32 AM_SKIll_R_IDX{};
+	UPROPERTY(Replicated)
+	int32 AM_SKIll_P_IDX{};
 
 	UFUNCTION()
 	void OnEnemyEnterRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
