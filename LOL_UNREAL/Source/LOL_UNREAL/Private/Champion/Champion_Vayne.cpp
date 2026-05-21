@@ -394,6 +394,7 @@ void AChampion_Vayne::Server_ExecuteCondemn_Implementation(ACharacter* Target)
 
 void AChampion_Vayne::Skill_R()
 {
+    
     // 로컬 컨트롤러에서 서버로 요청
     if (IsLocallyControlled())
     {
@@ -406,7 +407,8 @@ bool AChampion_Vayne::Server_Skill_R_Validate() { return true; }
 void AChampion_Vayne::Server_Skill_R_Implementation()
 {
     // 1. 상태 활성화 및 스태츠 버프 (서버)
-    bIsFinalHourActive = true;
+    AM_Atk_Idx = 1;
+    AddStatusTag(LOLTags::Skill_R);
     // 실제 데미지 계산 로직이 StatComponent 등에 있다면 해당 수치를 가산하세요.
     // 예: StatComponent->AddAttackDamage(R_BonusAD);
 
@@ -430,7 +432,8 @@ void AChampion_Vayne::Multicast_PlayRMontage_Implementation()
 
 void AChampion_Vayne::End_Skill_R()
 {
-    bIsFinalHourActive = false;
+    RemoveStatusTag(LOLTags::Skill_R);
+    AM_Atk_Idx = 0;
     // StatComponent->AddAttackDamage(-R_BonusAD); // 버프 회수
 
     UE_LOG(LogTemp, Log, TEXT("[Vayne] 결전의 시간 종료"));
@@ -441,6 +444,4 @@ void AChampion_Vayne::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
     DOREPLIFETIME(AChampion_Vayne, bQEmpowered);   // ★ 추가
-
-    DOREPLIFETIME(AChampion_Vayne, bIsFinalHourActive);
 }

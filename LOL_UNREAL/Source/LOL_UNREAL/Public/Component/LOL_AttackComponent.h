@@ -16,8 +16,9 @@ public:
 	void UpdateAttackLogic();
 
 	void StartAttack();
-
 	void ResetAttack();
+	void ExecuteAttackHit();
+	void CancelAttack();
 
 	void ReceivedCrowdControl();
 
@@ -34,6 +35,7 @@ private:
 
 	FTimerHandle AttackTimerHandle;
 	bool bCanAttack = true;
+	bool bHitHappened = false;
 
 	
 };

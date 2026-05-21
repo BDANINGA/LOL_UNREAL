@@ -21,7 +21,15 @@ void ULOL_AttackComponent::BeginPlay()
 }
 void ULOL_AttackComponent::UpdateAttackLogic()
 {
-    if (!Owner || !Owner->CombatTarget || Owner->LifeCycleComponent->bIsDead || Owner == Owner->CombatTarget) return;
+    if (!Owner || !Owner->CombatTarget || Owner->HasStatusTag(LOLTags::State_Dead) || Owner == Owner->CombatTarget) return;
+
+    if (ABaseChampion* TargetChmapion = Cast<ABaseChampion>(Owner->CombatTarget)) {
+        if (TargetChmapion->HasStatusTag(LOLTags::State_Dead))
+        {
+            Owner->CombatTarget = nullptr;
+            return;
+        }
+    }
 
     float Distance = Owner->GetDistanceTo(Owner->CombatTarget);
     auto StatComp = Owner->StatComponent;
@@ -29,7 +37,7 @@ void ULOL_AttackComponent::UpdateAttackLogic()
     // 사거리 안이면 공격
     if (StatComp && Distance <= StatComp->GetStat().AttackRange)
     {
-        Owner->MoveComponent->bIsMoving = false;
+        Owner->RemoveStatusTag(LOLTags::State_Moving);
 
         if (bCanAttack)
         {
@@ -39,7 +47,7 @@ void ULOL_AttackComponent::UpdateAttackLogic()
     // 사거리 밖이면 추격
     else
     {
-        Owner->MoveComponent->bIsMoving = true;
+        Owner->AddStatusTag(LOLTags::State_Moving);
         Owner->MoveComponent->TargetLocation = Owner->CombatTarget->GetActorLocation();
 
         FVector Direction = Owner->MoveComponent->TargetLocation - Owner->GetActorLocation();
@@ -50,23 +58,13 @@ void ULOL_AttackComponent::UpdateAttackLogic()
 
 void ULOL_AttackComponent::StartAttack()
 {
-    if (!Owner || !bCanAttack || !Owner->CombatTarget || !Owner->StatComponent) return;
+    if (!Owner || !Owner->CombatTarget || !Owner->StatComponent) return;
 
     bCanAttack = false;
+    bHitHappened = false;
 
-    // 서버에서 데미지 계산 및 몽타주 재생
     if (Owner->HasAuthority())
     {
-        UGameplayStatics::ApplyDamage(
-            Owner->CombatTarget,
-            Owner->StatComponent->GetStat().AttackDamage,
-            Owner->GetController(),
-            Owner,
-            nullptr
-        );
-
-        Owner->OnBasicAttackHit(Cast<ACharacter>(Owner->CombatTarget));
-
         FVector Direction = Owner->CombatTarget->GetActorLocation() - Owner->GetActorLocation();
         Direction.Z = 0.f;
 
@@ -76,16 +74,46 @@ void ULOL_AttackComponent::StartAttack()
             Owner->Multicast_PlayAttackMontage(NewRotation);
         }
     }
-
     float AttackDelay = 1.0f / Owner->StatComponent->GetStat().AttackSpeed;
     GetWorld()->GetTimerManager().SetTimer(AttackTimerHandle, this, &ULOL_AttackComponent::ResetAttack, AttackDelay, false);
-
-    
 }
 
 void ULOL_AttackComponent::ResetAttack()
 {
     bCanAttack = true;
+}
+
+void ULOL_AttackComponent::ExecuteAttackHit()
+{
+    if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("ExecuteAttackHit"));
+    if (!Owner || !Owner->CombatTarget || !Owner->StatComponent) return;
+    if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("ExecuteAttackHit!!!!!"));
+    bHitHappened = true;
+
+    if (Owner->HasAuthority())
+    {
+        UGameplayStatics::ApplyDamage(
+            Owner->CombatTarget,
+            Owner->StatComponent->GetStat().AttackDamage,
+            Owner->GetController(),
+            Owner,
+            nullptr
+        );
+        Owner->OnBasicAttackHit(Cast<ACharacter>(Owner->CombatTarget));
+    }
+}
+
+void ULOL_AttackComponent::CancelAttack()
+{
+    if (!Owner) return;
+
+    Owner->StopAnimMontage();
+    if (!bHitHappened)
+    {
+        GetWorld()->GetTimerManager().ClearTimer(AttackTimerHandle);
+
+        ResetAttack();
+    }
 }
 
 void ULOL_AttackComponent::ReceivedCrowdControl()

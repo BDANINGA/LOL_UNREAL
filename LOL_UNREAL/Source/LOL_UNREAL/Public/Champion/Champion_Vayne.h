@@ -118,9 +118,6 @@ protected:
     void Multicast_PlayEMontage();
 
     // ------------- R스킬 관련 함수들 -------------
-    // 궁극기 활성화 여부 (블루프린트에서 애니메이션 전환 등에 활용 가능)
-    UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Skill|Vayne")
-    bool bIsFinalHourActive = false;
 
     // 궁극기 데이터
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|Vayne")

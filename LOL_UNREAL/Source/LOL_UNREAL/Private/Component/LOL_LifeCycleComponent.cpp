@@ -35,9 +35,9 @@ void ULOL_LifeCycleComponent::BeginPlay()
 }
 void ULOL_LifeCycleComponent::Server_HandleDeath()
 {
-	if (bIsDead || !Owner->HasAuthority()) return;
+	if (Owner->HasStatusTag(LOLTags::State_Dead) || !Owner->HasAuthority()) return;
 
-	bIsDead = true;
+	Owner->AddStatusTag(LOLTags::State_Dead);
 	Multicast_OnDeath();
 
 	if (ALOL_GameModeBase* GM = Cast<ALOL_GameModeBase>(GetWorld()->GetAuthGameMode()))
@@ -61,7 +61,7 @@ void ULOL_LifeCycleComponent::Respawn()
 {
 	if (!Owner->HasAuthority()) return;
 
-	bIsDead = false;
+	Owner->RemoveStatusTag(LOLTags::State_Dead);
 
 	if (Owner->StatComponent)
 	{
@@ -80,9 +80,4 @@ void ULOL_LifeCycleComponent::Multicast_OnRespawn_Implementation()
 
 	Owner->UIComponent->GetChampionWidget()->SetVisibility(true);
 	Owner->PlayAnimMontage(nullptr);
-}
-void ULOL_LifeCycleComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(ULOL_LifeCycleComponent, bIsDead);
 }

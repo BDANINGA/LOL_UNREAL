@@ -12,7 +12,6 @@
 
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
-
 #include "NiagaraFunctionLibrary.h" 
 #include "NiagaraSystem.h"
 #include "Engine/DamageEvents.h"
@@ -178,7 +177,7 @@ void ABaseChampion::Tick(float DeltaTime)
 		return;
 	}
 
-	if (LifeCycleComponent->bIsDead) return;
+	if (HasStatusTag(LOLTags::State_Dead)) return;
 
 	if (CombatTarget)
 	{
@@ -217,7 +216,7 @@ void ABaseChampion::OnEnemyEnterRange(UPrimitiveComponent* OverlappedComponent, 
 	ABaseChampion* Enemy = Cast<ABaseChampion>(OtherActor);
 
 	// 팀 조건 추가해야함.
-	if (Enemy && Enemy != this && !Enemy->LifeCycleComponent->bIsDead)
+	if (Enemy && Enemy != this && !Enemy->HasStatusTag(LOLTags::State_Dead))
 	{
 		EnemiesInRange.AddUnique(Enemy);
 	}
@@ -237,19 +236,50 @@ void ABaseChampion::Multicast_PlayAttackMontage_Implementation(FRotator TargetRo
 {
 	SetActorRotation(TargetRotation);
 
-	if (ChampionResource.AttackMontage)
+	if (ChampionResource.AttackMontage[AM_Atk_Idx])
 	{
 		// 이 코드가 이제 모든 플레이어의 화면에서 실행됩니다.
-		PlayAnimMontage(ChampionResource.AttackMontage);
+		PlayAnimMontage(ChampionResource.AttackMontage[AM_Atk_Idx], StatComponent->GetStat().AttackSpeed);
 	}
 }
 void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ABaseChampion, CombatTarget);
+	DOREPLIFETIME(ABaseChampion, StatusTags);
+}
+void ABaseChampion::AnimNotify_attack1_hit()
+{
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("AnimNotify"));
+	if (IsLocallyControlled())
+	{
+		Server_ExecuteAttackHit();
+	}
+
+	else if (HasAuthority())
+	{
+		if (AttackComponent)
+		{
+			AttackComponent->ExecuteAttackHit();
+		}
+	}
+}
+
+void ABaseChampion::Server_ExecuteAttackHit_Implementation()
+{
+	if (AttackComponent)
+	{
+		// 이 코드는 100% 서버에서만 실행되므로 안심하고 데미지를 줍니다.
+		AttackComponent->ExecuteAttackHit();
+	}
 }
 void ABaseChampion::ProcessMoveInput(FVector ClickLocation, AActor* TargetActor)
 {
 	ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
+	if (TargetChampion == this)
+	{
+		TargetChampion = nullptr;
+		TargetActor = nullptr;
+	}
 	if (ClickFX && TargetChampion == nullptr)
 	{
 		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
@@ -264,14 +294,26 @@ void ABaseChampion::ProcessMoveInput(FVector ClickLocation, AActor* TargetActor)
 void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation, AActor* TargetActor, bool bIsSearch)
 {
 	if (bIsKnockedBack) return;
-
-	if (LifeCycleComponent->bIsDead) return;
-
-	MoveComponent->bIsSearchAttack = bIsSearch;
+	if (HasStatusTag(LOLTags::State_Dead)) return;
 
 	ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
+	if (!TargetChampion && TargetChampion == this)
+	{
+		TargetChampion = nullptr;
+		TargetActor = nullptr;
+	}
+
+	if (AttackComponent && !AttackComponent->CanAttack())
+	{
+		if (TargetChampion == nullptr || TargetChampion != CombatTarget)
+		{
+			AttackComponent->CancelAttack();
+		}
+	}
+
 	CombatTarget = TargetChampion;
 
+	MoveComponent->bIsSearchAttack = bIsSearch;
 	MoveComponent->SetMoveTarget(ClickLocation, TargetChampion);
 }
 bool ABaseChampion::Server_ProcessMoveInput_Validate(FVector ClickLocation, AActor* TargetActor, bool bIsSearch)
@@ -342,4 +384,23 @@ void ABaseChampion::SetIsKnockedBack(bool bInKnockback)
 inline void ABaseChampion::SetIsPressA(bool toggle)
 {
 	bIsPressA = toggle;
+}
+void ABaseChampion::AddStatusTag(FGameplayTag Tag)
+{
+	if (HasAuthority()) { StatusTags.AddTag(Tag); }
+}
+
+void ABaseChampion::RemoveStatusTag(FGameplayTag Tag)
+{
+	if (HasAuthority()) { StatusTags.RemoveTag(Tag); }
+}
+
+bool ABaseChampion::HasStatusTag(FGameplayTag Tag) const
+{
+	return StatusTags.HasTag(Tag);
+}
+
+void ABaseChampion::GetOwnedGameplayTags(FGameplayTagContainer& TagContainer) const
+{
+	TagContainer = StatusTags;
 }

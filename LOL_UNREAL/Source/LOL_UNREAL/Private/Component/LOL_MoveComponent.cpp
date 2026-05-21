@@ -23,7 +23,7 @@ void ULOL_MoveComponent::BeginPlay()
 
 void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
 {
-    if (!Owner || Owner->LifeCycleComponent->bIsDead || Owner->bIsStunned || Owner->bIsKnockedBack) return;
+    if (!Owner || Owner->HasStatusTag(LOLTags::State_Dead) || Owner->bIsStunned || Owner->bIsKnockedBack) return;
 
     if (Owner->CombatTarget) return; 
 
@@ -37,7 +37,7 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
         {
             ABaseChampion* Enemy = Owner->EnemiesInRange[i];
 
-            if (!Enemy || Enemy->LifeCycleComponent->bIsDead)
+            if (!Enemy || Enemy->HasStatusTag(LOLTags::State_Dead))
             {
                 Owner->EnemiesInRange.RemoveAt(i);
                 continue;
@@ -57,7 +57,7 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
         }
     }
 
-    if (bIsMoving)
+    if (Owner->HasStatusTag(LOLTags::State_Moving))
     {
         FVector CurrentLocation = Owner->GetActorLocation();
         FVector Direction = TargetLocation - CurrentLocation;
@@ -77,17 +77,17 @@ void ULOL_MoveComponent::SetMoveTarget(FVector NewLocation, AActor* TargetActor)
 {
     ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
     if (TargetChampion && TargetChampion != Owner) {
-        bIsMoving = false;
+        Owner->RemoveStatusTag(LOLTags::State_Moving);
     }
     else {
         TargetLocation = NewLocation;
-        bIsMoving = true;
+        Owner->AddStatusTag(LOLTags::State_Moving);
     }
 }
 
 void ULOL_MoveComponent::StopMovement()
 {
-    bIsMoving = false;
+    Owner->RemoveStatusTag(LOLTags::State_Moving);
     if (Owner && Owner->GetCharacterMovement())
     {
         Owner->GetCharacterMovement()->StopMovementImmediately();
@@ -98,6 +98,5 @@ void ULOL_MoveComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(ULOL_MoveComponent, TargetLocation);
-    DOREPLIFETIME(ULOL_MoveComponent, bIsMoving);
     DOREPLIFETIME(ULOL_MoveComponent, bIsSearchAttack);
 }

@@ -18,9 +18,6 @@ public:
 	
 	UFUNCTION()
 	void Respawn();
-	
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Status")
-	bool bIsDead = false;
 
 protected:
 	virtual void BeginPlay() override;
@@ -34,6 +31,4 @@ protected:
 private:
 	UPROPERTY()
 	class ABaseChampion* Owner;
-
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };

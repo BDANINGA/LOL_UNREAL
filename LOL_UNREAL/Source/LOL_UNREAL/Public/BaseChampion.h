@@ -1,7 +1,7 @@
 // 챔피언의 기본 설정
 // ----------------------------------------------------------------------------------
 #pragma once
-
+#include "GamePlayTag/LOL_GamePlayTags.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "BaseChampion.generated.h"
@@ -41,7 +41,7 @@ public:
 	TSubclassOf<UAnimInstance> AnimBlueprint;
 
 	UPROPERTY(EditAnywhere, Category = "AM")
-	UAnimMontage* AttackMontage;
+	TArray<UAnimMontage*> AttackMontage;
 	UPROPERTY(EditAnywhere, Category = "AM")
 	UAnimMontage* QMontage;
 	UPROPERTY(EditAnywhere, Category = "AM")
@@ -55,7 +55,7 @@ public:
 };
 
 UCLASS()
-class LOL_UNREAL_API ABaseChampion : public ACharacter
+class LOL_UNREAL_API ABaseChampion : public ACharacter, public IGameplayTagAssetInterface
 {
 	GENERATED_BODY()
 
@@ -89,21 +89,58 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class UChampion_SkillComponent* SkillComponent;
 
+	// 데이터테이블 연결 관련
 	UDataTable* DataTable;
 
 	UPROPERTY()
 	FChampionResourceData ChampionResource;
 
 	FName GetChampionName() const { return ChampionName; }
-
 	void SetChampionData(FName RowName);
-
+	
+	// 스킬 관련
 	void PressSkill(const uint8 skilltype);
-
 	virtual void Skill_Q() {};
 	virtual void Skill_W() {};
 	virtual void Skill_E() {};
 	virtual void Skill_R() {};
+
+	// 태그 관련
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Status")
+	FGameplayTagContainer StatusTags;
+
+	void AddStatusTag(FGameplayTag Tag);
+	void RemoveStatusTag(FGameplayTag Tag);
+	bool HasStatusTag(FGameplayTag Tag) const;
+
+	virtual void GetOwnedGameplayTags(FGameplayTagContainer& TagContainer) const override;
+
+	// 공격 관련
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
+	class USphereComponent* AttackRangeSphere;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
+	TArray<ABaseChampion*> EnemiesInRange;
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
+	AActor* CombatTarget;
+
+	UFUNCTION()
+	void AnimNotify_attack1_hit();
+
+	UFUNCTION(Server, Reliable)
+	void Server_ExecuteAttackHit();
+
+	void ProcessMoveInput(FVector ClickLocation, AActor* TargetActor);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_ProcessMoveInput(FVector ClickLocation, AActor* TargetActor, bool bIsSearch);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayAttackMontage(FRotator TargetRotation);
+
+	FORCENOINLINE bool GetIsPressA() const { return bIsPressA; }
+	void SetIsPressA(bool toggle);
 
 	//스턴 변수
 	void ApplyStun(float Duration);
@@ -119,28 +156,8 @@ public:
 
 	// 넉백 해제용 함수
 	void FinishKnockback() { bIsKnockedBack = false; }
-
-	void ProcessMoveInput(FVector ClickLocation, AActor* TargetActor);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_ProcessMoveInput(FVector ClickLocation, AActor* TargetActor, bool bIsSearch);
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
-	class USphereComponent* AttackRangeSphere;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
-	TArray<ABaseChampion*> EnemiesInRange;
-
-	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
-	AActor* CombatTarget;
-
-	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_PlayAttackMontage(FRotator TargetRotation);
 	
 	void SetIsKnockedBack(bool bInKnockback);
-	
-	FORCENOINLINE bool GetIsPressA() const { return bIsPressA; }
-	void SetIsPressA(bool toggle);
 
 	virtual void OnBasicAttackHit(ACharacter* Target) {};
 
@@ -157,6 +174,9 @@ protected:
 	
 	UPROPERTY()
 	bool bIsPressA = false;
+
+	UPROPERTY(Replicated)
+	int AM_Atk_Idx{};
 
 	UFUNCTION()
 	void OnEnemyEnterRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
