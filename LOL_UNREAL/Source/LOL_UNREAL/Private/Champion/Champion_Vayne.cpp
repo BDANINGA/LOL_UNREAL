@@ -8,7 +8,6 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"     // 2026 05 01 
-#include "Champion/VayneArrow.h"    //2026 05 07
 #include "GameFramework/DamageType.h"   // 2026 05 01 (UDamageType용)
 
 AChampion_Vayne::AChampion_Vayne()
@@ -207,9 +206,6 @@ void AChampion_Vayne::OnBasicAttackHit(ACharacter* Target)
         GetWorldTimerManager().ClearTimer(Q_EmpoweredTimerHandle);
     }
 
-    // ★ 추가 — 화살 시각 효과 (모든 클라에 전파)
-    Multicast_SpawnArrow(Target->GetActorLocation());
-
     TWeakObjectPtr<ACharacter> Key(Target);
 
     // 1. 해당 타겟의 스택 +1
@@ -249,37 +245,6 @@ void AChampion_Vayne::OnBasicAttackHit(ACharacter* Target)
                 UE_LOG(LogTemp, Log, TEXT("[Vayne W] 스택 만료"));
             }),
         BoltsStackDuration, false);
-}
-
-void AChampion_Vayne::Multicast_SpawnArrow_Implementation(FVector TargetLocation)
-{
-    UE_LOG(LogTemp, Warning, TEXT("[Vayne] Multicast_SpawnArrow_Implementation 실행됨"));
-
-    FVector StartLoc = GetActorLocation() + FVector(0, 0, 50);
-
-    UE_LOG(LogTemp, Warning, TEXT("[Vayne] StartLoc: %s, TargetLoc: %s"),
-        *StartLoc.ToString(), *TargetLocation.ToString());
-
-    FActorSpawnParameters SpawnParams;
-    SpawnParams.Owner = this;
-    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-    AVayneArrow* Arrow = GetWorld()->SpawnActor<AVayneArrow>(
-        AVayneArrow::StaticClass(),
-        StartLoc,
-        FRotator::ZeroRotator,
-        SpawnParams
-    );
-
-    if (Arrow)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("[Vayne] 화살 스폰 성공"));
-        Arrow->InitArrow(StartLoc, TargetLocation);
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("[Vayne] 화살 스폰 실패!"));
-    }
 }
 
 void AChampion_Vayne::TriggerSilverBolts(ACharacter* Target)

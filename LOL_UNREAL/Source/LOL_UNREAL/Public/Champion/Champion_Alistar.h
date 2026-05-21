@@ -20,11 +20,17 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 protected:
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_Skill_Q();
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Skill")
 
 	TObjectPtr<class ACharacter> CurrentWTarget;
 	bool bIsW_Dashing = false;
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_Skill_W(ACharacter* Target);
+	
 	void ApplyWKnockback(ACharacter* Target);
 
 	bool Server_Skill_W(AActor* Target);
@@ -36,6 +42,7 @@ protected:
 	void Multicast_PlayWMontage();
 
 	// --- E 스킬: 분쇄 ---
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|E")
 	float E_Radius = 400.0f;  // 효과 반경
 

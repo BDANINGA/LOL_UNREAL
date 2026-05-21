@@ -87,6 +87,10 @@ void ABaseChampion::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (StatComponent) StatComponent->InitializeStat();
+
+	if (SkillComponent) SkillComponent->InitializeSkills();
+
 	// UI 설정
 	if (StatComponent && UIComponent)
 	{
@@ -159,9 +163,7 @@ void ABaseChampion::SetChampionData(FName RowName)
 		ChampionResource.PMontage = Data->PMontage;
 	}
 
-	if (StatComponent) StatComponent->InitializeStat();
-
-	if (SkillComponent) SkillComponent->InitializeSkills();
+	
 }
 
 void ABaseChampion::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -282,19 +284,15 @@ bool ABaseChampion::Server_ProcessMoveInput_Validate(FVector ClickLocation, AAct
 void ABaseChampion::PressSkill(const uint8 skilltype)
 {
 	if (skilltype == 'q') {
-		if (not SkillComponent->TryCastSkill(SkillComponent->GetQ_Data(), 1)) return;
 		Skill_Q();
 	}
 	if (skilltype == 'w') {
-		if (not SkillComponent->TryCastSkill(SkillComponent->GetW_Data(), 1)) return;
 		Skill_W();
 	}
 	if (skilltype == 'e') {
-		if (not SkillComponent->TryCastSkill(SkillComponent->GetE_Data(), 1)) return;
 		Skill_E();
 	}
 	if (skilltype == 'r') {
-		if (not SkillComponent->TryCastSkill(SkillComponent->GetR_Data(), 1)) return;
 		Skill_R();
 	}
 }

@@ -26,11 +26,11 @@ UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(ACont
     if (InController && InController->IsLocalController())
     {
         // 첫 번째 플레이어(방장)는 알리스타
-        return AChampion_Alistar::StaticClass();
+        return AChampion_Vayne::StaticClass();
     }
 
     // 2. 그 외에 접속하는 클라이언트 플레이어들
-    return AChampion_Vayne::StaticClass();
+    return AChampion_Alistar::StaticClass();
 }
 
 void ALOL_GameModeBase::BeginPlay()

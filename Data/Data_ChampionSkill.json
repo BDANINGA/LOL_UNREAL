@@ -8,7 +8,8 @@
     "Range": [ 300.0, 300.0, 300.0, 300.0, 300.0 ],
     "Duration": [ 1.0, 1.0, 1.0, 1.0, 1.0 ],
     "CastTime": 0.25,
-    "SecondaryValue": [ 0.0, 0.0, 0.0, 0.0, 0.0 ]
+    "SecondaryValue": [ 0.0, 0.0, 0.0, 0.0, 0.0 ],
+    "CooldownEndTime": 0.0 
   },
   {
     "Name": "Alistar_W",
@@ -19,7 +20,8 @@
     "Range": [ 650.0, 650.0, 650.0, 650.0, 650.0 ],
     "Duration": [ 0.5, 0.5, 0.5, 0.5, 0.5 ],
     "CastTime": 0.0,
-    "SecondaryValue": [ 700.0, 700.0, 700.0, 700.0, 700.0 ]
+    "SecondaryValue": [ 700.0, 700.0, 700.0, 700.0, 700.0 ],
+    "CooldownEndTime": 0.0 
   },
   {
     "Name": "Alistar_E",
@@ -30,7 +32,8 @@
   "Range": [ 350.0, 350.0, 350.0, 350.0, 350.0 ],
   "Duration": [ 5.0, 5.0, 5.0, 5.0, 5.0 ],
   "CastTime": 0.0,
-  "SecondaryValue": [ 20.0, 40.0, 60.0, 80.0, 100.0 ]
+  "SecondaryValue": [ 20.0, 40.0, 60.0, 80.0, 100.0 ],
+  "CooldownEndTime": 0.0 
   },
   {
     "Name": "Alistar_R",
@@ -41,7 +44,8 @@
     "Range": [ 0.0, 0.0, 0.0 ],
     "Duration": [ 7.0, 7.0, 7.0 ],
     "CastTime": 0.0,
-    "SecondaryValue": [ 55.0, 65.0, 75.0 ]
+    "SecondaryValue": [ 55.0, 65.0, 75.0 ],
+    "CooldownEndTime": 0.0 
   },
   {
     "Name": "Vayne_Q",
@@ -52,7 +56,8 @@
     "Range": [ 300.0, 300.0, 300.0, 300.0, 300.0 ],
     "Duration": [ 7.0, 7.0, 7.0, 7.0, 7.0 ],
     "CastTime": 0.0,
-    "SecondaryValue": [ 0.0, 0.0, 0.0, 0.0, 0.0 ]
+    "SecondaryValue": [ 0.0, 0.0, 0.0, 0.0, 0.0 ],
+    "CooldownEndTime": 0.0 
   },
   {
     "Name": "Vayne_W",
@@ -63,7 +68,8 @@
     "Range": [ 0.0, 0.0, 0.0, 0.0, 0.0 ],
     "Duration": [ 3.0, 3.0, 3.0, 3.0, 3.0 ],
     "CastTime": 0.0,
-    "SecondaryValue": [ 6.0, 7.0, 8.0, 9.0, 10.0 ]
+    "SecondaryValue": [ 6.0, 7.0, 8.0, 9.0, 10.0 ],
+    "CooldownEndTime": 0.0 
   },
   {
     "Name": "Vayne_E",
@@ -74,7 +80,8 @@
     "Range": [ 550.0, 550.0, 550.0, 550.0, 550.0 ],
     "Duration": [ 1.5, 1.5, 1.5, 1.5, 1.5 ],
     "CastTime": 0.25,
-    "SecondaryValue": [ 475.0, 475.0, 475.0, 475.0, 475.0 ]
+    "SecondaryValue": [ 475.0, 475.0, 475.0, 475.0, 475.0 ],
+    "CooldownEndTime": 0.0 
   },
   {
     "Name": "Vayne_R",
@@ -85,6 +92,7 @@
     "Range": [ 0.0, 0.0, 0.0 ],
     "Duration": [ 8.0, 10.0, 12.0 ],
     "CastTime": 0.0,
-    "SecondaryValue": [ 25.0, 40.0, 55.0 ]
+    "SecondaryValue": [ 25.0, 40.0, 55.0 ],
+    "CooldownEndTime": 0.0 
   }
 ]

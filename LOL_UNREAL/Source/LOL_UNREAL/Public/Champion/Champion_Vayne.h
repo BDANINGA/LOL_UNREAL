@@ -25,9 +25,6 @@ public:
     UFUNCTION(NetMulticast, Reliable)
     void Multicast_SetCondemnRotation(FRotator NewRotation);
 
-    UFUNCTION(NetMulticast, Unreliable)
-    void Multicast_SpawnArrow(FVector TargetLocation);
-
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
    // 2026 05 13
    // ------------- R스킬 관련 함수들 -------------
