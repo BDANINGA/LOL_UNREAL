@@ -73,7 +73,7 @@ bool AChampion_Alistar::Server_Skill_Q_Validate() { return true; }
 
 void AChampion_Alistar::Server_Skill_Q_Implementation()
 {
-    if (!SkillComponent->TryCastSkill(SkillComponent->GetQ_Data(), 1)) return;
+    if (!SkillComponent->TryCastSkill("Q", 1)) return;
 
     // ★ 시각 효과는 서버에서 멀티캐스트 (모든 클라에 전파)
     Multicast_PlayQMontage();
@@ -189,7 +189,7 @@ bool AChampion_Alistar::Server_Skill_W_Validate(ACharacter* Target)
 
 void AChampion_Alistar::Server_Skill_W_Implementation(ACharacter* Target)
 {
-    if (!SkillComponent->TryCastSkill(SkillComponent->GetW_Data(), 1)) return;
+    if (!SkillComponent->TryCastSkill("W", 1)) return;
     if (!IsValid(Target) || Target == this) return;
 
     // 멀티캐스트로 모션 전파 (모든 클라)
