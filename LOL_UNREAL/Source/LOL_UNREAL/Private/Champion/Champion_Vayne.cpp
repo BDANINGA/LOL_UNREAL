@@ -120,6 +120,17 @@ void AChampion_Vayne::Tick(float DeltaTime)
             GetCharacterMovement()->SetMovementMode(MOVE_Walking);
         }
     }
+
+    if (GEngine)
+    {
+        const float Speed = GetCharacterMovement()->MaxWalkSpeed;
+        const float AD = StatComponent->GetStat().AttackDamage;
+
+        GEngine->AddOnScreenDebugMessage(1, 0.f, FColor::Green,
+            FString::Printf(TEXT("MaxWalkSpeed: 90.0f"), Speed));
+        GEngine->AddOnScreenDebugMessage(2, 0.f, FColor::Yellow,
+            FString::Printf(TEXT("AttackDamage: 35.0f"), AD));
+    }
 }
 
 void AChampion_Vayne::Skill_W()
@@ -344,7 +355,15 @@ void AChampion_Vayne::Server_ExecuteCondemn_Implementation(ACharacter* Target)
     FVector TargetLoc = Target->GetActorLocation();
     FVector PushDir = (TargetLoc - MyLoc).GetSafeNormal2D();
     FVector LaunchVelocity = (PushDir * PushDistance) / PushTime;
-    Target->LaunchCharacter(LaunchVelocity, true, true);
+
+    if (ABaseChampion* TargetChampion = Cast<ABaseChampion>(Target))
+    {
+        TargetChampion->StartKnockbackWithWallCheck(LaunchVelocity, PushTime, WallStunDuration);
+    }
+    else
+    {
+        Target->LaunchCharacter(LaunchVelocity, true, true);
+    }
 
     float SkillDamage = SkillComponent->GetE_Data().BaseDamage[0] + StatComponent->GetStat().AttackDamage * 0.5f;
 

@@ -18,7 +18,14 @@ public:
 	virtual void Skill_R() override;
 
 	virtual void Tick(float DeltaTime) override;
+	virtual bool CanCastWhileStunned(uint8 skilltype) const override;
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_ClearCC();
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|R")
+	float UltDamageReduction = 0.7f;   // 70% 감소
+
+	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 protected:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_Skill_Q();
@@ -32,8 +39,6 @@ protected:
 	void Server_Skill_W(ACharacter* Target);
 	
 	void ApplyWKnockback(ACharacter* Target);
-
-	bool Server_Skill_W(AActor* Target);
 
 	UFUNCTION(NetMulticast, Unreliable)
 	void Multicast_PlayQMontage();
@@ -83,9 +88,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|R")
 	float UltDuration = 7.0f;  // 지속시간
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|R")
-	float UltDamageReduction = 0.5f;  // 받는 피해 50% 감소
-
 	UPROPERTY(Replicated)
 	bool bIsUltActive = false;
 
@@ -112,4 +114,5 @@ protected:
 
 	void EndQCast();
 
+	
 };

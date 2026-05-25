@@ -50,10 +50,8 @@ void AChampion_Alistar::EndQCast()
 
 void AChampion_Alistar::Skill_Q()
 {
-
     if (!IsLocallyControlled()) return;
    
-
     // 본인 시전 잠금 (본인 클라 즉시 반응)
     GetCharacterMovement()->DisableMovement();
     GetCharacterMovement()->StopMovementImmediately();
@@ -83,7 +81,7 @@ void AChampion_Alistar::Server_Skill_Q_Implementation()
     // 범위 안 적 검출
     FVector Center = GetActorLocation();
     TArray<FHitResult> Hits;
-    FCollisionShape Sphere = FCollisionShape::MakeSphere(300.0f);
+    FCollisionShape Sphere = FCollisionShape::MakeSphere(100.0f);
 
     bool bHit = GetWorld()->SweepMultiByChannel(
         Hits,
@@ -449,6 +447,9 @@ void AChampion_Alistar::OnBasicAttackHit(ACharacter* Target)
 void AChampion_Alistar::Skill_R()
 {
     if (!IsLocallyControlled()) return;
+
+    // 로컬 클라이언트 시점에서 스턴 상태여도 R스킬이면 통과
+    if (bIsStunned && !CanCastWhileStunned('r')) return;
     Server_Skill_R();
 }
 
@@ -469,19 +470,12 @@ void AChampion_Alistar::StartUlt()
 {
     bIsUltActive = true;
 
-    // ★ CC 해제 — 에어본 빼고
-    ClearCCExceptKnockup();
+    Multicast_ClearCC();   // ← ClearCCExceptKnockup() 대신 이걸로
 
-    UE_LOG(LogTemp, Warning, TEXT("[Alistar R] 불굴의 의지 발동! %.1f초간 무적"), UltDuration);
+    UE_LOG(LogTemp, Warning, TEXT("[Alistar R] 불굴의 의지 발동! %.1f초간 피해 감소"), UltDuration);
 
-    // 7초 후 자동 종료
     GetWorld()->GetTimerManager().SetTimer(
-        UltTimerHandle,
-        this,
-        &AChampion_Alistar::EndUlt,
-        UltDuration,
-        false
-    );
+        UltTimerHandle, this, &AChampion_Alistar::EndUlt, UltDuration, false);
 }
 
 void AChampion_Alistar::ClearCCExceptKnockup()
@@ -499,8 +493,14 @@ void AChampion_Alistar::ClearCCExceptKnockup()
         GetWorldTimerManager().ClearTimer(StunHandle);
     }
 
-    // ❗ bIsKnockedBack은 건드리지 않음 — 에어본은 유지
-    // 만약 베인 E 같은 다른 CC가 추가되면 여기서 같이 해제
+    if (bIsKnockedBack)
+    {
+        EndKnockback();
+        if (GetCharacterMovement())
+        {
+            GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+        }
+    }
 }
 
 void AChampion_Alistar::EndUlt()
@@ -513,4 +513,34 @@ void AChampion_Alistar::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(AChampion_Alistar, bIsUltActive);
+}
+
+void AChampion_Alistar::Multicast_ClearCC_Implementation()
+{
+    // 스턴 해제
+    if (bIsStunned) ClearStun();
+    if (GetWorldTimerManager().IsTimerActive(StunHandle))
+        GetWorldTimerManager().ClearTimer(StunHandle);
+
+    // 넉백/에어본 해제 (EndKnockback이 플래그+넉백 타이머 정리)
+    if (bIsKnockedBack)
+    {
+        EndKnockback();
+        GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+    }
+}
+
+float AChampion_Alistar::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+    // 궁극기 활성 중 피해 70% 감소 (실제로는 30%만 받음)
+    if (bIsUltActive)
+    {
+        DamageAmount *= (1.f - UltDamageReduction);
+    }
+    return Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+}
+
+bool AChampion_Alistar::CanCastWhileStunned(uint8 skilltype) const
+{
+    return skilltype == 'r';
 }

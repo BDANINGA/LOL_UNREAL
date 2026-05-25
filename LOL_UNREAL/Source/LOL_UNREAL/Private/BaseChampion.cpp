@@ -27,6 +27,7 @@
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_UIComponent.h"
 #include "Component/Champion_SkillComponent.h"
+#include "DrawDebugHelpers.h"
 
 #include "UObject/ConstructorHelpers.h"
 
@@ -266,7 +267,8 @@ void ABaseChampion::ProcessMoveInput(FVector ClickLocation, AActor* TargetActor)
 void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation, AActor* TargetActor, bool bIsSearch)
 {
 	if (bIsKnockedBack) return;
-
+	//2026 05 21 추가
+	if (bIsStunned) return;
 	if (LifeCycleComponent->bIsDead) return;
 
 	MoveComponent->bIsSearchAttack = bIsSearch;
@@ -283,6 +285,25 @@ bool ABaseChampion::Server_ProcessMoveInput_Validate(FVector ClickLocation, AAct
 
 void ABaseChampion::PressSkill(const uint8 skilltype)
 {
+	// 사망 상태 확인
+	if (LifeCycleComponent && LifeCycleComponent->bIsDead) return;
+
+	UE_LOG(LogTemp, Warning, TEXT("PressSkill '%c' | Dead=%d KB=%d Stun=%d CanCastStun=%d"),
+		skilltype,
+		LifeCycleComponent->bIsDead ? 1 : 0,
+		bIsKnockedBack ? 1 : 0,
+		bIsStunned ? 1 : 0,
+		CanCastWhileStunned(skilltype) ? 1 : 0);
+
+	// [수정] 스턴이나 넉백 중일 때, 예외 허용('r')이 아니라면 스킬 차단
+	if (bIsStunned || bIsKnockedBack)
+	{
+		if (!CanCastWhileStunned(skilltype))
+		{
+			return; // R스킬이 아니면 여기서 차단됨
+		}
+	}
+
 	if (skilltype == 'q') {
 		Skill_Q();
 	}
@@ -343,4 +364,83 @@ void ABaseChampion::SetIsKnockedBack(bool bInKnockback)
 inline void ABaseChampion::SetIsPressA(bool toggle)
 {
 	bIsPressA = toggle;
+}
+
+//베인 벽꿍관련 함수
+void ABaseChampion::StartKnockbackWithWallCheck(const FVector& InLaunchVelocity, float MaxKnockbackTime, float InWallStunDuration)
+{
+	if (!HasAuthority()) return;
+
+	SetIsKnockedBack(true);
+	KnockbackDirection = InLaunchVelocity.GetSafeNormal2D();
+	PendingWallStunDuration = InWallStunDuration;
+
+	LaunchCharacter(InLaunchVelocity, true, true);
+
+	GetWorldTimerManager().SetTimer(
+		KnockbackCheckHandle, this, &ABaseChampion::CheckKnockbackWall, 0.02f, true);
+
+	GetWorldTimerManager().SetTimer(
+		KnockbackTimeoutHandle, this, &ABaseChampion::EndKnockback, MaxKnockbackTime + 0.3f, false);
+		
+}
+
+void ABaseChampion::CheckKnockbackWall()
+{
+	if (KnockbackDirection.IsNearlyZero()) return;
+
+	const float Radius = GetCapsuleComponent()->GetScaledCapsuleRadius();
+	const float HalfHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+
+	const FVector Start = GetActorLocation();
+	const FVector End = Start + KnockbackDirection * (Radius + 30.f); // 거리 살짝 늘림
+
+	FHitResult Hit;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+
+	// ★ 트레이스 채널 대신 '오브젝트 타입(WorldStatic)' 질의 → 벽/지형 확실히 감지
+	FCollisionObjectQueryParams ObjParams;
+	ObjParams.AddObjectTypesToQuery(ECC_WorldStatic);
+
+	const bool bHit = GetWorld()->SweepSingleByObjectType(
+		Hit, Start, End, GetActorQuat(),
+		ObjParams,
+		FCollisionShape::MakeCapsule(Radius * 0.9f, HalfHeight * 0.9f),
+		Params);
+
+	// 디버그: 초록=벽 감지, 빨강=못 잡음
+	DrawDebugCapsule(GetWorld(), End, HalfHeight * 0.9f, Radius * 0.9f,
+		GetActorQuat(), bHit ? FColor::Green : FColor::Red, false, 0.1f);
+
+	if (bHit)
+	{
+		// 바닥/경사면 제외(수평 노멀만 벽으로 인정), 단 벽에 파고든 경우도 허용
+		const bool bIsWall = Hit.bStartPenetrating || FMath::Abs(Hit.ImpactNormal.Z) < 0.5f;
+		if (bIsWall)
+		{
+			GetCharacterMovement()->StopMovementImmediately();
+			EndKnockback();
+			Multicast_ApplyStun(PendingWallStunDuration);
+		}
+	}
+}
+
+void ABaseChampion::EndKnockback()
+{
+	GetWorldTimerManager().ClearTimer(KnockbackCheckHandle);
+	GetWorldTimerManager().ClearTimer(KnockbackTimeoutHandle);
+	KnockbackDirection = FVector::ZeroVector;
+	SetIsKnockedBack(false);
+}
+
+void ABaseChampion::Multicast_ApplyStun_Implementation(float Duration)
+{
+	ApplyStun(Duration);
+}
+
+void ABaseChampion::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	GetWorldTimerManager().ClearAllTimersForObject(this);
+	Super::EndPlay(EndPlayReason);
 }

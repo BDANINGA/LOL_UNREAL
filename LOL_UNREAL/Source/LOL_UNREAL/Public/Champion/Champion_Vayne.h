@@ -60,7 +60,7 @@ protected:
     FVector DashTarget;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|Q")
-    float Q_BonusDamageRatio = 500.8f;  // 추가 피해 계수 (공격력 × 0.8)
+    float Q_BonusDamageRatio = 50.0f;  // 추가 피해 계수 (공격력 × 0.8)
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|Q")
     float Q_EmpowerDuration = 6.0f;  // 강화 평타 유지 시간 (못 쓰면 만료)
@@ -80,7 +80,7 @@ protected:
 
     /** 3타째 추가 고정 피해량 */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|W")
-    float BoltsBonusDamage = 100.0f;
+    float BoltsBonusDamage = 50.0f;
 
     /** 일정 시간 같은 적을 안 때리면 스택 초기화 (초) */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|W")
@@ -106,13 +106,16 @@ protected:
 
     // �����Ϳ��� ���� ������ ��ų ��ġ
     UPROPERTY(EditAnywhere, Category = "Skill|E")
-    float PushDistance = 1000.0f; // �з��� �Ÿ�
+    float PushDistance = 3500.0f; // �з��� �Ÿ�
 
     UPROPERTY(EditAnywhere, Category = "Skill|E")
     float PushTime = 0.4f; // �з����� �ð� (��)
 
     UFUNCTION(NetMulticast, Unreliable)
     void Multicast_PlayEMontage();
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|E")
+    float WallStunDuration = 5.0f;
 
     // ------------- R스킬 관련 함수들 -------------
     // 궁극기 활성화 여부 (블루프린트에서 애니메이션 전환 등에 활용 가능)
