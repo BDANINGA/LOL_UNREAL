@@ -50,94 +50,13 @@ void AChampion_Alistar::EndQCast()
 
 void AChampion_Alistar::Skill_Q()
 {
-    // ★ 본인 시전 잠금
+    if (!IsLocallyControlled()) return;
+   
+    // 본인 시전 잠금 (본인 클라 즉시 반응)
     GetCharacterMovement()->DisableMovement();
     GetCharacterMovement()->StopMovementImmediately();
 
-
-    Multicast_PlayQMontage();
-    // 2. 범위 설정
-    FVector Center = GetActorLocation();
-
-    // 3. 충돌 결과 저장
-    TArray<FHitResult> Hits;
-
-    FCollisionShape Sphere = FCollisionShape::MakeSphere(300.0f);
-
-    bool bHit = GetWorld()->SweepMultiByChannel(
-        Hits,
-        GetActorLocation(),
-        GetActorLocation(),
-        FQuat::Identity,
-        ECC_Pawn,
-        Sphere
-    );
-
-    if (bHit)
-    {
-        for (auto& Hit : Hits)
-        {
-            ACharacter* Target = Cast<ACharacter>(Hit.GetActor());
-
-            if (Target && Target != this)
-            {
-                // 1. 공격 애니메이션 즉시 중단 (매우 중요)
-                Target->StopAnimMontage();
-
-                UCharacterMovementComponent* MoveComp = Target->GetCharacterMovement();
-                if (MoveComp)
-                {
-                    // 2. 기존 운동 에너지 및 루트 모션 데이터 제거
-                    MoveComp->StopMovementImmediately();
-                    MoveComp->CurrentRootMotion.Clear();
-
-                    // 3. 공중 상태로 강제 전환 (에어본이 가능하도록)
-                    MoveComp->SetMovementMode(MOVE_Falling);
-                }
-
-                // ★ 추가 — 적이 알리스타 캡슐을 무시하도록 (옆으로 안 밀리게)
-                Target->MoveIgnoreActorAdd(this);
-
-                // 4. 에어본 발사
-                Target->LaunchCharacter(FVector(0, 0, 600.0f), true, true);
-
-                if (ABaseChampion* Champ = Cast<ABaseChampion>(Target))
-                {
-                    // W에서 썼던 것과 동일하게 IsKnockedBack(또는 IsAirborne) 상태를 켜주는 것이 좋습니다.
-                    // 그래야 상대방 Tick 로직에서 다시 이동을 시도하지 못합니다.
-                    Champ->SetIsKnockedBack(true);
-                    Champ->ApplyStun(2.0f);
-           
-                    // 2초 뒤(스턴 종료 시) 상태 복구 타이머 추가 필요
-                    FTimerHandle AirTimer;
-                    GetWorld()->GetTimerManager().SetTimer(AirTimer, [Champ, this]() {
-                        if (IsValid(Champ))
-                        {
-                            Champ->SetIsKnockedBack(false); 
-                            
-                            // ★ 추가 — 충돌 무시 해제
-                            if (IsValid(this))
-                            {
-                                Champ->MoveIgnoreActorRemove(this);
-                            }
-                        }
-                        }, 1.0f, false); // 에어본 체공 시간만큼 설정
-                }
-
-                float SkillDamage = SkillComponent->GetQ_Data().BaseDamage[0] + StatComponent->GetStat().AttackDamage * 0.8f;
-
-                UGameplayStatics::ApplyDamage(
-                    Target,
-                    SkillDamage,
-                    this->GetController(),
-                    this,
-                    ULOL_DamageMagic::StaticClass()
-                );
-            }
-        }
-    }
-
-    // ★ Q_CastTime(0.5초) 후 이동 복구
+    // 본인 시전 락 풀 타이머
     GetWorld()->GetTimerManager().SetTimer(
         Q_CastTimerHandle,
         this,
@@ -145,66 +64,157 @@ void AChampion_Alistar::Skill_Q()
         Q_CastTime,
         false
     );
+
+    // ★ 진짜 로직은 서버에서
+    Server_Skill_Q();
 }
 
-bool AChampion_Alistar::Server_Skill_W(AActor* Target)
-{
-    if (!IsValid(Target)) return false;
-    return true;
-}
+bool AChampion_Alistar::Server_Skill_Q_Validate() { return true; }
 
-void AChampion_Alistar::Skill_W()
+void AChampion_Alistar::Server_Skill_Q_Implementation()
 {
-    // 1. 마우스 아래의 캐릭터 타겟팅
-    APlayerController* PC = Cast<APlayerController>(GetController());
-    if (!PC) return;
-    FHitResult HitResult;
-    // 마우스 커서 아래의 'Pawn' 또는 'Visibility' 채널 체크
-    if (PC->GetHitResultUnderCursor(ECC_Pawn, false, HitResult))
+    if (!SkillComponent->TryCastSkill(SkillComponent->GetQ_Data(), 1)) return;
+
+    // ★ 시각 효과는 서버에서 멀티캐스트 (모든 클라에 전파)
+    Multicast_PlayQMontage();
+
+    // 범위 안 적 검출
+    FVector Center = GetActorLocation();
+    TArray<FHitResult> Hits;
+    FCollisionShape Sphere = FCollisionShape::MakeSphere(100.0f);
+
+    bool bHit = GetWorld()->SweepMultiByChannel(
+        Hits,
+        Center,
+        Center,
+        FQuat::Identity,
+        ECC_Pawn,
+        Sphere
+    );
+
+    if (!bHit) return;
+
+    // 각 적에게 처리 적용
+    for (auto& Hit : Hits)
     {
-        ACharacter* Target = Cast<ACharacter>(HitResult.GetActor());
-        // 2. 유효성 검사 (타겟 존재 여부, 자기 자신 제외)
-        if (!Target || Target == this) return;
-        // 3. 사거리 체크
-        float SkillRange = 550.0f; // 알리스타 W 평균 사거리
-        float Distance = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
-        if (Distance <= SkillRange)
+        ACharacter* Target = Cast<ACharacter>(Hit.GetActor());
+        if (!Target || Target == this) continue;
+
+        // 적 모션·이동 정리
+        Target->StopAnimMontage();
+        UCharacterMovementComponent* MoveComp = Target->GetCharacterMovement();
+        if (MoveComp)
         {
-            // 타겟 저장 (추적용)
-            CurrentWTarget = Target;
-            // 돌진 상태 시작
-            bIsW_Dashing = true;
-            // 4. 돌진 방향 및 속도 계산
-            FVector DashDirection = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-            float DashSpeed = 1200.0f;
-
-            FRotator LookRotation = DashDirection.Rotation();
-            LookRotation.Pitch = 0.0f;
-            LookRotation.Roll = 0.0f;
-            SetActorRotation(LookRotation);
-
-            // 돌진 시작
-            LaunchCharacter(DashDirection * DashSpeed, true, true);
-
-            Multicast_PlayWMontage();
+            MoveComp->StopMovementImmediately();
+            MoveComp->CurrentRootMotion.Clear();
+            MoveComp->SetMovementMode(MOVE_Falling);
         }
 
-        float SkillDamage = SkillComponent->GetW_Data().BaseDamage[0] + StatComponent->GetStat().AbilityPower * 1.0f;
+        // 캡슐 충돌 무시
+        Target->MoveIgnoreActorAdd(this);
+
+        // 에어본 발사
+        Target->LaunchCharacter(FVector(0, 0, 600.0f), true, true);
+
+        // 스턴 + 에어본 상태 처리
+        if (ABaseChampion* Champ = Cast<ABaseChampion>(Target))
+        {
+            Champ->SetIsKnockedBack(true);
+            Champ->ApplyStun(2.0f);
+
+            // 1초 뒤 상태 복구
+            FTimerHandle AirTimer;
+            GetWorld()->GetTimerManager().SetTimer(AirTimer, [Champ, this]() {
+                if (IsValid(Champ))
+                {
+                    Champ->SetIsKnockedBack(false);
+                    if (IsValid(this))
+                    {
+                        Champ->MoveIgnoreActorRemove(this);
+                    }
+                }
+                }, 1.0f, false);
+        }
+
+        // 데미지 적용
+        float SkillDamage = SkillComponent->GetQ_Data().BaseDamage[0] +
+            StatComponent->GetStat().AttackDamage * 0.8f;
 
         UGameplayStatics::ApplyDamage(
             Target,
             SkillDamage,
-            this->GetController(),
+            GetController(),
             this,
             ULOL_DamageMagic::StaticClass()
         );
     }
 }
 
+void AChampion_Alistar::Skill_W()
+{
+    if (!IsLocallyControlled()) return;
+
+    // 마우스 아래 적 검출
+    APlayerController* PC = Cast<APlayerController>(GetController());
+    if (!PC) return;
+
+    FHitResult HitResult;
+    if (PC->GetHitResultUnderCursor(ECC_Pawn, false, HitResult))
+    {
+        ACharacter* Target = Cast<ACharacter>(HitResult.GetActor());
+        if (!Target || Target == this) return;
+
+        // 사거리 체크
+        float SkillRange = 550.0f;
+        float Distance = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
+        if (Distance > SkillRange) return;
+
+        // 본인 화면 즉시 회전 (반응성)
+        FVector DashDirection = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+        FRotator LookRotation = DashDirection.Rotation();
+        LookRotation.Pitch = 0.0f;
+        LookRotation.Roll = 0.0f;
+        SetActorRotation(LookRotation);
+
+        // 서버 RPC
+        Server_Skill_W(Target);
+    }
+}
+
+bool AChampion_Alistar::Server_Skill_W_Validate(ACharacter* Target)
+{
+    if (!IsValid(Target)) return false;
+    return true;
+}
+
+void AChampion_Alistar::Server_Skill_W_Implementation(ACharacter* Target)
+{
+    if (!SkillComponent->TryCastSkill(SkillComponent->GetW_Data(), 1)) return;
+    if (!IsValid(Target) || Target == this) return;
+
+    // 멀티캐스트로 모션 전파 (모든 클라)
+    Multicast_PlayWMontage();
+
+    // 추적 상태 시작
+    CurrentWTarget = Target;
+    bIsW_Dashing = true;
+
+    // 회전 (서버 권한, 자동 동기화)
+    FVector DashDirection = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+    FRotator LookRotation = DashDirection.Rotation();
+    LookRotation.Pitch = 0.0f;
+    LookRotation.Roll = 0.0f;
+    SetActorRotation(LookRotation);
+
+    // 돌진 시작
+    float DashSpeed = 1200.0f;
+    LaunchCharacter(DashDirection * DashSpeed, true, true);
+}
+
 void AChampion_Alistar::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-
+    if (!HasAuthority()) return;
     //에어본 상태일때
     if (bIsKnockedBack)
     {
@@ -297,6 +307,8 @@ void AChampion_Alistar::ApplyWKnockback(ACharacter* Target)
     bIsW_Dashing = false;
     CurrentWTarget = nullptr;
 }
+
+
 
 void AChampion_Alistar::Skill_E()
 {
@@ -435,6 +447,9 @@ void AChampion_Alistar::OnBasicAttackHit(ACharacter* Target)
 void AChampion_Alistar::Skill_R()
 {
     if (!IsLocallyControlled()) return;
+
+    // 로컬 클라이언트 시점에서 스턴 상태여도 R스킬이면 통과
+    if (bIsStunned && !CanCastWhileStunned('r')) return;
     Server_Skill_R();
 }
 
@@ -455,19 +470,12 @@ void AChampion_Alistar::StartUlt()
 {
     bIsUltActive = true;
 
-    // ★ CC 해제 — 에어본 빼고
-    ClearCCExceptKnockup();
+    Multicast_ClearCC();   // ← ClearCCExceptKnockup() 대신 이걸로
 
-    UE_LOG(LogTemp, Warning, TEXT("[Alistar R] 불굴의 의지 발동! %.1f초간 무적"), UltDuration);
+    UE_LOG(LogTemp, Warning, TEXT("[Alistar R] 불굴의 의지 발동! %.1f초간 피해 감소"), UltDuration);
 
-    // 7초 후 자동 종료
     GetWorld()->GetTimerManager().SetTimer(
-        UltTimerHandle,
-        this,
-        &AChampion_Alistar::EndUlt,
-        UltDuration,
-        false
-    );
+        UltTimerHandle, this, &AChampion_Alistar::EndUlt, UltDuration, false);
 }
 
 void AChampion_Alistar::ClearCCExceptKnockup()
@@ -485,8 +493,14 @@ void AChampion_Alistar::ClearCCExceptKnockup()
         GetWorldTimerManager().ClearTimer(StunHandle);
     }
 
-    // ❗ bIsKnockedBack은 건드리지 않음 — 에어본은 유지
-    // 만약 베인 E 같은 다른 CC가 추가되면 여기서 같이 해제
+    if (bIsKnockedBack)
+    {
+        EndKnockback();
+        if (GetCharacterMovement())
+        {
+            GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+        }
+    }
 }
 
 void AChampion_Alistar::EndUlt()
@@ -499,4 +513,34 @@ void AChampion_Alistar::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(AChampion_Alistar, bIsUltActive);
+}
+
+void AChampion_Alistar::Multicast_ClearCC_Implementation()
+{
+    // 스턴 해제
+    if (bIsStunned) ClearStun();
+    if (GetWorldTimerManager().IsTimerActive(StunHandle))
+        GetWorldTimerManager().ClearTimer(StunHandle);
+
+    // 넉백/에어본 해제 (EndKnockback이 플래그+넉백 타이머 정리)
+    if (bIsKnockedBack)
+    {
+        EndKnockback();
+        GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+    }
+}
+
+float AChampion_Alistar::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+    // 궁극기 활성 중 피해 70% 감소 (실제로는 30%만 받음)
+    if (bIsUltActive)
+    {
+        DamageAmount *= (1.f - UltDamageReduction);
+    }
+    return Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+}
+
+bool AChampion_Alistar::CanCastWhileStunned(uint8 skilltype) const
+{
+    return skilltype == 'r';
 }

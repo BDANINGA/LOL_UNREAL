@@ -30,7 +30,7 @@ UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(ACont
     }
 
     // 2. 그 외에 접속하는 클라이언트 플레이어들
-    return AChampion_Vayne::StaticClass();
+    return AChampion_Blitz::StaticClass();
 }
 
 void ALOL_GameModeBase::BeginPlay()

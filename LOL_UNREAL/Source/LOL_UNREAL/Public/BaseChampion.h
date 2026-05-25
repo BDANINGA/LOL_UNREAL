@@ -168,6 +168,24 @@ public:
 	virtual void OnBasicAttackHit(ACharacter* Target) {};
 
 	int32 GetAM_Atk_Idx() { return AM_Atk_Idx; }
+	//베인 벽꿍 관련 함수
+	void StartKnockbackWithWallCheck(const FVector& InLaunchVelocity, float MaxKnockbackTime, float InWallStunDuration);
+	void CheckKnockbackWall();
+	void EndKnockback();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_ApplyStun(float Duration);
+
+	FVector KnockbackDirection = FVector::ZeroVector;
+	float   PendingWallStunDuration = 0.f;
+	FTimerHandle KnockbackCheckHandle;
+	FTimerHandle KnockbackTimeoutHandle;
+
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	virtual bool CanCastWhileStunned(uint8 skilltype) const { return false; }
+
+	float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
 protected:
 	virtual void BeginPlay() override;
@@ -175,8 +193,7 @@ protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	FName ChampionName;
 	
@@ -201,4 +218,5 @@ protected:
 
 	UFUNCTION()
 	void OnEnemyLeaveRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
 };
