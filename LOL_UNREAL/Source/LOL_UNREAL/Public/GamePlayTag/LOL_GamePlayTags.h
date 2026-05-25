@@ -5,6 +5,8 @@
 
 namespace LOLTags
 {
+    UE_DECLARE_GAMEPLAY_TAG_EXTERN(Champion_Ranged);
+
     UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Dead);
     UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Moving);
     UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Attacking);

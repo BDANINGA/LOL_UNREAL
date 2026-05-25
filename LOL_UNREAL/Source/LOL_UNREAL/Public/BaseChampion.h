@@ -52,6 +52,9 @@ public:
 	TArray<UAnimMontage*> RMontage;
 	UPROPERTY(EditAnywhere, Category = "AM")
 	TArray<UAnimMontage*> PMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Projectile")
+	TArray<UStaticMesh*> ProjectileMesh;
 };
 
 UCLASS()
@@ -125,8 +128,8 @@ public:
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
 	AActor* CombatTarget;
 
-	UFUNCTION()
-	void AnimNotify_attack1_hit();
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
+	AActor* HitTarget = nullptr;
 
 	UFUNCTION(Server, Reliable)
 	void Server_ExecuteAttackHit();

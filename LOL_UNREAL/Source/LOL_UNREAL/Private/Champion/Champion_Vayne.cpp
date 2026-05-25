@@ -15,6 +15,7 @@ AChampion_Vayne::AChampion_Vayne()
 {
     ChampionName = TEXT("Vayne");
     SetChampionData(ChampionName);
+    AddStatusTag(LOLTags::Champion_Ranged);
 }
 
 void AChampion_Vayne::Skill_Q()

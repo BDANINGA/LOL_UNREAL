@@ -2,6 +2,7 @@
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_StatComponent.h"
+#include "Component/LOL_AttackComponent.h"
 #include "Components/SphereComponent.h"
 
 #include "BaseChampion.h"
@@ -81,7 +82,8 @@ void ULOL_MoveComponent::SetMoveTarget(FVector NewLocation, AActor* TargetActor)
     }
     else {
         TargetLocation = NewLocation;
-        Owner->AddStatusTag(LOLTags::State_Moving);
+        if (!Owner->HasStatusTag(LOLTags::State_Attacking))
+            Owner->AddStatusTag(LOLTags::State_Moving);
     }
 }
 

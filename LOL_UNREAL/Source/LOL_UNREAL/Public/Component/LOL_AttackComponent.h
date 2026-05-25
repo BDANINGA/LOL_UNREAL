@@ -16,18 +16,32 @@ public:
 	void UpdateAttackLogic();
 
 	void StartAttack();
+	UFUNCTION(BlueprintCallable, Category = "Attack")
+	void EndAttack();
 	void ResetAttack();
+	UFUNCTION(BlueprintCallable, Category = "Attack")
 	void ExecuteAttackHit();
+	UFUNCTION(BlueprintCallable, Category = "Attack")
+	void ExecuteRangeAttackHit();
 	void CancelAttack();
 
 	void ReceivedCrowdControl();
 
 	bool CanAttack() const { return bCanAttack; }
+	bool HitHappened() const { return bHitHappened; }
 
 	void OnBasicAttackHit(ACharacter* Target);
 
 protected:
 	virtual void BeginPlay() override;
+	
+	UPROPERTY(EditAnywhere, Category = "Pooling")
+	int32 PoolSize = 20;
+
+	UPROPERTY()
+	TArray<class ABaseProjectile*> ProjectilePool;
+
+	class ABaseProjectile* GetProjectileFromPool();
 
 private:
 	UPROPERTY()

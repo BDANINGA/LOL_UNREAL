@@ -160,6 +160,8 @@ void ABaseChampion::SetChampionData(FName RowName)
 		ChampionResource.EMontage = Data->EMontage;
 		ChampionResource.RMontage = Data->RMontage;
 		ChampionResource.PMontage = Data->PMontage;
+
+		ChampionResource.ProjectileMesh = Data->ProjectileMesh;
 	}
 }
 
@@ -235,23 +237,8 @@ void ABaseChampion::OnEnemyLeaveRange(UPrimitiveComponent* OverlappedComponent, 
 void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ABaseChampion, CombatTarget);
+	DOREPLIFETIME(ABaseChampion, HitTarget);
 	DOREPLIFETIME(ABaseChampion, StatusTags);
-}
-void ABaseChampion::AnimNotify_attack1_hit()
-{
-	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("AnimNotify"));
-	if (IsLocallyControlled())
-	{
-		Server_ExecuteAttackHit();
-	}
-
-	else if (HasAuthority())
-	{
-		if (AttackComponent)
-		{
-			AttackComponent->ExecuteAttackHit();
-		}
-	}
 }
 
 void ABaseChampion::Server_ExecuteAttackHit_Implementation()
