@@ -13,7 +13,7 @@
 
 AChampion_Blitz::AChampion_Blitz()
 {
-	ChampionName = TEXT("Blitz");
+	ChampionName = TEXT("Blitzcrank");
 	SetChampionData(ChampionName);
 
 	if (GetCharacterMovement())
@@ -35,19 +35,19 @@ bool AChampion_Blitz::Server_Skill_W_Validate() { return true; }
 
 void AChampion_Blitz::Server_Skill_W_Implementation()
 {
-    // ¼­¹ö¿¡¼­ ±âÁ¸ Å¸ÀÌ¸ÓµéÀ» ¾ÈÀüÇÏ°Ô Á¤¸®
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Å¸ï¿½Ì¸Óµï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï°ï¿½ ï¿½ï¿½ï¿½ï¿½
     GetWorldTimerManager().ClearTimer(W_BuffTimerHandle);
     GetWorldTimerManager().ClearTimer(W_SlowTimerHandle);
 
     if (GetCharacterMovement())
     {
-        // ¼­¹ö°¡ ¼Óµµ¸¦ ¹Ù±¸¸é Å¬¶óÀÌ¾ðÆ® ¹«ºê¸ÕÆ®·Î ÀÚµ¿ µ¿±âÈ­(Replication)µË´Ï´Ù.
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Óµï¿½ï¿½ï¿½ ï¿½Ù±ï¿½ï¿½ï¿½ Å¬ï¿½ï¿½ï¿½Ì¾ï¿½Æ® ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½Úµï¿½ ï¿½ï¿½ï¿½ï¿½È­(Replication)ï¿½Ë´Ï´ï¿½.
         GetCharacterMovement()->MaxWalkSpeed = 330.0f + (330.0f * W_SpeedBuffAmount);
     }
 
-    UE_LOG(LogTemp, Log, TEXT("[Server Blitz W] ÆøÁÖ ¹ßµ¿"));
+    UE_LOG(LogTemp, Log, TEXT("[Server Blitz W] ï¿½ï¿½ï¿½ï¿½ ï¿½ßµï¿½"));
 
-    // ¼­¹ö ¿ùµå Å¸ÀÌ¸Ó ¸Å´ÏÀú·Î ¹öÇÁ Á¾·á Å¸ÀÌ¸Ó µî·Ï
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Å¸ï¿½Ì¸ï¿½ ï¿½Å´ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Å¸ï¿½Ì¸ï¿½ ï¿½ï¿½ï¿½
     GetWorldTimerManager().SetTimer(W_BuffTimerHandle, this, &AChampion_Blitz::EndWBuff, W_Duration, false);
 }
 
@@ -73,11 +73,11 @@ void AChampion_Blitz::EndWSlow()
     {
         GetCharacterMovement()->MaxWalkSpeed = 330.0f;
     }
-    UE_LOG(LogTemp, Log, TEXT("[Server Blitz W] µÐÈ­ ÇØÁ¦, Á¤»ó º¹±¸"));
+    UE_LOG(LogTemp, Log, TEXT("[Server Blitz W] ï¿½ï¿½È­ ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½"));
 }
 
 // ==========================================
-// E ½ºÅ³ : °­Ã¶ ÁÖ¸Ô (·ÎÄÃ ÀÔ·Â -> ¼­¹ö ½ÇÇà)
+// E ï¿½ï¿½Å³ : ï¿½ï¿½Ã¶ ï¿½Ö¸ï¿½ (ï¿½ï¿½ï¿½ï¿½ ï¿½Ô·ï¿½ -> ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
 // ==========================================
 void AChampion_Blitz::Skill_E()
 {
@@ -93,10 +93,10 @@ void AChampion_Blitz::Server_Skill_E_Implementation()
 {
     bIsEActive = true;
 
-    // [ÆòÅ¸ Äµ½½ Ã³¸®] ¼­¹ö¿¡¼­ °ø°Ý Äð´Ù¿î Å¸ÀÌ¸Ó¸¦ ¸®¼ÂÇÏ¿© Áï½Ã ´ÙÀ½ °ø°Ý À¯µµ
+    // [ï¿½ï¿½Å¸ Äµï¿½ï¿½ Ã³ï¿½ï¿½] ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ù¿ï¿½ Å¸ï¿½Ì¸Ó¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï¿ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     // GetWorldTimerManager().ClearTimer(AttackCooldownHandle);
 
-    UE_LOG(LogTemp, Log, TEXT("[Server Blitz E] °­Ã¶ ÁÖ¸Ô ¹öÇÁ È°¼ºÈ­"));
+    UE_LOG(LogTemp, Log, TEXT("[Server Blitz E] ï¿½ï¿½Ã¶ ï¿½Ö¸ï¿½ ï¿½ï¿½ï¿½ï¿½ È°ï¿½ï¿½È­"));
 }
 
 void AChampion_Blitz::OnAttackHitWithE(ABaseChampion* Target)

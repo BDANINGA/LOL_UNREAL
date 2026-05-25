@@ -39,13 +39,6 @@ protected:
 	void Server_Skill_W(ACharacter* Target);
 	
 	void ApplyWKnockback(ACharacter* Target);
-
-	UFUNCTION(NetMulticast, Unreliable)
-	void Multicast_PlayQMontage();
-
-	UFUNCTION(NetMulticast, Unreliable)
-	void Multicast_PlayWMontage();
-
 	// --- E 스킬: 분쇄 ---
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|E")

@@ -17,22 +17,6 @@ AChampion_Alistar::AChampion_Alistar()
     SetChampionData(ChampionName);
 }
 
-void AChampion_Alistar::Multicast_PlayQMontage_Implementation()
-{
-    if (ChampionResource.QMontage[AM_SKIll_Q_IDX])
-    {
-        PlayAnimMontage(ChampionResource.QMontage[AM_SKIll_Q_IDX], 2.0f);
-    }
-}
-
-void AChampion_Alistar::Multicast_PlayWMontage_Implementation()
-{
-    if (ChampionResource.WMontage[AM_SKIll_W_IDX])
-    {
-        PlayAnimMontage(ChampionResource.WMontage[AM_SKIll_W_IDX], 2.0f);
-    }
-}
-
 void AChampion_Alistar::Multicast_PlayRMontage_Implementation()
 {
     if (ChampionResource.RMontage[AM_SKIll_R_IDX])
@@ -76,7 +60,7 @@ void AChampion_Alistar::Server_Skill_Q_Implementation()
     if (!SkillComponent->TryCastSkill("Q", 1)) return;
 
     // ★ 시각 효과는 서버에서 멀티캐스트 (모든 클라에 전파)
-    Multicast_PlayQMontage();
+    Multicast_PlayMontage(ChampionResource.QMontage[AM_SKIll_Q_IDX], 2.0f);
 
     // 범위 안 적 검출
     FVector Center = GetActorLocation();
@@ -192,9 +176,6 @@ void AChampion_Alistar::Server_Skill_W_Implementation(ACharacter* Target)
     if (!SkillComponent->TryCastSkill("W", 1)) return;
     if (!IsValid(Target) || Target == this) return;
 
-    // 멀티캐스트로 모션 전파 (모든 클라)
-    Multicast_PlayWMontage();
-
     // 추적 상태 시작
     CurrentWTarget = Target;
     bIsW_Dashing = true;
@@ -204,7 +185,7 @@ void AChampion_Alistar::Server_Skill_W_Implementation(ACharacter* Target)
     FRotator LookRotation = DashDirection.Rotation();
     LookRotation.Pitch = 0.0f;
     LookRotation.Roll = 0.0f;
-    SetActorRotation(LookRotation);
+    Multicast_SetTargetAndPlayMontage(ChampionResource.WMontage[AM_SKIll_W_IDX], 2.0f, LookRotation);
 
     // 돌진 시작
     float DashSpeed = 1200.0f;
