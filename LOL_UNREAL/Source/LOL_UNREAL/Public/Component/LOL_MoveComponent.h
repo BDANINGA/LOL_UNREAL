@@ -29,7 +29,7 @@ protected:
 
 private:
 	UPROPERTY()
-	class ABaseChampion* Owner;
+	class APawn* OwnerPawn;
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };

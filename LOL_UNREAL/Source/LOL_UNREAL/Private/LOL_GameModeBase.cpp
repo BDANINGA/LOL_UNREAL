@@ -9,6 +9,8 @@
 #include "Champion/Champion_Vayne.h"
 #include "Champion/Champion_Blitz.h"
 
+#include "Minion/BaseMinion.h"
+
 ALOL_GameModeBase::ALOL_GameModeBase()
 {
     PlayerControllerClass = ALOL_PlayerController::StaticClass();
@@ -36,6 +38,12 @@ UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(ACont
 void ALOL_GameModeBase::BeginPlay()
 {
     Super::BeginPlay();
+    FVector SpawnLocation = { -4803.f, 5708.f, -1201.f };
+    GetWorld()->SpawnActor<ABaseMinion>(
+        ABaseMinion::StaticClass(),
+        SpawnLocation,
+        FRotator::ZeroRotator
+    );
 }
 
 void ALOL_GameModeBase::RequestRespawn(ABaseChampion* DeadChampion)
