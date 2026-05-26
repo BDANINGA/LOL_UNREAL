@@ -13,9 +13,6 @@ struct FChampionResourceData : public FTableRowBase
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(EditAnywhere, Category = "Name")
-	FString ChampionName;
-
 	UPROPERTY(EditAnywhere, Category = "Mesh")
 	USkeletalMesh* Mesh;
 

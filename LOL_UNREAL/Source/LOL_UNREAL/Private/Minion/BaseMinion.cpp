@@ -32,16 +32,13 @@ ABaseMinion::ABaseMinion()
 	MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	MeshComponent->SetWorldScale3D(FVector(0.5f, 0.5f, 0.5f));
 
-	static ConstructorHelpers::FObjectFinder<USkeletalMesh> MinionMeshRef(TEXT("/Game/Level/blue_minion_melee/blue_minion_skeletal_mesh/unreal_blue_minionmelee_TEST.unreal_blue_minionmelee_TEST"));
-	if (MinionMeshRef.Succeeded())
-	{
-		MeshComponent->SetSkeletalMesh(MinionMeshRef.Object);
-	}
+	static ConstructorHelpers::FObjectFinder<UDataTable> ResourceDataAssetTable(TEXT("/Game/LOL_Data/Data_Minions/Data_MinionResource.Data_MinionResource"));
+	if (ResourceDataAssetTable.Succeeded()) DataTable = ResourceDataAssetTable.Object;
 
 	StatComponent = CreateDefaultSubobject<ULOL_StatComponent>(TEXT("StatComponent"));
 	//AttackComponent = CreateDefaultSubobject<ULOL_AttackComponent>(TEXT("AttackComponent"));
 	MoveComponent = CreateDefaultSubobject<ULOL_MoveComponent>(TEXT("MoveComponent"));
-	//LifeCycleComponent = CreateDefaultSubobject<ULOL_LifeCycleComponent>(TEXT("LifeCycleComponent"));
+	LifeCycleComponent = CreateDefaultSubobject<ULOL_LifeCycleComponent>(TEXT("LifeCycleComponent"));
 	//UIComponent = CreateDefaultSubobject<ULOL_UIComponent>(TEXT("UIComponent"));
 
 	AIControllerClass = ALOL_MinionAIController::StaticClass();
@@ -85,4 +82,29 @@ float ABaseMinion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEven
 	}
 
 	return ActualDamage;
+}
+
+void ABaseMinion::SetMinionData(FName RowName)
+{
+	FMinionResourceData* Data = DataTable->FindRow<FMinionResourceData>(RowName, TEXT(""));
+
+	if (Data)
+	{
+		if (Data->Mesh)
+		{
+			GetMesh()->SetSkeletalMesh(Data->Mesh);
+			GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -90.f));
+			GetMesh()->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
+		}
+		if (Data->AnimBlueprint)
+		{
+			GetMesh()->SetAnimInstanceClass(Data->AnimBlueprint);
+			GetMesh()->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+		}
+		MinionResource.Portrait = Data->Portrait;
+
+		MinionResource.AttackMontage = Data->AttackMontage;
+
+		MinionResource.ProjectileMesh = Data->ProjectileMesh;
+	}
 }
