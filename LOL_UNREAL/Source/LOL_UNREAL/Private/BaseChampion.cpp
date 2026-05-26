@@ -74,10 +74,30 @@ ABaseChampion::ABaseChampion()
 	bUseControllerRotationRoll = false;
 
 	// 캐릭터 이동 설정
-	GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->RotationRate = FRotator(0.f, 640.f, 0.f);
-	GetCharacterMovement()->bConstrainToPlane = true;
-	GetCharacterMovement()->bSnapToPlaneAtStart = true;
+	UCharacterMovementComponent* Movement = GetCharacterMovement();
+	if (Movement)
+	{
+		// 물리 오브젝트 상호작용 끄기
+		Movement->bEnablePhysicsInteraction = false;
+
+		// 불필요한 이동 모드 차단 (수영, 비행, 웅크리기)
+		Movement->DefaultWaterMovementMode = EMovementMode::MOVE_None;
+		Movement->GetNavAgentPropertiesRef().bCanSwim = false;
+		Movement->GetNavAgentPropertiesRef().bCanFly = false;
+		Movement->GetNavAgentPropertiesRef().bCanCrouch = false;
+
+		// 수동 점프 차단
+		Movement->GetNavAgentPropertiesRef().bCanJump = false;
+
+		// 낭떠러지 추락 방지
+		Movement->bCanWalkOffLedges = false;
+		Movement->LedgeCheckThreshold = 0.f;
+
+		Movement->bOrientRotationToMovement = true;
+		Movement->RotationRate = FRotator(0.f, 640.f, 0.f);
+		Movement->bConstrainToPlane = true;
+		Movement->bSnapToPlaneAtStart = true;
+	}
 
 	// 위치와 회전을 모두 복제하도록 설정
 	bReplicates = true;
