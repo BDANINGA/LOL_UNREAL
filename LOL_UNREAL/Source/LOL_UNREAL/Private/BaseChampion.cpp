@@ -25,6 +25,7 @@
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_UIComponent.h"
+#include "Component/LOL_StateComponent.h"
 #include "Component/Champion_SkillComponent.h"
 #include "DrawDebugHelpers.h"
 
@@ -48,6 +49,9 @@ ABaseChampion::ABaseChampion()
 
 	// UI
 	UIComponent = CreateDefaultSubobject<ULOL_UIComponent>(TEXT("UIComponent"));
+
+	// State
+	StateComponent = CreateDefaultSubobject<ULOL_StateComponent>(TEXT("StateComponent"));
 
 	// Skill
 	SkillComponent = CreateDefaultSubobject<UChampion_SkillComponent>(TEXT("SkillComponent"));
@@ -74,10 +78,30 @@ ABaseChampion::ABaseChampion()
 	bUseControllerRotationRoll = false;
 
 	// 캐릭터 이동 설정
-	GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->RotationRate = FRotator(0.f, 640.f, 0.f);
-	GetCharacterMovement()->bConstrainToPlane = true;
-	GetCharacterMovement()->bSnapToPlaneAtStart = true;
+	UCharacterMovementComponent* Movement = GetCharacterMovement();
+	if (Movement)
+	{
+		// 물리 오브젝트 상호작용 끄기
+		Movement->bEnablePhysicsInteraction = false;
+
+		// 불필요한 이동 모드 차단 (수영, 비행, 웅크리기)
+		Movement->DefaultWaterMovementMode = EMovementMode::MOVE_None;
+		Movement->GetNavAgentPropertiesRef().bCanSwim = false;
+		Movement->GetNavAgentPropertiesRef().bCanFly = false;
+		Movement->GetNavAgentPropertiesRef().bCanCrouch = false;
+
+		// 수동 점프 차단
+		Movement->GetNavAgentPropertiesRef().bCanJump = false;
+
+		// 낭떠러지 추락 방지
+		Movement->bCanWalkOffLedges = false;
+		Movement->LedgeCheckThreshold = 0.f;
+
+		Movement->bOrientRotationToMovement = true;
+		Movement->RotationRate = FRotator(0.f, 640.f, 0.f);
+		Movement->bConstrainToPlane = true;
+		Movement->bSnapToPlaneAtStart = true;
+	}
 
 	// 위치와 회전을 모두 복제하도록 설정
 	bReplicates = true;
@@ -180,14 +204,14 @@ void ABaseChampion::Tick(float DeltaTime)
 		return;
 	}
 
-	if (HasStatusTag(LOLTags::State_Dead)) return;
+	if (StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
 
-	if (CombatTarget)
+	if (AttackComponent && AttackComponent->CombatTarget)
 	{
 		AttackComponent->UpdateAttackLogic();
 	}
 	else {
-		MoveComponent->UpdateMovement(DeltaTime); // 분리된 로직 호출
+		MoveComponent->UpdateMovement(DeltaTime);
 	}
 }
 float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
@@ -219,7 +243,7 @@ void ABaseChampion::OnEnemyEnterRange(UPrimitiveComponent* OverlappedComponent, 
 	ABaseChampion* Enemy = Cast<ABaseChampion>(OtherActor);
 
 	// 팀 조건 추가해야함.
-	if (Enemy && Enemy != this && !Enemy->HasStatusTag(LOLTags::State_Dead))
+	if (Enemy && Enemy != this && !Enemy->StateComponent->HasStatusTag(LOLTags::State_Dead))
 	{
 		EnemiesInRange.AddUnique(Enemy);
 	}
@@ -237,9 +261,6 @@ void ABaseChampion::OnEnemyLeaveRange(UPrimitiveComponent* OverlappedComponent, 
 }
 void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(ABaseChampion, CombatTarget);
-	DOREPLIFETIME(ABaseChampion, HitTarget);
-	DOREPLIFETIME(ABaseChampion, StatusTags);
 }
 
 void ABaseChampion::Server_ExecuteAttackHit_Implementation()
@@ -272,7 +293,7 @@ void ABaseChampion::ProcessMoveInput(FVector ClickLocation, AActor* TargetActor)
 void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation, AActor* TargetActor, bool bIsSearch)
 {
 	if (bIsKnockedBack) return;
-	if (HasStatusTag(LOLTags::State_Dead)) return;
+	if (StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
 	if (bIsStunned) return;
 
 	MoveComponent->bIsSearchAttack = bIsSearch;
@@ -286,13 +307,13 @@ void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation
 
 	if (AttackComponent && !AttackComponent->CanAttack())
 	{
-		if (TargetChampion == nullptr || TargetChampion != CombatTarget)
+		if (TargetChampion == nullptr || TargetChampion != AttackComponent->CombatTarget)
 		{
 			AttackComponent->CancelAttack();
 		}
 	}
 
-	CombatTarget = TargetChampion;
+	if (AttackComponent) AttackComponent->SetCombatTarget(TargetChampion);
 
 	MoveComponent->bIsSearchAttack = bIsSearch;
 	MoveComponent->SetMoveTarget(ClickLocation, TargetChampion);
@@ -305,7 +326,7 @@ bool ABaseChampion::Server_ProcessMoveInput_Validate(FVector ClickLocation, AAct
 void ABaseChampion::PressSkill(const uint8 skilltype)
 {
 	// 사망 상태 확인
-	if (HasStatusTag(LOLTags::State_Dead)) return;
+	if (StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
 
 	// [수정] 스턴이나 넉백 중일 때, 예외 허용('r')이 아니라면 스킬 차단
 	if (bIsStunned || bIsKnockedBack)
@@ -389,26 +410,6 @@ inline void ABaseChampion::SetIsPressA(bool toggle)
 {
 	bIsPressA = toggle;
 }
-void ABaseChampion::AddStatusTag(FGameplayTag Tag)
-{
-	if (HasAuthority()) { StatusTags.AddTag(Tag); }
-}
-
-void ABaseChampion::RemoveStatusTag(FGameplayTag Tag)
-{
-	if (HasAuthority()) { StatusTags.RemoveTag(Tag); }
-}
-
-bool ABaseChampion::HasStatusTag(FGameplayTag Tag) const
-{
-	return StatusTags.HasTag(Tag);
-}
-
-void ABaseChampion::GetOwnedGameplayTags(FGameplayTagContainer& TagContainer) const
-{
-	TagContainer = StatusTags;
-}
-
 //베인 벽꿍관련 함수
 void ABaseChampion::StartKnockbackWithWallCheck(const FVector& InLaunchVelocity, float MaxKnockbackTime, float InWallStunDuration)
 {

@@ -3,6 +3,7 @@
 #include "Component/LOL_StatComponent.h"
 
 #include "Components/CapsuleComponent.h"
+#include "Component/LOL_StateComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -14,7 +15,7 @@ AChampion_Vayne::AChampion_Vayne()
 {
     ChampionName = TEXT("Vayne");
     SetChampionData(ChampionName);
-    AddStatusTag(LOLTags::Champion_Ranged);
+    StateComponent->AddStatusTag(LOLTags::Champion_Ranged);
 }
 
 void AChampion_Vayne::Skill_Q()
@@ -393,7 +394,7 @@ void AChampion_Vayne::Server_Skill_R_Implementation()
 {
     // 1. 상태 활성화 및 스태츠 버프 (서버)
     AM_Atk_Idx = 1;
-    AddStatusTag(LOLTags::Skill_R);
+    StateComponent->AddStatusTag(LOLTags::Skill_R);
     // 실제 데미지 계산 로직이 StatComponent 등에 있다면 해당 수치를 가산하세요.
     // 예: StatComponent->AddAttackDamage(R_BonusAD);
 
@@ -417,7 +418,7 @@ void AChampion_Vayne::Multicast_PlayRMontage_Implementation()
 
 void AChampion_Vayne::End_Skill_R()
 {
-    RemoveStatusTag(LOLTags::Skill_R);
+    StateComponent->RemoveStatusTag(LOLTags::Skill_R);
     AM_Atk_Idx = 0;
     // StatComponent->AddAttackDamage(-R_BonusAD); // 버프 회수
 

@@ -1,0 +1,112 @@
+// 미니언 기본 뼈대
+#include "Minion/BaseMinion.h"
+#include "Minion/LOL_MinionAIController.h"
+
+#include "Components/CapsuleComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+
+#include "Component/LOL_StatComponent.h"
+#include "Component/LOL_AttackComponent.h"
+#include "Component/LOL_MoveComponent.h"
+#include "Component/LOL_LifeCycleComponent.h"
+#include "Component/LOL_UIComponent.h"
+#include "Component/LOL_StateComponent.h"
+
+#include "Engine/DamageEvents.h"
+
+#include "UObject/ConstructorHelpers.h"
+
+ABaseMinion::ABaseMinion()
+{
+	PrimaryActorTick.bCanEverTick = true;
+
+	CapsuleComponent = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CapsuleComp"));
+	CapsuleComponent->InitCapsuleSize(35.f, 70.f);
+	CapsuleComponent->SetCollisionProfileName(TEXT("Pawn"));
+	CapsuleComponent->SetHiddenInGame(false);
+	RootComponent = CapsuleComponent;
+
+	MeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("MeshComp"));
+	MeshComponent->SetupAttachment(RootComponent);
+	MeshComponent->SetRelativeLocation(FVector(0.f, 0.f, -70.f)); 
+	MeshComponent->SetRelativeRotation(FRotator(0.f, -90.f, 0.f)); 
+	MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	MeshComponent->SetWorldScale3D(FVector(0.5f, 0.5f, 0.5f));
+
+	static ConstructorHelpers::FObjectFinder<UDataTable> ResourceDataAssetTable(TEXT("/Game/LOL_Data/Data_Minions/Data_MinionResource.Data_MinionResource"));
+	if (ResourceDataAssetTable.Succeeded()) DataTable = ResourceDataAssetTable.Object;
+
+	StatComponent = CreateDefaultSubobject<ULOL_StatComponent>(TEXT("StatComponent"));
+	//AttackComponent = CreateDefaultSubobject<ULOL_AttackComponent>(TEXT("AttackComponent"));
+	MoveComponent = CreateDefaultSubobject<ULOL_MoveComponent>(TEXT("MoveComponent"));
+	LifeCycleComponent = CreateDefaultSubobject<ULOL_LifeCycleComponent>(TEXT("LifeCycleComponent"));
+	//UIComponent = CreateDefaultSubobject<ULOL_UIComponent>(TEXT("UIComponent"));
+	StateComponent = CreateDefaultSubobject<ULOL_StateComponent>(TEXT("StateComponent"));
+
+	AIControllerClass = ALOL_MinionAIController::StaticClass();
+	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
+}
+
+void ABaseMinion::BeginPlay()
+{
+	Super::BeginPlay();
+	if (HasAuthority() && StatComponent)
+	{
+		StatComponent->InitializeStat();
+	}
+}
+
+void ABaseMinion::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	if (MoveComponent)
+	{
+		MoveComponent->UpdateMovement(DeltaTime);
+	}
+}
+
+float ABaseMinion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+	if (StatComponent)
+	{
+		EDamageType DamageType = EDamageType::Physical;
+		if (DamageEvent.DamageTypeClass == ULOL_DamageMagic::StaticClass())
+		{
+			DamageType = EDamageType::Magic;
+		}
+		else if (DamageEvent.DamageTypeClass == ULOL_DamageTrueDamage::StaticClass())
+		{
+			DamageType = EDamageType::TrueDamage;
+		}
+		ActualDamage = StatComponent->ApplyDamage(ActualDamage, DamageType);
+	}
+
+	return ActualDamage;
+}
+
+void ABaseMinion::SetMinionData(FName RowName)
+{
+	FMinionResourceData* Data = DataTable->FindRow<FMinionResourceData>(RowName, TEXT(""));
+
+	if (Data)
+	{
+		if (Data->Mesh)
+		{
+			GetMesh()->SetSkeletalMesh(Data->Mesh);
+			GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -90.f));
+			GetMesh()->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
+		}
+		if (Data->AnimBlueprint)
+		{
+			GetMesh()->SetAnimInstanceClass(Data->AnimBlueprint);
+			GetMesh()->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+		}
+		MinionResource.Portrait = Data->Portrait;
+
+		MinionResource.AttackMontage = Data->AttackMontage;
+
+		MinionResource.ProjectileMesh = Data->ProjectileMesh;
+	}
+}

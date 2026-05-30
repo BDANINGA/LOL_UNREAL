@@ -1,10 +1,10 @@
 // 사망, 리스폰 관련 컴포넌트
-
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_AttackComponent.h"
 #include "Component/LOL_UIComponent.h"
+#include "Component/LOL_StateComponent.h"
 
 #include "BaseChampion.h"
 #include "LOL_GameModeBase.h"
@@ -12,6 +12,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/WidgetComponent.h"
+#include "TimerManager.h"
 #include "Net/UnrealNetwork.h"
 
 ULOL_LifeCycleComponent::ULOL_LifeCycleComponent()
@@ -20,64 +21,114 @@ ULOL_LifeCycleComponent::ULOL_LifeCycleComponent()
 	SetIsReplicatedByDefault(true);
 }
 
-
-// Called when the game starts
 void ULOL_LifeCycleComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	Owner = Cast<ABaseChampion>(GetOwner());
-	if (Owner && Owner->StatComponent)
+	OwnerPawn = Cast<APawn>(GetOwner());
+	if (OwnerPawn)
 	{
-		Owner->StatComponent->OnHpZero.AddUObject(this, &ULOL_LifeCycleComponent::Server_HandleDeath);
+		if (ULOL_StatComponent* StatComp = OwnerPawn->FindComponentByClass<ULOL_StatComponent>())
+		{
+			StatComp->OnHpZero.AddUObject(this, &ULOL_LifeCycleComponent::Server_HandleDeath);
+		}
 	}
 	
 }
 void ULOL_LifeCycleComponent::Server_HandleDeath()
 {
-	if (Owner->HasStatusTag(LOLTags::State_Dead) || !Owner->HasAuthority()) return;
+	if (!OwnerPawn || !OwnerPawn->HasAuthority()) return;
 
-	Owner->AddStatusTag(LOLTags::State_Dead);
+
+	if (ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>())
+	{
+		if (!StateComp->HasStatusTag(LOLTags::State_Dead))
+		{
+			StateComp->AddStatusTag(LOLTags::State_Dead);
+		}
+	}
+
 	Multicast_OnDeath();
 
-	if (ALOL_GameModeBase* GM = Cast<ALOL_GameModeBase>(GetWorld()->GetAuthGameMode()))
+	if (bCanRespawn)
 	{
-		GM->RequestRespawn(Owner);
+		if (ALOL_GameModeBase* GM = Cast<ALOL_GameModeBase>(GetWorld()->GetAuthGameMode()))
+		{
+			GM->RequestRespawn(Cast<ABaseChampion>(OwnerPawn));
+		}
+	}
+	else
+	{
+		// 미니언/몬스터는 일정 시간(DespawnDelay) 뒤에 파괴(메모리 해제)
+		FTimerHandle DestroyTimer;
+		GetWorld()->GetTimerManager().SetTimer(DestroyTimer, [this]() {
+			if (OwnerPawn) OwnerPawn->Destroy();
+			}, DespawnDelay, false);
 	}
 }
 void ULOL_LifeCycleComponent::Multicast_OnDeath_Implementation()
 {
-	if (Owner->MoveComponent) Owner->MoveComponent->StopMovement();
-	if (Owner->AttackComponent) Owner->AttackComponent->ReceivedCrowdControl(); 
+	if (!OwnerPawn) return;
+
+	if (ULOL_MoveComponent* MoveComp = OwnerPawn->FindComponentByClass<ULOL_MoveComponent>())
+	{
+		MoveComp->StopMovement();
+	}
+	if (ULOL_AttackComponent* AttackComp = OwnerPawn->FindComponentByClass<ULOL_AttackComponent>())
+	{
+		AttackComp->ReceivedCrowdControl();
+	}
+	if (UPawnMovementComponent* MovementComp = OwnerPawn->GetMovementComponent())
+	{
+		MovementComp->StopMovementImmediately();
+	}
+
 
 			
-	Owner->GetCharacterMovement()->DisableMovement();
-	Owner->GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	Owner->GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	TArray<UPrimitiveComponent*> PrimitiveComps;
+	OwnerPawn->GetComponents<UPrimitiveComponent>(PrimitiveComps);
+	for (UPrimitiveComponent* Comp : PrimitiveComps)
+	{
+		Comp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
 
-	Owner->UIComponent->GetChampionWidget()->SetVisibility(false);
+	if (ULOL_UIComponent* UIComp = OwnerPawn->FindComponentByClass<ULOL_UIComponent>())
+	{
+		UIComp->GetChampionWidget()->SetVisibility(false);
+	}
 }
 void ULOL_LifeCycleComponent::Respawn()
 {
-	if (!Owner->HasAuthority()) return;
+	if (!OwnerPawn || !OwnerPawn->HasAuthority() || !bCanRespawn) return;
 
-	Owner->RemoveStatusTag(LOLTags::State_Dead);
-
-	if (Owner->StatComponent)
+	if (ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>())
 	{
-		Owner->StatComponent->SetHP(Owner->StatComponent->GetStat().MaxHP);
-		Owner->StatComponent->SetMP(Owner->StatComponent->GetStat().MaxMP);
+		StateComp->RemoveStatusTag(LOLTags::State_Dead);
 	}
 
-	Owner->SetActorLocation(FVector(-4803.230668, 5708.599208, -1461.45844));
+	if (ULOL_StatComponent* StatComp = OwnerPawn->FindComponentByClass<ULOL_StatComponent>())
+	{
+		StatComp->SetHP(StatComp->GetStat().MaxHP);
+		StatComp->SetMP(StatComp->GetStat().MaxMP);
+	}
+
+	OwnerPawn->SetActorLocation(FVector(-4803.230668, 5708.599208, -1461.45844));
 	Multicast_OnRespawn();
 }
 void ULOL_LifeCycleComponent::Multicast_OnRespawn_Implementation()
 {
-	Owner->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
-	Owner->GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	Owner->GetMesh()->SetCollisionResponseToAllChannels(ECR_Block);
+	if (!OwnerPawn) return;
 
-	Owner->UIComponent->GetChampionWidget()->SetVisibility(true);
-	Owner->PlayAnimMontage(nullptr);
+	TArray<UPrimitiveComponent*> PrimitiveComps;
+	OwnerPawn->GetComponents<UPrimitiveComponent>(PrimitiveComps);
+	for (UPrimitiveComponent* Comp : PrimitiveComps)
+	{
+		Comp->SetCollisionProfileName(TEXT("Pawn"));
+	}
+
+	if (ULOL_UIComponent* UIComp = OwnerPawn->FindComponentByClass<ULOL_UIComponent>())
+	{
+		UIComp->GetChampionWidget()->SetVisibility(true);
+
+	}
 }

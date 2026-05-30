@@ -1,7 +1,6 @@
 // 챔피언의 기본 설정
 // ----------------------------------------------------------------------------------
 #pragma once
-#include "GamePlayTag/LOL_GamePlayTags.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "BaseChampion.generated.h"
@@ -13,9 +12,6 @@ struct FChampionResourceData : public FTableRowBase
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(EditAnywhere, Category = "Name")
-	FString ChampionName;
-
 	UPROPERTY(EditAnywhere, Category = "Mesh")
 	USkeletalMesh* Mesh;
 
@@ -58,7 +54,7 @@ public:
 };
 
 UCLASS()
-class LOL_UNREAL_API ABaseChampion : public ACharacter, public IGameplayTagAssetInterface
+class LOL_UNREAL_API ABaseChampion : public ACharacter
 {
 	GENERATED_BODY()
 
@@ -69,27 +65,31 @@ public:
 	class UNiagaraSystem* ClickFX;
 
 	// 스탯 컴포넌트
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
 	class ULOL_StatComponent* StatComponent;
 
 	// 공격 컴포넌트
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
 	class ULOL_AttackComponent* AttackComponent;
 
 	// 이동 컴포넌트
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
 	class ULOL_MoveComponent* MoveComponent;
 
 	// 사망, 리스폰 컴포넌트
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
 	class ULOL_LifeCycleComponent* LifeCycleComponent;
 
-	// HP, MP 컴포넌트
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	// UI 컴포넌트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
 	class ULOL_UIComponent* UIComponent;
 
+	// 상태 컴포넌트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
+	class ULOL_StateComponent* StateComponent;
+
 	// 스킬 컴포넌트
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|Champion")
 	class UChampion_SkillComponent* SkillComponent;
 
 	// 데이터테이블 연결 관련
@@ -108,28 +108,12 @@ public:
 	virtual void Skill_E() {};
 	virtual void Skill_R() {};
 
-	// 태그 관련
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Status")
-	FGameplayTagContainer StatusTags;
-
-	void AddStatusTag(FGameplayTag Tag);
-	void RemoveStatusTag(FGameplayTag Tag);
-	bool HasStatusTag(FGameplayTag Tag) const;
-
-	virtual void GetOwnedGameplayTags(FGameplayTagContainer& TagContainer) const override;
-
 	// 공격 관련
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
 	class USphereComponent* AttackRangeSphere;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
 	TArray<ABaseChampion*> EnemiesInRange;
-
-	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
-	AActor* CombatTarget;
-
-	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
-	AActor* HitTarget = nullptr;
 
 	UFUNCTION(Server, Reliable)
 	void Server_ExecuteAttackHit();

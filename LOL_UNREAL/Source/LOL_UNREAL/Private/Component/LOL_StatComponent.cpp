@@ -4,6 +4,7 @@
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_UIComponent.h"
 #include "BaseChampion.h"
+#include "Minion/BaseMinion.h"
 #include "Net/UnrealNetwork.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/DataTable.h"
@@ -14,10 +15,16 @@ ULOL_StatComponent::ULOL_StatComponent()
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
 
-	static ConstructorHelpers::FObjectFinder<UDataTable> StatTableObject(TEXT("/Game/LOL_Data/Data_Champions/Data_ChampionStats.Data_ChampionStats"));
-	if (StatTableObject.Succeeded())
+	static ConstructorHelpers::FObjectFinder<UDataTable> ChampionStatTableObject(TEXT("/Game/LOL_Data/Data_Champions/Data_ChampionStats.Data_ChampionStats"));
+	if (ChampionStatTableObject.Succeeded())
 	{
-		StatDataTable = StatTableObject.Object;
+		ChampionStatDataTable = ChampionStatTableObject.Object;
+	}
+
+	static ConstructorHelpers::FObjectFinder<UDataTable> MinionStatTableObject(TEXT("/Game/LOL_Data/Data_Minions/Data_MinionStats.Data_MinionStats"));
+	if (MinionStatTableObject.Succeeded())
+	{
+		MinionStatDataTable = MinionStatTableObject.Object;
 	}
 }
 void ULOL_StatComponent::BeginPlay()
@@ -61,11 +68,26 @@ inline void ULOL_StatComponent::SetStat(FChampionStat NewStat)
 
 void ULOL_StatComponent::InitializeStat()
 {
-	ABaseChampion* Owner = Cast<ABaseChampion>(GetOwner());
-	if (Owner && StatDataTable)
-	{
-		FChampionStat* FoundRow = StatDataTable->FindRow<FChampionStat>(Owner->GetChampionName(), TEXT(""));
+	AActor* Owner = GetOwner();
+	if (!Owner) return;
 
+	UDataTable* TableToUse = nullptr;
+	FName RowName = NAME_None;
+
+	if (ABaseChampion* Champion = Cast<ABaseChampion>(Owner))
+	{
+		TableToUse = ChampionStatDataTable;
+		RowName = Champion->GetChampionName();
+	}
+	else if (ABaseMinion* Minion = Cast<ABaseMinion>(Owner))
+	{
+		TableToUse = MinionStatDataTable;
+		RowName = Minion->GetMinionName();
+	}
+
+	if (TableToUse && !RowName.IsNone())
+	{
+		FChampionStat* FoundRow = TableToUse->FindRow<FChampionStat>(RowName, TEXT(""));
 		if (FoundRow)
 		{
 			SetStat(*FoundRow);

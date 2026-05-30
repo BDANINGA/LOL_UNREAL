@@ -19,6 +19,12 @@ public:
 	UFUNCTION()
 	void Respawn();
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LifeCycle")
+	bool bCanRespawn = true; // 챔피언은 true, 미니언/몬스터는 false로 세팅
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LifeCycle")
+	float DespawnDelay = 3.0f;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -30,5 +36,5 @@ protected:
 
 private:
 	UPROPERTY()
-	class ABaseChampion* Owner;
+	class APawn* OwnerPawn;
 };
