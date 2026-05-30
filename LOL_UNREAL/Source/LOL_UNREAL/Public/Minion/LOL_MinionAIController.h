@@ -2,12 +2,8 @@
 
 #include "CoreMinimal.h"
 #include "AIController.h"
-#include "Perception/AIPerceptionTypes.h"
 #include "LOL_MinionAIController.generated.h"
 
-/**
- * 
- */
 UCLASS()
 class LOL_UNREAL_API ALOL_MinionAIController : public AAIController
 {
@@ -17,6 +13,16 @@ public:
 
 protected:
 	virtual void OnPossess(APawn* InPawn) override;
-
 	virtual void OnUnPossess() override;
+
+	void DecisionLoop();
+
+	AActor* ScanForClosestEnemy();
+private:
+	FTimerHandle AI_DecisionTimer;
+
+	UPROPERTY(EditDefaultsOnly, Category = "AI")
+	float SearchRadius = 800.0f;
+
+	FVector OriginalDestination;
 };

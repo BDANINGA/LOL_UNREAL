@@ -37,7 +37,7 @@ ABaseMinion::ABaseMinion()
 	if (ResourceDataAssetTable.Succeeded()) DataTable = ResourceDataAssetTable.Object;
 
 	StatComponent = CreateDefaultSubobject<ULOL_StatComponent>(TEXT("StatComponent"));
-	//AttackComponent = CreateDefaultSubobject<ULOL_AttackComponent>(TEXT("AttackComponent"));
+	AttackComponent = CreateDefaultSubobject<ULOL_AttackComponent>(TEXT("AttackComponent"));
 	MoveComponent = CreateDefaultSubobject<ULOL_MoveComponent>(TEXT("MoveComponent"));
 	LifeCycleComponent = CreateDefaultSubobject<ULOL_LifeCycleComponent>(TEXT("LifeCycleComponent"));
 	//UIComponent = CreateDefaultSubobject<ULOL_UIComponent>(TEXT("UIComponent"));
@@ -59,7 +59,11 @@ void ABaseMinion::BeginPlay()
 void ABaseMinion::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	if (MoveComponent)
+	if (AttackComponent && AttackComponent->CombatTarget)
+	{
+		AttackComponent->UpdateAttackLogic();
+	}
+	else if (MoveComponent)
 	{
 		MoveComponent->UpdateMovement(DeltaTime);
 	}
