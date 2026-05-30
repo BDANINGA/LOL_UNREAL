@@ -1,7 +1,6 @@
 // 챔피언의 기본 설정
 // ----------------------------------------------------------------------------------
 #pragma once
-#include "GamePlayTag/LOL_GamePlayTags.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "BaseChampion.generated.h"
@@ -55,7 +54,7 @@ public:
 };
 
 UCLASS()
-class LOL_UNREAL_API ABaseChampion : public ACharacter, public IGameplayTagAssetInterface
+class LOL_UNREAL_API ABaseChampion : public ACharacter
 {
 	GENERATED_BODY()
 
@@ -85,6 +84,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
 	class ULOL_UIComponent* UIComponent;
 
+	// 상태 컴포넌트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
+	class ULOL_StateComponent* StateComponent;
+
 	// 스킬 컴포넌트
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|Champion")
 	class UChampion_SkillComponent* SkillComponent;
@@ -104,16 +107,6 @@ public:
 	virtual void Skill_W() {};
 	virtual void Skill_E() {};
 	virtual void Skill_R() {};
-
-	// 태그 관련
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Status")
-	FGameplayTagContainer StatusTags;
-
-	void AddStatusTag(FGameplayTag Tag);
-	void RemoveStatusTag(FGameplayTag Tag);
-	bool HasStatusTag(FGameplayTag Tag) const;
-
-	virtual void GetOwnedGameplayTags(FGameplayTagContainer& TagContainer) const override;
 
 	// 공격 관련
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")

@@ -4,6 +4,7 @@
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_AttackComponent.h"
 #include "Component/LOL_UIComponent.h"
+#include "Component/LOL_StateComponent.h"
 
 #include "BaseChampion.h"
 #include "LOL_GameModeBase.h"
@@ -39,11 +40,12 @@ void ULOL_LifeCycleComponent::Server_HandleDeath()
 	if (!OwnerPawn || !OwnerPawn->HasAuthority()) return;
 
 
-	// 챔피언인 경우 상태 태그 추가 (※ 향후 미니언에도 범용 태그 컴포넌트를 만들면 이 캐스팅도 제거 가능)
-	if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
+	if (ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>())
 	{
-		if (Champion->HasStatusTag(LOLTags::State_Dead)) return;
-		Champion->AddStatusTag(LOLTags::State_Dead);
+		if (!StateComp->HasStatusTag(LOLTags::State_Dead))
+		{
+			StateComp->AddStatusTag(LOLTags::State_Dead);
+		}
 	}
 
 	Multicast_OnDeath();
@@ -99,9 +101,9 @@ void ULOL_LifeCycleComponent::Respawn()
 {
 	if (!OwnerPawn || !OwnerPawn->HasAuthority() || !bCanRespawn) return;
 
-	if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
+	if (ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>())
 	{
-		Champion->RemoveStatusTag(LOLTags::State_Dead);
+		StateComp->RemoveStatusTag(LOLTags::State_Dead);
 	}
 
 	if (ULOL_StatComponent* StatComp = OwnerPawn->FindComponentByClass<ULOL_StatComponent>())

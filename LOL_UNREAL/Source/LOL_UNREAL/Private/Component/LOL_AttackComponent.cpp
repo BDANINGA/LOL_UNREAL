@@ -3,6 +3,7 @@
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_LifeCycleComponent.h"
+#include "Component/LOL_StateComponent.h"
 #include "Components/StaticMeshComponent.h"
 
 #include "BaseChampion.h"
@@ -36,10 +37,10 @@ void ULOL_AttackComponent::BeginPlay()
 }
 void ULOL_AttackComponent::UpdateAttackLogic()
 {
-    if (!Owner || !Owner->CombatTarget || Owner->HasStatusTag(LOLTags::State_Dead) || Owner == Owner->CombatTarget) return;
+    if (!Owner || !Owner->CombatTarget || Owner->StateComponent->HasStatusTag(LOLTags::State_Dead) || Owner == Owner->CombatTarget) return;
 
     if (ABaseChampion* TargetChmapion = Cast<ABaseChampion>(Owner->CombatTarget)) {
-        if (TargetChmapion->HasStatusTag(LOLTags::State_Dead))
+        if (TargetChmapion->StateComponent->HasStatusTag(LOLTags::State_Dead))
         {
             Owner->CombatTarget = nullptr;
             return;
@@ -52,7 +53,7 @@ void ULOL_AttackComponent::UpdateAttackLogic()
     // 사거리 안이면 공격
     if (StatComp && Distance <= StatComp->GetStat().AttackRange)
     {
-        Owner->RemoveStatusTag(LOLTags::State_Moving);
+        Owner->StateComponent->RemoveStatusTag(LOLTags::State_Moving);
 
         if (bCanAttack)
         {
@@ -62,7 +63,7 @@ void ULOL_AttackComponent::UpdateAttackLogic()
     // 사거리 밖이면 추격
     else
     {
-        Owner->AddStatusTag(LOLTags::State_Moving);
+        Owner->StateComponent->AddStatusTag(LOLTags::State_Moving);
         Owner->MoveComponent->TargetLocation = Owner->CombatTarget->GetActorLocation();
 
         FVector Direction = Owner->MoveComponent->TargetLocation - Owner->GetActorLocation();
@@ -78,8 +79,8 @@ void ULOL_AttackComponent::StartAttack()
     bCanAttack = false;
     bHitHappened = false;
 
-    Owner->AddStatusTag(LOLTags::State_Attacking);
-    Owner->RemoveStatusTag(LOLTags::State_Moving);
+    Owner->StateComponent->AddStatusTag(LOLTags::State_Attacking);
+    Owner->StateComponent->RemoveStatusTag(LOLTags::State_Moving);
 
     Owner->HitTarget = Owner->CombatTarget;
 
@@ -103,8 +104,8 @@ void ULOL_AttackComponent::StartAttack()
 
 void ULOL_AttackComponent::EndAttack()
 {
-    Owner->AddStatusTag(LOLTags::State_Moving);
-    Owner->RemoveStatusTag(LOLTags::State_Attacking);
+    Owner->StateComponent->AddStatusTag(LOLTags::State_Moving);
+    Owner->StateComponent->RemoveStatusTag(LOLTags::State_Attacking);
 }
 
 void ULOL_AttackComponent::ResetAttack()
@@ -116,7 +117,7 @@ void ULOL_AttackComponent::ExecuteAttackHit()
 {
     if (!Owner || !Owner->HitTarget || !Owner->StatComponent) return;
     
-    if (!Owner->HasStatusTag(LOLTags::Champion_Ranged)) 
+    if (!Owner->StateComponent->HasStatusTag(LOLTags::Champion_Ranged))
     {
         bHitHappened = true;
     }
@@ -162,7 +163,7 @@ void ULOL_AttackComponent::CancelAttack()
         Owner->StopAnimMontage();
         ResetAttack();
         GetWorld()->GetTimerManager().ClearTimer(AttackTimerHandle);
-        Owner->RemoveStatusTag(LOLTags::State_Attacking);
+        Owner->StateComponent->RemoveStatusTag(LOLTags::State_Attacking);
     }
 }
 

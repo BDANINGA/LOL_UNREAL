@@ -10,6 +10,7 @@
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_UIComponent.h"
+#include "Component/LOL_StateComponent.h"
 
 #include "Engine/DamageEvents.h"
 
@@ -40,6 +41,7 @@ ABaseMinion::ABaseMinion()
 	MoveComponent = CreateDefaultSubobject<ULOL_MoveComponent>(TEXT("MoveComponent"));
 	LifeCycleComponent = CreateDefaultSubobject<ULOL_LifeCycleComponent>(TEXT("LifeCycleComponent"));
 	//UIComponent = CreateDefaultSubobject<ULOL_UIComponent>(TEXT("UIComponent"));
+	StateComponent = CreateDefaultSubobject<ULOL_StateComponent>(TEXT("StateComponent"));
 
 	AIControllerClass = ALOL_MinionAIController::StaticClass();
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;

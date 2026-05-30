@@ -67,6 +67,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
 	class ULOL_UIComponent* UIComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
+	class ULOL_StateComponent* StateComponent;
+
 	// -------------------------------------------------------------------------------
 
 	UPROPERTY(BlueprintReadWrite, Category = "Combat")

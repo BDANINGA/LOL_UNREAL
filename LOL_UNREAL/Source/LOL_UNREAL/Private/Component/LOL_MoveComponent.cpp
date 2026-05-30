@@ -3,6 +3,7 @@
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_AttackComponent.h"
+#include "Component/LOL_StateComponent.h"
 #include "Components/SphereComponent.h"
 
 #include "BaseChampion.h"
@@ -26,12 +27,16 @@ void ULOL_MoveComponent::BeginPlay()
 void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
 {
     if (!OwnerPawn) return;
+    if (ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>())
+    {
+        if (StateComp->HasStatusTag(LOLTags::State_Dead)) return;
+    }
 
     // 소유주가 챔피언일 경우
     ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn);
     if (Champion)
     {
-        if(Champion->HasStatusTag(LOLTags::State_Dead) || Champion->bIsStunned || Champion->bIsKnockedBack) return;
+        if(Champion->bIsStunned || Champion->bIsKnockedBack) return;
         if (Champion->CombatTarget) return;
 
         if (bIsSearchAttack && Champion->EnemiesInRange.Num() > 0)
@@ -44,7 +49,7 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
             {
                 ABaseChampion* Enemy = Champion->EnemiesInRange[i];
 
-                if (!Enemy || Enemy->HasStatusTag(LOLTags::State_Dead))
+                if (!Enemy || Enemy->StateComponent->HasStatusTag(LOLTags::State_Dead))
                 {
                     Champion->EnemiesInRange.RemoveAt(i);
                     continue;
@@ -64,7 +69,7 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
             }
         }
 
-        if (Champion->HasStatusTag(LOLTags::State_Moving))
+        if (Champion->StateComponent->HasStatusTag(LOLTags::State_Moving))
         {
             FVector CurrentLocation = Champion->GetActorLocation();
             FVector Direction = TargetLocation - CurrentLocation;
@@ -115,12 +120,12 @@ void ULOL_MoveComponent::SetMoveTarget(FVector NewLocation, AActor* TargetActor)
     {
         ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
         if (TargetChampion && TargetChampion != Champion) {
-            Champion->RemoveStatusTag(LOLTags::State_Moving);
+            Champion->StateComponent->RemoveStatusTag(LOLTags::State_Moving);
         }
         else {
             TargetLocation = NewLocation;
-            if (!Champion->HasStatusTag(LOLTags::State_Attacking))
-                Champion->AddStatusTag(LOLTags::State_Moving);
+            if (!Champion->StateComponent->HasStatusTag(LOLTags::State_Attacking))
+                Champion->StateComponent->AddStatusTag(LOLTags::State_Moving);
         }
     }
     else
@@ -137,7 +142,7 @@ void ULOL_MoveComponent::StopMovement()
     ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn);
     if (Champion)
     {
-        Champion->RemoveStatusTag(LOLTags::State_Moving);
+        Champion->StateComponent->RemoveStatusTag(LOLTags::State_Moving);
         if (Champion->GetCharacterMovement())
         {
             Champion->GetCharacterMovement()->StopMovementImmediately();
