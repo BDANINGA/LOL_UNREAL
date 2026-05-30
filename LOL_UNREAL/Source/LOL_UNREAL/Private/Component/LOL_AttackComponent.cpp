@@ -60,7 +60,7 @@ void ULOL_AttackComponent::UpdateAttackLogic()
     // 사거리 안이면 공격
     if (Distance <= StatComp->GetStat().AttackRange)
     {
-        StateComp->RemoveStatusTag(LOLTags::State_Moving);
+        MoveComp->StopMovement();
 
         if (bCanAttack)
         {
@@ -114,9 +114,12 @@ void ULOL_AttackComponent::StartAttack()
             {
                 // TODO: 미니언 멀티캐스트 몽타주 재생 로직 추가 필요
                 Minion->SetActorRotation(NewRotation);
-                if (Minion->MinionResource.AttackMontage.Num() > 0)
+                if (Minion->MinionResource.AttackMontage.Num() > 0 && Minion->MinionResource.AttackMontage[0])
                 {
-                    // 예시: Minion->Multicast_PlayMontage(...)
+                    if (UAnimInstance* AnimInst = Minion->GetMesh()->GetAnimInstance())
+                    {
+                        AnimInst->Montage_Play(Minion->MinionResource.AttackMontage[0], StatComp->GetStat().AttackSpeed);
+                    }
                 }
             }
         }

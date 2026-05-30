@@ -87,7 +87,7 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
     // 소유주가 미니언일 경우
     else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
     {
-        if (Minion->AttackComponent->CombatTarget) return;
+        if (!Minion->StateComponent->HasStatusTag(LOLTags::State_Moving)) return;
 
         FVector CurrentLocation = Minion->GetActorLocation();
         FVector Direction = TargetLocation - CurrentLocation;
@@ -115,8 +115,7 @@ void ULOL_MoveComponent::SetMoveTarget(FVector NewLocation, AActor* TargetActor)
 {
     if (!OwnerPawn) return;
 
-    ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn);
-    if (Champion)
+    if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
     {
         ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
         if (TargetChampion && TargetChampion != Champion) {
@@ -131,6 +130,9 @@ void ULOL_MoveComponent::SetMoveTarget(FVector NewLocation, AActor* TargetActor)
     else
     {
         TargetLocation = NewLocation;
+        if (ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>()) {
+            StateComp->AddStatusTag(LOLTags::State_Moving);
+        }
     }
     
 }
@@ -139,14 +141,14 @@ void ULOL_MoveComponent::StopMovement()
 {
     if (!OwnerPawn) return;
 
-    ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn);
-    if (Champion)
-    {
-        Champion->StateComponent->RemoveStatusTag(LOLTags::State_Moving);
-        if (Champion->GetCharacterMovement())
-        {
-            Champion->GetCharacterMovement()->StopMovementImmediately();
-        }
+    ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>();
+    if (StateComp) StateComp->RemoveStatusTag(LOLTags::State_Moving);
+
+    if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn)) {
+        if (Champion->GetCharacterMovement()) Champion->GetCharacterMovement()->StopMovementImmediately();
+    }
+    else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn)) {
+        TargetLocation = Minion->GetActorLocation();
     }
 }
 

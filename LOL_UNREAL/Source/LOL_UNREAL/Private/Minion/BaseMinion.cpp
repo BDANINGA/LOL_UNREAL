@@ -63,7 +63,7 @@ void ABaseMinion::Tick(float DeltaTime)
 	{
 		AttackComponent->UpdateAttackLogic();
 	}
-	else if (MoveComponent)
+	if (MoveComponent)
 	{
 		MoveComponent->UpdateMovement(DeltaTime);
 	}
