@@ -32,9 +32,18 @@ public:
 
 	void OnBasicAttackHit(ACharacter* Target);
 
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
+	AActor* CombatTarget;
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
+	AActor* HitTarget = nullptr;
+
+	void SetCombatTarget(AActor* Target) { CombatTarget = Target; }
+
 protected:
 	virtual void BeginPlay() override;
-	
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 	UPROPERTY(EditAnywhere, Category = "Pooling")
 	int32 PoolSize = 20;
 
@@ -45,11 +54,9 @@ protected:
 
 private:
 	UPROPERTY()
-	class ABaseChampion* Owner;
+	class APawn* OwnerPawn;
 
 	FTimerHandle AttackTimerHandle;
 	bool bCanAttack = true;
 	bool bHitHappened = false;
-
-	
 };

@@ -206,12 +206,12 @@ void ABaseChampion::Tick(float DeltaTime)
 
 	if (StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
 
-	if (CombatTarget)
+	if (AttackComponent && AttackComponent->CombatTarget)
 	{
 		AttackComponent->UpdateAttackLogic();
 	}
 	else {
-		MoveComponent->UpdateMovement(DeltaTime); // 분리된 로직 호출
+		MoveComponent->UpdateMovement(DeltaTime);
 	}
 }
 float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
@@ -261,8 +261,6 @@ void ABaseChampion::OnEnemyLeaveRange(UPrimitiveComponent* OverlappedComponent, 
 }
 void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(ABaseChampion, CombatTarget);
-	DOREPLIFETIME(ABaseChampion, HitTarget);
 }
 
 void ABaseChampion::Server_ExecuteAttackHit_Implementation()
@@ -309,13 +307,13 @@ void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation
 
 	if (AttackComponent && !AttackComponent->CanAttack())
 	{
-		if (TargetChampion == nullptr || TargetChampion != CombatTarget)
+		if (TargetChampion == nullptr || TargetChampion != AttackComponent->CombatTarget)
 		{
 			AttackComponent->CancelAttack();
 		}
 	}
 
-	CombatTarget = TargetChampion;
+	if (AttackComponent) AttackComponent->SetCombatTarget(TargetChampion);
 
 	MoveComponent->bIsSearchAttack = bIsSearch;
 	MoveComponent->SetMoveTarget(ClickLocation, TargetChampion);

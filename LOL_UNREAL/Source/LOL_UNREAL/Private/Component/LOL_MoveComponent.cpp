@@ -37,7 +37,7 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
     if (Champion)
     {
         if(Champion->bIsStunned || Champion->bIsKnockedBack) return;
-        if (Champion->CombatTarget) return;
+        if (Champion->AttackComponent->CombatTarget) return;
 
         if (bIsSearchAttack && Champion->EnemiesInRange.Num() > 0)
         {
@@ -64,7 +64,7 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
             }
             if (BestTarget)
             {
-                Champion->CombatTarget = BestTarget;
+                Champion->AttackComponent->CombatTarget = BestTarget;
                 return;
             }
         }
@@ -87,7 +87,7 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
     // 소유주가 미니언일 경우
     else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
     {
-        if (Minion->CombatTarget) return;
+        if (Minion->AttackComponent->CombatTarget) return;
 
         FVector CurrentLocation = Minion->GetActorLocation();
         FVector Direction = TargetLocation - CurrentLocation;

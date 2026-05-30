@@ -115,12 +115,6 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
 	TArray<ABaseChampion*> EnemiesInRange;
 
-	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
-	AActor* CombatTarget;
-
-	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
-	AActor* HitTarget = nullptr;
-
 	UFUNCTION(Server, Reliable)
 	void Server_ExecuteAttackHit();
 

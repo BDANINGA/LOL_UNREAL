@@ -71,10 +71,6 @@ public:
 	class ULOL_StateComponent* StateComponent;
 
 	// -------------------------------------------------------------------------------
-
-	UPROPERTY(BlueprintReadWrite, Category = "Combat")
-	AActor* CombatTarget;
-
 	FORCEINLINE class UCapsuleComponent* GetCapsuleComponent() const { return CapsuleComponent; }
 	FORCEINLINE class USkeletalMeshComponent* GetMesh() const { return MeshComponent; }
 
