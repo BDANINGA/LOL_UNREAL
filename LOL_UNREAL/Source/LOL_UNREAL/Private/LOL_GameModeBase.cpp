@@ -13,6 +13,7 @@
 #include "Minion/Minion_Caster.h"
 #include "Minion/Minion_Siege.h"
 #include "Minion/Minion_Super.h"
+#include "TimerManager.h"
 
 ALOL_GameModeBase::ALOL_GameModeBase()
 {
@@ -41,18 +42,8 @@ UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(ACont
 void ALOL_GameModeBase::BeginPlay()
 {
     Super::BeginPlay();
-    FVector SpawnLocation = { -4803.f, 5708.f, -1201.f };
-    GetWorld()->SpawnActor<AMinion_Siege>(
-        AMinion_Siege::StaticClass(),
-        SpawnLocation,
-        FRotator::ZeroRotator
-    );
-    SpawnLocation = { -4840.f, 5665.f, -1201.f };
-    GetWorld()->SpawnActor<AMinion_Super>(
-        AMinion_Super::StaticClass(),
-        SpawnLocation,
-        FRotator::ZeroRotator
-    );
+    MinionSpawnLocation = FVector(-4803.f, 5708.f, -1201.f);
+    GetWorld()->GetTimerManager().SetTimer(MinionSpawnTimerHandle, this, &ALOL_GameModeBase::StartMinionWave, 3.0f, false);
 }
 
 void ALOL_GameModeBase::RequestRespawn(ABaseChampion* DeadChampion)
@@ -70,5 +61,50 @@ void ALOL_GameModeBase::RequestRespawn(ABaseChampion* DeadChampion)
         RespawnDelegate.BindUObject(LifeCycleComp, &ULOL_LifeCycleComponent::Respawn);
 
         GetWorldTimerManager().SetTimer(RespawnTimer, RespawnDelegate, RespawnDelay, false);
+    }
+}
+
+void ALOL_GameModeBase::StartMinionWave()
+{
+    // 웨이브 구성: 전사 3마리 -> 마법사 3마리 순서로 세팅
+    CurrentWaveMinions.Empty();
+    CurrentWaveMinions.Add(AMinion_Melee::StaticClass());
+    CurrentWaveMinions.Add(AMinion_Melee::StaticClass());
+    CurrentWaveMinions.Add(AMinion_Melee::StaticClass());
+    CurrentWaveMinions.Add(AMinion_Caster::StaticClass());
+    CurrentWaveMinions.Add(AMinion_Caster::StaticClass());
+    CurrentWaveMinions.Add(AMinion_Caster::StaticClass());
+
+    // 대포 미니언이 필요할 때 아래 코드 활성화
+    // CurrentWaveMinions.Add(AMinion_Siege::StaticClass());
+
+    SpawnedMinionCount = 0;
+
+    // 1초 간격으로 반복하면서 하나씩 스폰 (첫 스폰은 딜레이 없이 즉시 실행)
+    GetWorld()->GetTimerManager().SetTimer(MinionSpawnTimerHandle, this, &ALOL_GameModeBase::SpawnNextMinion, 1.0f, true, 0.0f);
+}
+
+void ALOL_GameModeBase::SpawnNextMinion()
+{
+    // 아직 스폰할 미니언이 남아있다면
+    if (SpawnedMinionCount < CurrentWaveMinions.Num())
+    {
+        UClass* MinionClass = CurrentWaveMinions[SpawnedMinionCount];
+        if (MinionClass)
+        {
+            GetWorld()->SpawnActor<ABaseMinion>(
+                MinionClass,
+                MinionSpawnLocation,
+                FRotator::ZeroRotator
+            );
+        }
+        SpawnedMinionCount++; // 카운트 증가
+    }
+    else
+    {
+        // 웨이브 스폰이 끝났으므로 타이머 정지
+        GetWorld()->GetTimerManager().ClearTimer(MinionSpawnTimerHandle);
+
+        GetWorld()->GetTimerManager().SetTimer(MinionSpawnTimerHandle, this, &ALOL_GameModeBase::StartMinionWave, 30.0f, false);
     }
 }
