@@ -199,6 +199,13 @@ protected:
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentMP)
 	float CurrentMP;
 
+	float CurrentEXP;
+	float CurrentGold;
+	
+	float MaxEXP;
+	float GiveGold;
+	float GiveEXP;
+
 	UFUNCTION()
 	void OnRep_BaseStat();
 
