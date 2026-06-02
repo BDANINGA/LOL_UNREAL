@@ -1,6 +1,7 @@
 #include "Champion/Champion_Garen.h"
 
 #include "Component/Champion_SkillComponent.h"
+#include "Component/LOL_StateComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 
 #include "Kismet/GameplayStatics.h"
@@ -207,7 +208,7 @@ void AChampion_Garen::ApplyEDamageTick()
         {
             ABaseChampion* TargetChampion = Cast<ABaseChampion>(Hit.GetActor());
             if (!TargetChampion || TargetChampion == this || HitChampions.Contains(TargetChampion)) continue;
-            if (TargetChampion->HasStatusTag(LOLTags::State_Dead)) continue;
+            if (TargetChampion->StateComponent->HasStatusTag(LOLTags::State_Dead)) continue;
 
             HitChampions.Add(TargetChampion);
 
@@ -248,13 +249,12 @@ bool AChampion_Garen::Server_Skill_R_Validate() { return true; }
 
 void AChampion_Garen::Server_Skill_R_Implementation()
 {
-    if (!SkillComponent || !StatComponent) return;
-    if (!CombatTarget) return;
+    /*if (!SkillComponent || !StatComponent) return;
 
     ABaseChampion* TargetChampion = Cast<ABaseChampion>(CombatTarget);
     if (!TargetChampion || TargetChampion == this) return;
     if (!TargetChampion->StatComponent) return;
-    if (TargetChampion->HasStatusTag(LOLTags::State_Dead)) return;
+    if (TargetChampion->StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
 
     FSkillData& RData = SkillComponent->GetR_Data();
     const int32 SkillLevelIdx = 0;
@@ -279,5 +279,5 @@ void AChampion_Garen::Server_Skill_R_Implementation()
         GetController(),
         this,
         ULOL_DamageTrueDamage::StaticClass()
-    );
+    );*/
 }

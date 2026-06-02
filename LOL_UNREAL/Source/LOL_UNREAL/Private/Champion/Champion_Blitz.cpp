@@ -2,6 +2,7 @@
 
 #include "Component/Champion_SkillComponent.h"
 #include "Component/LOL_StatComponent.h"
+#include "Component/LOL_StateComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "DrawDebugHelpers.h"
@@ -74,14 +75,14 @@ void AChampion_Blitz::Server_Skill_Q_Implementation(FVector TargetLocation)
             PullDestination = GetActorLocation() + (GetActorForwardVector() * 95.0f);
             PullDestination.Z = GrabbedTarget->GetActorLocation().Z;
 
-            // ºí¸®Ã÷ º»ÀÎ ÀÌµ¿ Á¤Áö
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ìµï¿½ ï¿½ï¿½ï¿½ï¿½
             if (GetCharacterMovement())
             {
                 GetCharacterMovement()->StopMovementImmediately();
                 GetCharacterMovement()->DisableMovement();
             }
 
-            // ²ø·Á¿À´Â ´ë»ó ÀÌµ¿ Á¤Áö
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½Ìµï¿½ ï¿½ï¿½ï¿½ï¿½
             if (GrabbedTarget->GetCharacterMovement())
             {
                 GrabbedTarget->GetCharacterMovement()->StopMovementImmediately();
@@ -312,7 +313,7 @@ void AChampion_Blitz::Server_Skill_R_Implementation()
     {
         ABaseChampion* Target = Cast<ABaseChampion>(Hit.GetActor());
         if (!Target || Target == this || HitChampions.Contains(Target)) continue;
-        if (Target->HasStatusTag(LOLTags::State_Dead)) continue;
+        if (Target->StateComponent->HasStatusTag(LOLTags::State_Dead)) continue;
 
         HitChampions.Add(Target);
 

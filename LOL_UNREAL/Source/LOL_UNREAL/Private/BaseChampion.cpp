@@ -494,7 +494,7 @@ void ABaseChampion::ApplySilence(float Duration)
 {
 	bIsSilenced = true;
 
-	AddStatusTag(LOLTags::State_Silenced);
+	StateComponent->AddStatusTag(LOLTags::State_Silenced);
 
 	GetWorldTimerManager().ClearTimer(SilenceHandle);
 
@@ -512,7 +512,7 @@ void ABaseChampion::ClearSilence()
 {
 	bIsSilenced = false;
 
-	RemoveStatusTag(LOLTags::State_Silenced);
+	StateComponent->RemoveStatusTag(LOLTags::State_Silenced);
 }
 
 void ABaseChampion::Multicast_ApplySilence_Implementation(float Duration)
