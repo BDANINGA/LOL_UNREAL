@@ -65,7 +65,7 @@ void AChampion_Alistar::Server_Skill_Q_Implementation()
     // 범위 안 적 검출
     FVector Center = GetActorLocation();
     TArray<FHitResult> Hits;
-    FCollisionShape Sphere = FCollisionShape::MakeSphere(100.0f);
+    FCollisionShape Sphere = FCollisionShape::MakeSphere(250.0f);
 
     bool bHit = GetWorld()->SweepMultiByChannel(
         Hits,

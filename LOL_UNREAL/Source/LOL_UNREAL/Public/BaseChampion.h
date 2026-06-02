@@ -171,13 +171,26 @@ public:
 
 	float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
+	//침묵
+	void ApplySilence(float Duration);
+
+	void ClearSilence();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_ApplySilence(float Duration);
+
 protected:
 	virtual void BeginPlay() override;
 
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	
+	//침묵함수
+	UPROPERTY(Replicated)
+	bool bIsSilenced = false;
+
+	FTimerHandle SilenceHandle;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	FName ChampionName;
 	

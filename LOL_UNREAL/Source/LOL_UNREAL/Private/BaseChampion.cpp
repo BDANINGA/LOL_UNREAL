@@ -488,3 +488,34 @@ void ABaseChampion::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 	Super::EndPlay(EndPlayReason);
 }
+
+//침묵
+void ABaseChampion::ApplySilence(float Duration)
+{
+	bIsSilenced = true;
+
+	AddStatusTag(LOLTags::State_Silenced);
+
+	GetWorldTimerManager().ClearTimer(SilenceHandle);
+
+	GetWorldTimerManager().SetTimer(
+		SilenceHandle,
+		this,
+		&ABaseChampion::ClearSilence,
+		Duration,
+		false
+	);
+}
+
+//침묵 해제
+void ABaseChampion::ClearSilence()
+{
+	bIsSilenced = false;
+
+	RemoveStatusTag(LOLTags::State_Silenced);
+}
+
+void ABaseChampion::Multicast_ApplySilence_Implementation(float Duration)
+{
+	ApplySilence(Duration);
+}

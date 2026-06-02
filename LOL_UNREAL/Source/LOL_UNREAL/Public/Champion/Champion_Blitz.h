@@ -20,7 +20,37 @@ public:
     // E스킬 활성화 상태에서 적을 때렸을 때 호출할 함수 (기본공격 판정부에서 호출 필요)
     void OnAttackHitWithE(ABaseChampion* Target);
 
+
 protected:
+    // --- Q 천천히 끌어오기 관련 변수 및 함수 선언 ---
+    FTimerHandle PullTimerHandle;
+    FTimerHandle PullTimeoutTimerHandle;
+
+    UFUNCTION(Server, Reliable, WithValidation)
+    void Server_Skill_Q(FVector TargetLocation);
+
+    UPROPERTY()
+    class ABaseChampion* GrabbedTarget;
+
+    // 숫자가 낮을수록 더 천천히 끌려옵니다 (테스트 후 조절 가능)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Skills")
+    float PullSpeed = 10.0f;
+
+    void TickPullTarget();
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Skills")
+    float Q_Range = 700.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Skills")
+    float Q_Radius = 50.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Skills")
+    float Q_PullDistance = 100.0f;
+
+    FVector PullDestination;
+
+    void FinishPullTarget();
+
     // --- W 스킬 (서버 실행) ---
     FTimerHandle W_BuffTimerHandle;
     FTimerHandle W_SlowTimerHandle;
@@ -45,4 +75,11 @@ protected:
     void Server_Skill_E();
 
     void ResetE();
+
+    // --- R 스킬 (서버 실행) ---
+    UFUNCTION(Server, Reliable, WithValidation)
+    void Server_Skill_R();
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Skills")
+    float R_APRatio = 1.0f;
 };

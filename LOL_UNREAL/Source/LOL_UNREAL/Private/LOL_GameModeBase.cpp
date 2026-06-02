@@ -8,6 +8,7 @@
 #include "Champion/Champion_Alistar.h"
 #include "Champion/Champion_Vayne.h"
 #include "Champion/Champion_Blitz.h"
+#include "Champion/Champion_Garen.h"
 
 #include "Minion/Minion_Melee.h"
 #include "Minion/Minion_Caster.h"
@@ -36,7 +37,7 @@ UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(ACont
     }
 
     // 2. 그 외에 접속하는 클라이언트 플레이어들
-    return AChampion_Blitz::StaticClass();
+    return AChampion_Garen::StaticClass();
 }
 
 void ALOL_GameModeBase::BeginPlay()
