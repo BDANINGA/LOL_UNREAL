@@ -94,7 +94,7 @@ void ULOL_LifeCycleComponent::Multicast_OnDeath_Implementation()
 
 	if (ULOL_UIComponent* UIComp = OwnerPawn->FindComponentByClass<ULOL_UIComponent>())
 	{
-		UIComp->GetChampionWidget()->SetVisibility(false);
+		UIComp->GetActorWidget()->SetVisibility(false);
 	}
 }
 void ULOL_LifeCycleComponent::Respawn()
@@ -128,7 +128,7 @@ void ULOL_LifeCycleComponent::Multicast_OnRespawn_Implementation()
 
 	if (ULOL_UIComponent* UIComp = OwnerPawn->FindComponentByClass<ULOL_UIComponent>())
 	{
-		UIComp->GetChampionWidget()->SetVisibility(true);
+		UIComp->GetActorWidget()->SetVisibility(true);
 
 	}
 }

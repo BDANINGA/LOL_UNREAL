@@ -22,7 +22,7 @@ public:
 	void SetMaxHp(float InMaxHp) { CachedMaxHP = InMaxHp; }
 	void SetMaxMp(float InMaxMp) { CachedMaxMP = InMaxMp; }
 
-	class UWidgetComponent* GetChampionWidget() { return ChampionWidget;}
+	class UWidgetComponent* GetActorWidget() { return ActorWidget; }
 
 	void ShowRangeIndicator();
 	void HideRangeIndicator();
@@ -31,10 +31,10 @@ protected:
 	virtual void BeginPlay() override;
 
 	UPROPERTY()
-	class ABaseChampion* Owner;
+	class APawn* OwnerPawn;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI")
-	class UWidgetComponent* ChampionWidget;
+	class UWidgetComponent* ActorWidget;
 
 	UPROPERTY()
 	class UDecalComponent* RangeIndicator;
@@ -46,6 +46,9 @@ protected:
 	class UMaterialInstanceDynamic* DecalMID;
 
 private:
+	TSubclassOf<class UUserWidget> ChampionWidgetClass;
+	TSubclassOf<class UUserWidget> MinionWidgetClass;
+
 	float CachedMaxHP = -1.f;
 	float CachedMaxMP = -1.f;
 };

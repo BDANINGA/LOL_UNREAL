@@ -20,11 +20,6 @@ void ALOL_MinionAIController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
 
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green, TEXT("미니언 AI 빙의 완료! (순수 C++)"));
-	}
-
 	ABaseMinion* Minion = Cast<ABaseMinion>(InPawn);
 	if (Minion)
 	{
@@ -97,9 +92,6 @@ AActor* ALOL_MinionAIController::ScanForClosestEnemy()
 	FCollisionShape Sphere = FCollisionShape::MakeSphere(SearchRadius);
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(Minion);
-
-	// 💡 디버그용: 게임 중에 미니언의 감지 반경(800)이 빨간 구체로 보입니다. 잘 되면 지우세요!
-	DrawDebugSphere(GetWorld(), MyLoc, SearchRadius, 16, FColor::Red, false, 0.2f);
 
 	bool bHit = GetWorld()->OverlapMultiByChannel(
 		Overlaps,

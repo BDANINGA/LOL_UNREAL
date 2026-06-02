@@ -4,6 +4,7 @@
 
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/WidgetComponent.h"
 
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_AttackComponent.h"
@@ -23,7 +24,6 @@ ABaseMinion::ABaseMinion()
 	CapsuleComponent = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CapsuleComp"));
 	CapsuleComponent->InitCapsuleSize(35.f, 70.f);
 	CapsuleComponent->SetCollisionProfileName(TEXT("Pawn"));
-	CapsuleComponent->SetHiddenInGame(false);
 	RootComponent = CapsuleComponent;
 
 	MeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("MeshComp"));
@@ -40,7 +40,7 @@ ABaseMinion::ABaseMinion()
 	AttackComponent = CreateDefaultSubobject<ULOL_AttackComponent>(TEXT("AttackComponent"));
 	MoveComponent = CreateDefaultSubobject<ULOL_MoveComponent>(TEXT("MoveComponent"));
 	LifeCycleComponent = CreateDefaultSubobject<ULOL_LifeCycleComponent>(TEXT("LifeCycleComponent"));
-	//UIComponent = CreateDefaultSubobject<ULOL_UIComponent>(TEXT("UIComponent"));
+	UIComponent = CreateDefaultSubobject<ULOL_UIComponent>(TEXT("UIComponent"));
 	StateComponent = CreateDefaultSubobject<ULOL_StateComponent>(TEXT("StateComponent"));
 
 	AIControllerClass = ALOL_MinionAIController::StaticClass();
@@ -53,6 +53,13 @@ void ABaseMinion::BeginPlay()
 	if (HasAuthority() && StatComponent)
 	{
 		StatComponent->InitializeStat();
+	}
+	if (StatComponent && UIComponent)
+	{
+		StatComponent->OnHpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateHpFromStat);
+
+		UIComponent->SetMaxHp(StatComponent->GetStat().MaxHP);
+		UIComponent->UpdateHpFromStat(StatComponent->GetCurrentHP());
 	}
 }
 

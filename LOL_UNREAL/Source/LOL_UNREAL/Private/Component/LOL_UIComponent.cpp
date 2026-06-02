@@ -8,25 +8,23 @@
 #include "Materials/MaterialInstanceDynamic.h"
 
 #include "Widget/LOL_ChampionWidget.h"
+#include "Widget/LOL_MinionWidget.h"
 #include "LOL_HUD.h"
 #include "BaseChampion.h"
-
-#include "UObject/ConstructorHelpers.h"
 
 ULOL_UIComponent::ULOL_UIComponent()
 {
     PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
 
-    ChampionWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("ChampionWidget"));
-    ChampionWidget->SetRelativeLocation(FVector(0.0f, 0.0f, 200.0f)); // 적절한 높이 조절
-    ChampionWidget->SetWidgetSpace(EWidgetSpace::Screen);
-    ChampionWidget->SetDrawSize(FVector2D(10.f, 5.f));
-    static ConstructorHelpers::FClassFinder<UUserWidget> ChampionWidgetRef(TEXT("/Game/UI/ChampionWidget/Wbp_healthbar.Wbp_healthbar_C"));
-    if (ChampionWidgetRef.Succeeded())
-    {
-        ChampionWidget->SetWidgetClass(ChampionWidgetRef.Class);
-    }
+    ActorWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("ActorWidget"));
+    ActorWidget->SetWidgetSpace(EWidgetSpace::Screen);
+
+    static ConstructorHelpers::FClassFinder<UUserWidget> ChampRef(TEXT("/Game/UI/ChampionWidget/Wbp_healthbar.Wbp_healthbar_C"));
+    if (ChampRef.Succeeded()) ChampionWidgetClass = ChampRef.Class;
+
+    static ConstructorHelpers::FClassFinder<UUserWidget> MinionRef(TEXT("/Game/UI/minion_widget/WBP_MinionWidget.WBP_MinionWidget_C"));
+    if (MinionRef.Succeeded()) MinionWidgetClass = MinionRef.Class;
 
     RangeIndicator = CreateDefaultSubobject<UDecalComponent>(TEXT("RangeIndicator"));
     RangeIndicator->SetRelativeLocation(FVector(0.f, 0.f, -90.f)); 
@@ -45,11 +43,30 @@ void ULOL_UIComponent::BeginPlay()
 {
     Super::BeginPlay();
 
-    Owner = Cast<ABaseChampion>(GetOwner());
-    if (Owner && Owner->StatComponent)
+    OwnerPawn = Cast<APawn>(GetOwner());
+    if (OwnerPawn)
     {
-        ChampionWidget->AttachToComponent(Owner->GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
-        RangeIndicator->AttachToComponent(Owner->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+        if (USkeletalMeshComponent* MeshComp = OwnerPawn->FindComponentByClass<USkeletalMeshComponent>())
+        {
+            ActorWidget->AttachToComponent(MeshComp, FAttachmentTransformRules::KeepRelativeTransform);
+        }
+
+        if (ABaseChampion* Champ = Cast<ABaseChampion>(OwnerPawn))
+        {
+            ActorWidget->SetWidgetClass(ChampionWidgetClass);
+            ActorWidget->SetDrawSize(FVector2D(200.f, 20.f));
+            ActorWidget->SetRelativeLocation(FVector(0.0f, 0.0f, 200.0f));
+
+            RangeIndicator->AttachToComponent(Champ->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+        }
+        else
+        {
+            ActorWidget->SetWidgetClass(MinionWidgetClass);
+            ActorWidget->SetDrawSize(FVector2D(50.f, 5.f));
+            ActorWidget->SetRelativeLocation(FVector(0.0f, 0.0f, 130.0f));
+            
+            RangeIndicator->DestroyComponent();
+        }
     }
     if (BaseDecalMaterial)
     {
@@ -61,10 +78,11 @@ void ULOL_UIComponent::BeginPlay()
 
 void ULOL_UIComponent::ShowRangeIndicator()
 {
-    if (!Owner->IsLocallyControlled() || !RangeIndicator) return;
+    ABaseChampion* Champ = Cast<ABaseChampion>(OwnerPawn);
+    if (!Champ->IsLocallyControlled() || !RangeIndicator) return;
 
     float Range{};
-    if (Owner->StatComponent) Range = Owner->StatComponent->GetStat().AttackRange;
+    if (Champ->StatComponent) Range = Champ->StatComponent->GetStat().AttackRange;
 
     RangeIndicator->DecalSize = FVector(500.f, Range, Range);
 
@@ -79,27 +97,43 @@ void ULOL_UIComponent::ShowRangeIndicator()
 
 void ULOL_UIComponent::HideRangeIndicator()
 {
-    if (!Owner->IsLocallyControlled() || !RangeIndicator) return;
+    ABaseChampion* Champ = Cast<ABaseChampion>(OwnerPawn);
+    if (!Champ->IsLocallyControlled() || !RangeIndicator) return;
 
     RangeIndicator->SetHiddenInGame(true);
 }
 
 void ULOL_UIComponent::UpdateHpFromStat(float NewHp)
 {
-    if (CachedMaxHP <= 0.f) return;
+    if (CachedMaxHP <= 0.f || !OwnerPawn) return;
 
-    if (ULOL_ChampionWidget* ChampWidgetObj = Cast<ULOL_ChampionWidget>(ChampionWidget->GetUserWidgetObject()))
+    ULOL_StatComponent* StatComp = OwnerPawn->FindComponentByClass<ULOL_StatComponent>();
+    if (!StatComp) return;
+
+    float Percent = NewHp / StatComp->GetStat().MaxHP;
+    UUserWidget* UserWidgetObj = ActorWidget->GetUserWidgetObject();
+    if (!UserWidgetObj) return;
+
+
+    if (ULOL_ChampionWidget* ChampWidgetObj = Cast<ULOL_ChampionWidget>(UserWidgetObj))
     {
-        ChampWidgetObj->UpdateHP(NewHp / Owner->StatComponent->GetStat().MaxHP);
+        ChampWidgetObj->UpdateHP(Percent);
+    }
+    else if (ULOL_MinionWidget* MinionWidgetObj = Cast<ULOL_MinionWidget>(UserWidgetObj))
+    {
+        MinionWidgetObj->UpdateHP(Percent);
     }
 }
 
 void ULOL_UIComponent::UpdateMpFromStat(float NewMp)
 {
-    if (CachedMaxMP <= 0.f) return;
-
-    if (ULOL_ChampionWidget* ChampWidgetObj = Cast<ULOL_ChampionWidget>(ChampionWidget->GetUserWidgetObject()))
+    if (CachedMaxMP <= 0.f || !OwnerPawn) return;
+    
+    ULOL_StatComponent* StatComp = OwnerPawn->FindComponentByClass<ULOL_StatComponent>();
+    if (!StatComp) return;
+    
+    if (ULOL_ChampionWidget* ChampWidgetObj = Cast<ULOL_ChampionWidget>(ActorWidget->GetUserWidgetObject()))
     {
-        ChampWidgetObj->UpdateMP(NewMp / Owner->StatComponent->GetStat().MaxMP);
+        ChampWidgetObj->UpdateMP(NewMp / StatComp->GetStat().MaxMP);
     }
 }
