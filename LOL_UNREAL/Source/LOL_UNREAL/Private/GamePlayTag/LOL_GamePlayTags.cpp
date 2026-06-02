@@ -5,6 +5,7 @@ UE_DEFINE_GAMEPLAY_TAG(LOLTags::Champion_Ranged, "Champion.Ranged");
 UE_DEFINE_GAMEPLAY_TAG(LOLTags::State_Dead, "State.Dead");
 UE_DEFINE_GAMEPLAY_TAG(LOLTags::State_Moving, "State.Moving");
 UE_DEFINE_GAMEPLAY_TAG(LOLTags::State_Attacking, "State.Attacking");
+UE_DEFINE_GAMEPLAY_TAG(LOLTags::State_Silenced, "State.Silenced");
 
 UE_DEFINE_GAMEPLAY_TAG(LOLTags::Skill, "Skill");
 UE_DEFINE_GAMEPLAY_TAG(LOLTags::Skill_Q, "Skill.Q");
