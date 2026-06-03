@@ -17,6 +17,8 @@
 #include "Minion/Minion_Super.h"
 #include "TimerManager.h"
 
+#include "Kismet/GameplayStatics.h"
+
 ALOL_GameModeBase::ALOL_GameModeBase()
 {
     PlayerControllerClass = ALOL_PlayerController::StaticClass();
@@ -63,7 +65,23 @@ APawn* ALOL_GameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewPla
 void ALOL_GameModeBase::BeginPlay()
 {
     Super::BeginPlay();
-    MinionSpawnLocation = FVector(-4803.f, 5708.f, -1201.f);
+
+    TArray<AActor*> FoundBlueActors;
+    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("BlueSpawn"), FoundBlueActors);
+
+    if (FoundBlueActors.Num() > 0)
+    {
+        BlueTeamSpawnPoint = FoundBlueActors[0];
+    }
+
+    TArray<AActor*> FoundRedActors;
+    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("RedSpawn"), FoundRedActors);
+
+    if (FoundRedActors.Num() > 0)
+    {
+        RedTeamSpawnPoint = FoundRedActors[0];
+    }
+
     GetWorld()->GetTimerManager().SetTimer(MinionSpawnTimerHandle, this, &ALOL_GameModeBase::StartMinionWave, 3.0f, false);
 }
 
@@ -109,25 +127,36 @@ void ALOL_GameModeBase::SpawnNextMinion()
 {
     if (SpawnedMinionCount < CurrentWaveMinions.Num())
     {
+        FVector SpawnLocation = FVector::ZeroVector;
+        FRotator SpawnRotation = FRotator::ZeroRotator;
+
         UClass* MinionClass = CurrentWaveMinions[SpawnedMinionCount];
         if (MinionClass)
         {
+            if (BlueTeamSpawnPoint)
+            {
+                SpawnLocation = BlueTeamSpawnPoint->GetActorLocation();
+                SpawnRotation = BlueTeamSpawnPoint->GetActorRotation();
+            }
+
+            FActorSpawnParameters SpawnParams;
+            SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
             ABaseMinion* SpawnedMinion = GetWorld()->SpawnActor<ABaseMinion>(
-                MinionClass,
-                MinionSpawnLocation,
-                FRotator::ZeroRotator
-            );
-            if (SpawnedMinion && SpawnedMinion->StateComponent)
+                MinionClass, 
+                SpawnLocation,
+                SpawnRotation,
+                SpawnParams);
+
+            if (SpawnedMinion)
             {
                 SpawnedMinion->StateComponent->AddStatusTag(LOLTags::Team_Blue);
+                SpawnedMinionCount++;
             }
         }
-        SpawnedMinionCount++; 
     }
     else
     {
         GetWorld()->GetTimerManager().ClearTimer(MinionSpawnTimerHandle);
-
-        GetWorld()->GetTimerManager().SetTimer(MinionSpawnTimerHandle, this, &ALOL_GameModeBase::StartMinionWave, 30.0f, false);
     }
 }

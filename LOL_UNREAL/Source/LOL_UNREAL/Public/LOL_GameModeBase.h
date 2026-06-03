@@ -34,10 +34,14 @@ protected:
 
     FTimerHandle MinionSpawnTimerHandle;
 
-    FVector MinionSpawnLocation;
-
     UPROPERTY()
     TArray<TSubclassOf<class ABaseMinion>> CurrentWaveMinions;
 
     int32 SpawnedMinionCount;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning", meta = (AllowPrivateAccess = "true"))
+    AActor* BlueTeamSpawnPoint;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning", meta = (AllowPrivateAccess = "true"))
+    AActor* RedTeamSpawnPoint;
 };
