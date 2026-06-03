@@ -33,6 +33,23 @@ bool ULOL_StateComponent::HasStatusTag(FGameplayTag Tag) const
 	return StatusTags.HasTag(Tag);
 }
 
+bool ULOL_StateComponent::IsEnemy(ULOL_StateComponent* OtherState) const
+{
+	if (!OtherState) return false;
+
+	if (this == OtherState) return false;
+
+	if (HasStatusTag(LOLTags::Team_Jungle) || OtherState->HasStatusTag(LOLTags::Team_Jungle))
+	{
+		return true;
+	}
+
+	if (HasStatusTag(LOLTags::Team_Blue) && OtherState->HasStatusTag(LOLTags::Team_Blue)) return false;
+	if (HasStatusTag(LOLTags::Team_Red) && OtherState->HasStatusTag(LOLTags::Team_Red)) return false;
+
+	return true;
+}
+
 void ULOL_StateComponent::GetOwnedGameplayTags(FGameplayTagContainer& TagContainer) const
 {
 	TagContainer.AppendTags(StatusTags);

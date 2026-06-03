@@ -1,9 +1,10 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// 게임 모드
 #include "LOL_GameModeBase.h"
 #include "LOL_PlayerController.h"
 #include "LOL_HUD.h"
 
 #include "Component/LOL_LifeCycleComponent.h"
+#include "Component/LOL_StateComponent.h"
 
 #include "Champion/Champion_Alistar.h"
 #include "Champion/Champion_Vayne.h"
@@ -19,9 +20,6 @@
 ALOL_GameModeBase::ALOL_GameModeBase()
 {
     PlayerControllerClass = ALOL_PlayerController::StaticClass();
-    
-    // 플레이어마다 캐릭터를 다르게 설정하기 위해서는 필요하지 않음.
-    // DefaultPawnClass = AChampion_Alistar::StaticClass();
 
     HUDClass = ALOL_HUD::StaticClass();
 }  
@@ -38,6 +36,28 @@ UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(ACont
 
     // 2. 그 외에 접속하는 클라이언트 플레이어들
     return AChampion_Garen::StaticClass();
+}
+
+APawn* ALOL_GameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot)
+{
+    APawn* SpawnedPawn = Super::SpawnDefaultPawnFor_Implementation(NewPlayer, StartSpot);
+
+    if (ABaseChampion* Champion = Cast<ABaseChampion>(SpawnedPawn))
+    {
+        if (Champion->StateComponent)
+        {
+            if (NewPlayer && NewPlayer->IsLocalController())
+            {
+                Champion->StateComponent->AddStatusTag(LOLTags::Team_Blue);
+            }
+            else
+            {
+                Champion->StateComponent->AddStatusTag(LOLTags::Team_Red);
+            }
+        }
+    }
+
+    return SpawnedPawn;
 }
 
 void ALOL_GameModeBase::BeginPlay()
@@ -87,23 +107,25 @@ void ALOL_GameModeBase::StartMinionWave()
 
 void ALOL_GameModeBase::SpawnNextMinion()
 {
-    // 아직 스폰할 미니언이 남아있다면
     if (SpawnedMinionCount < CurrentWaveMinions.Num())
     {
         UClass* MinionClass = CurrentWaveMinions[SpawnedMinionCount];
         if (MinionClass)
         {
-            GetWorld()->SpawnActor<ABaseMinion>(
+            ABaseMinion* SpawnedMinion = GetWorld()->SpawnActor<ABaseMinion>(
                 MinionClass,
                 MinionSpawnLocation,
                 FRotator::ZeroRotator
             );
+            if (SpawnedMinion && SpawnedMinion->StateComponent)
+            {
+                SpawnedMinion->StateComponent->AddStatusTag(LOLTags::Team_Blue);
+            }
         }
-        SpawnedMinionCount++; // 카운트 증가
+        SpawnedMinionCount++; 
     }
     else
     {
-        // 웨이브 스폰이 끝났으므로 타이머 정지
         GetWorld()->GetTimerManager().ClearTimer(MinionSpawnTimerHandle);
 
         GetWorld()->GetTimerManager().SetTimer(MinionSpawnTimerHandle, this, &ALOL_GameModeBase::StartMinionWave, 30.0f, false);

@@ -1,9 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-// BaseChampion.cpp
 // 챔피언의 기본 설정
-// 1. 카메라 설정
-// 2. 기본 능력치
-// 3. 공격 대상 지정
 // ----------------------------------------------------------------------------------
 #include "BaseChampion.h"
 #include "LOL_GameModeBase.h"
@@ -239,25 +234,22 @@ float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 }
 void ABaseChampion::OnEnemyEnterRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (!HasAuthority()) return;
+	if (!HasAuthority() || !OtherActor || OtherActor == this) return;
 
-	ABaseChampion* Enemy = Cast<ABaseChampion>(OtherActor);
+	ULOL_StateComponent* TargetState = OtherActor->FindComponentByClass<ULOL_StateComponent>();
 
-	// 팀 조건 추가해야함.
-	if (Enemy && Enemy != this && !Enemy->StateComponent->HasStatusTag(LOLTags::State_Dead))
+	if (TargetState && StateComponent->IsEnemy(TargetState) && !TargetState->HasStatusTag(LOLTags::State_Dead))
 	{
-		EnemiesInRange.AddUnique(Enemy);
+		EnemiesInRange.AddUnique(OtherActor);
 	}
 }
 void ABaseChampion::OnEnemyLeaveRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	if (!HasAuthority()) return;
+	if (!HasAuthority() || !OtherActor) return;
 
-	ABaseChampion* Enemy = Cast<ABaseChampion>(OtherActor);
-
-	if (Enemy && EnemiesInRange.Contains(Enemy))
+	if (EnemiesInRange.Contains(OtherActor))
 	{
-		EnemiesInRange.Remove(Enemy);
+		EnemiesInRange.Remove(OtherActor);
 	}
 }
 void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
@@ -268,7 +260,6 @@ void ABaseChampion::Server_ExecuteAttackHit_Implementation()
 {
 	if (AttackComponent)
 	{
-		// 이 코드는 100% 서버에서만 실행되므로 안심하고 데미지를 줍니다.
 		AttackComponent->ExecuteAttackHit();
 	}
 }

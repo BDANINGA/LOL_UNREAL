@@ -113,7 +113,7 @@ public:
 	class USphereComponent* AttackRangeSphere;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
-	TArray<ABaseChampion*> EnemiesInRange;
+	TArray<AActor*> EnemiesInRange;
 
 	UFUNCTION(Server, Reliable)
 	void Server_ExecuteAttackHit();

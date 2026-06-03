@@ -83,15 +83,20 @@ void ALOL_MinionAIController::DecisionLoop()
 }
 AActor* ALOL_MinionAIController::ScanForClosestEnemy()
 {
-	APawn* Minion = GetPawn();
-	if (!Minion) return nullptr;
+	APawn* ControlledPawn = GetPawn();
+	if (!IsValid(ControlledPawn))
+	{
+		// 미니언이 죽었으면 탐색 타이머를 멈추고 함수를 빠져나갑니다.
+		GetWorldTimerManager().ClearTimer(AI_DecisionTimer); // (타이머 핸들 이름은 사장님 변수명에 맞게 변경하세요)
+		return nullptr;
+	}
 
-	FVector MyLoc = Minion->GetActorLocation();
+	FVector MyLoc = ControlledPawn->GetActorLocation();
 
 	TArray<FOverlapResult> Overlaps;
 	FCollisionShape Sphere = FCollisionShape::MakeSphere(SearchRadius);
 	FCollisionQueryParams Params;
-	Params.AddIgnoredActor(Minion);
+	Params.AddIgnoredActor(ControlledPawn);
 
 	bool bHit = GetWorld()->OverlapMultiByChannel(
 		Overlaps,
@@ -110,17 +115,12 @@ AActor* ALOL_MinionAIController::ScanForClosestEnemy()
 		for (const FOverlapResult& Hit : Overlaps)
 		{
 			AActor* HitActor = Hit.GetActor();
-			if (!HitActor) continue;
+			if (!IsValid(HitActor) || HitActor == ControlledPawn) continue;
 
-			// 대상이 죽었는지 체크
+			ULOL_StateComponent* MyState = ControlledPawn->FindComponentByClass<ULOL_StateComponent>();
 			ULOL_StateComponent* TargetState = HitActor->FindComponentByClass<ULOL_StateComponent>();
-			if (TargetState && TargetState->HasStatusTag(LOLTags::State_Dead)) continue;
-
-			// 챔피언이거나 다른 미니언인 경우 타겟으로 인정
-			if (HitActor->IsA(ABaseChampion::StaticClass()) || HitActor->IsA(ABaseMinion::StaticClass()))
+			if (TargetState && !TargetState->HasStatusTag(LOLTags::State_Dead) && MyState && MyState->IsEnemy(TargetState))
 			{
-				// TODO: 여기에 나중에 "같은 팀이면 무시" 로직이 들어가야 합니다!
-
 				float DistSquared = FVector::DistSquared(MyLoc, HitActor->GetActorLocation());
 				if (DistSquared < MinDistSquared)
 				{

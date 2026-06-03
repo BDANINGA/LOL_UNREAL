@@ -2,6 +2,10 @@
 
 UE_DEFINE_GAMEPLAY_TAG(LOLTags::Champion_Ranged, "Champion.Ranged");
 
+UE_DEFINE_GAMEPLAY_TAG(LOLTags::Team_Red, "Team.Red");
+UE_DEFINE_GAMEPLAY_TAG(LOLTags::Team_Blue, "Team.Blue");
+UE_DEFINE_GAMEPLAY_TAG(LOLTags::Team_Jungle, "Team.Jungle");
+
 UE_DEFINE_GAMEPLAY_TAG(LOLTags::State_Dead, "State.Dead");
 UE_DEFINE_GAMEPLAY_TAG(LOLTags::State_Moving, "State.Moving");
 UE_DEFINE_GAMEPLAY_TAG(LOLTags::State_Attacking, "State.Attacking");

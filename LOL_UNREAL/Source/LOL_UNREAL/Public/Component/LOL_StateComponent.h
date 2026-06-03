@@ -24,6 +24,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "State")
 	bool HasStatusTag(FGameplayTag Tag) const;
 
+	UFUNCTION(BlueprintCallable, Category = "State")
+	bool IsEnemy(ULOL_StateComponent* OtherState) const;
+
 	virtual void GetOwnedGameplayTags(FGameplayTagContainer& TagContainer) const override;
 
 protected:

@@ -32,7 +32,6 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
         if (StateComp->HasStatusTag(LOLTags::State_Dead)) return;
     }
 
-    // 소유주가 챔피언일 경우
     ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn);
     if (Champion)
     {
@@ -41,15 +40,16 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
 
         if (bIsSearchAttack && Champion->EnemiesInRange.Num() > 0)
         {
-            ABaseChampion* BestTarget = nullptr;
+            AActor* BestTarget = nullptr;
             float MinDistSquared = FLT_MAX; // 루트 계산을 빼기 위해 제곱 거리 사용 (최적화)
             FVector MyLoc = Champion->GetActorLocation();
 
             for (int32 i = Champion->EnemiesInRange.Num() - 1; i >= 0; --i)
             {
-                ABaseChampion* Enemy = Champion->EnemiesInRange[i];
+                AActor* Enemy = Champion->EnemiesInRange[i];
 
-                if (!Enemy || Enemy->StateComponent->HasStatusTag(LOLTags::State_Dead))
+                ULOL_StateComponent* EnemyState = Enemy->FindComponentByClass<ULOL_StateComponent>();
+                if (!EnemyState || EnemyState->HasStatusTag(LOLTags::State_Dead))
                 {
                     Champion->EnemiesInRange.RemoveAt(i);
                     continue;
