@@ -6,6 +6,7 @@
 
 #include "LOL_PlayerController.h"
 #include "BaseChampion.h"
+#include "Minion/BaseMinion.h"
 #include "Camera.h"
 
 #include "Widget/LOL_CursorWidget.h"
@@ -16,7 +17,8 @@
 #include "Net/UnrealNetwork.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
-
+#include "NiagaraFunctionLibrary.h" 
+#include "NiagaraSystem.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "InputMappingContext.h"
 #include "InputAction.h"
@@ -27,59 +29,36 @@ ALOL_PlayerController::ALOL_PlayerController()
 	bAutoManageActiveCameraTarget = false;
 
 	static ConstructorHelpers::FObjectFinder<UInputMappingContext> IMC_Default(TEXT("/Game/Level/input/IMC_Default.IMC_Default"));
-	if (IMC_Default.Succeeded())
-	{
-		DefaultMappingContext = IMC_Default.Object;
-	}
+	if (IMC_Default.Succeeded()) DefaultMappingContext = IMC_Default.Object;
 
 	static ConstructorHelpers::FObjectFinder<UInputAction> IA_RightClick(TEXT("/Game/Level/input/IA_RightClick.IA_RightClick"));
-	if (IA_RightClick.Succeeded())
-	{
-		RightClickAction = IA_RightClick.Object;
-	}
+	if (IA_RightClick.Succeeded()) RightClickAction = IA_RightClick.Object;
 	static ConstructorHelpers::FObjectFinder<UInputAction> IA_LeftClick(TEXT("/Game/Level/input/IA_LeftClick.IA_LeftClick"));
-	if (IA_LeftClick.Succeeded())
-	{
-		LeftClickAction = IA_LeftClick.Object;
-	}
+	if (IA_LeftClick.Succeeded()) LeftClickAction = IA_LeftClick.Object;
 
 	static ConstructorHelpers::FObjectFinder<UInputAction> IA_SkillQ(TEXT("/Game/Level/input/IA_SkillQ.IA_SkillQ"));
-	if (IA_SkillQ.Succeeded())
-	{
-		SkillQAction = IA_SkillQ.Object;
-	}
+	if (IA_SkillQ.Succeeded()) SkillQAction = IA_SkillQ.Object;
 	static ConstructorHelpers::FObjectFinder<UInputAction> IA_SkillW(TEXT("/Game/Level/input/IA_SkillW.IA_SkillW"));
-	if (IA_SkillW.Succeeded())
-	{
-		SkillWAction = IA_SkillW.Object;
-	}
+	if (IA_SkillW.Succeeded()) SkillWAction = IA_SkillW.Object;
 	static ConstructorHelpers::FObjectFinder<UInputAction> IA_SkillE(TEXT("/Game/Level/input/IA_SkillE.IA_SkillE"));
-	if (IA_SkillE.Succeeded())
-	{
-		SkillEAction = IA_SkillE.Object;
-	}
+	if (IA_SkillE.Succeeded()) SkillEAction = IA_SkillE.Object;
 	static ConstructorHelpers::FObjectFinder<UInputAction> IA_SkillR(TEXT("/Game/Level/input/IA_SkillR.IA_SkillR"));
-	if (IA_SkillR.Succeeded())
-	{
-		SkillRAction = IA_SkillR.Object;
-	}
+	if (IA_SkillR.Succeeded()) SkillRAction = IA_SkillR.Object;
+
 	static ConstructorHelpers::FObjectFinder<UInputAction> IA_SpaceBar(TEXT("/Game/Level/input/IA_SpaceBar.IA_SpaceBar"));
-	if (IA_SpaceBar.Succeeded())
-	{
-		SpaceBarAction = IA_SpaceBar.Object;
-	}
+	if (IA_SpaceBar.Succeeded()) SpaceBarAction = IA_SpaceBar.Object;
 
 	static ConstructorHelpers::FObjectFinder<UInputAction> IA_AKey(TEXT("/Game/Level/input/IA_A.IA_A"));
-	if (IA_AKey.Succeeded())
-	{
-		AKeyAction = IA_AKey.Object;
-	}
+	if (IA_AKey.Succeeded()) AKeyAction = IA_AKey.Object;
 
 	static ConstructorHelpers::FClassFinder<ULOL_CursorWidget> CursorWidgetAsset(TEXT("/Game/UI/Cursor/Wbp_CursorWidget.Wbp_CursorWidget_C"));
-	if (CursorWidgetAsset.Succeeded())
-	{
-		CursorWidgetClass = CursorWidgetAsset.Class;
-	}
+	if (CursorWidgetAsset.Succeeded()) CursorWidgetClass = CursorWidgetAsset.Class;
+
+	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> FXAsset(TEXT("/Game/UI/Cursor/Indicator/FX_ClickIndicator.FX_ClickIndicator"));
+	if (FXAsset.Succeeded()) ClickFX = FXAsset.Object;
+
+	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> FXAsset1(TEXT("/Game/UI/Cursor/Indicator/FX_AttackIndicator.FX_AttackIndicator"));
+	if (FXAsset1.Succeeded()) AClickFX = FXAsset1.Object;
 }
 
 void ALOL_PlayerController::BeginPlay()
@@ -165,6 +144,7 @@ void ALOL_PlayerController::SetupInputComponent()
 void ALOL_PlayerController::OnRightClick()
 {
 	FHitResult HitResult;
+	AActor* HitActor = HitResult.GetActor();
 	if (GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
 	{
 		if (MyChampion && MyChampion->IsLocallyControlled())
@@ -172,7 +152,17 @@ void ALOL_PlayerController::OnRightClick()
 			MyChampion->SetIsPressA(false);
 			MyChampion->MoveComponent->bIsSearchAttack = false;
 			MyChampion->UIComponent->HideRangeIndicator();
-			MyChampion->ProcessMoveInput(HitResult.Location, HitResult.GetActor());
+			MyChampion->ProcessMoveInput(HitResult.Location, HitActor);
+
+			if (Cast<ABaseChampion>(HitActor) == nullptr && Cast<ABaseMinion>(HitActor) == nullptr) 
+			{
+				UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+					GetWorld(),
+					ClickFX,
+					HitResult.Location + FVector(0.f, 0.f, 20.f),
+					FRotator(-90.f, 0.f, 0.f)
+				);
+			}
 		}
 	}
 }
@@ -183,12 +173,23 @@ void ALOL_PlayerController::OnLeftClick()
 		if (MyChampion->GetIsPressA())
 		{
 			FHitResult HitResult;
+			AActor* HitActor = HitResult.GetActor();
 			if (GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
 			{
-				MyChampion->ProcessMoveInput(HitResult.Location, HitResult.GetActor());
+				MyChampion->ProcessMoveInput(HitResult.Location, HitActor);
 				MyChampion->SetIsPressA(false);
 				MyChampion->MoveComponent->bIsSearchAttack = true;
 				MyChampion->UIComponent->HideRangeIndicator();
+
+				if (Cast<ABaseChampion>(HitActor) == nullptr && Cast<ABaseMinion>(HitActor) == nullptr)
+				{
+					UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+						GetWorld(),
+						AClickFX,
+						HitResult.Location + FVector(0.f, 0.f, 20.f),
+						FRotator(-90.f, 0.f, 0.f)
+					);
+				}
 			}
 		}
 	}

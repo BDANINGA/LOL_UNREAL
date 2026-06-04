@@ -61,9 +61,6 @@ class LOL_UNREAL_API ABaseChampion : public ACharacter
 public:
 	ABaseChampion();
 
-	UPROPERTY()
-	class UNiagaraSystem* ClickFX;
-
 	// 스탯 컴포넌트
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
 	class ULOL_StatComponent* StatComponent;

@@ -58,7 +58,11 @@ protected:
 	class UInputAction* SpaceBarAction;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	class UInputAction* AKeyAction;
-
+	
+	UPROPERTY()
+	class UNiagaraSystem* ClickFX;
+	UPROPERTY()
+	class UNiagaraSystem* AClickFX;
 private:
 	UPROPERTY()
 	class ACamera* CameraAnchor;

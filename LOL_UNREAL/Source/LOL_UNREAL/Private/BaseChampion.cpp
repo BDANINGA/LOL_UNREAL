@@ -7,8 +7,6 @@
 
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
-#include "NiagaraFunctionLibrary.h" 
-#include "NiagaraSystem.h"
 #include "Engine/DamageEvents.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
@@ -51,9 +49,6 @@ ABaseChampion::ABaseChampion()
 
 	// Skill
 	SkillComponent = CreateDefaultSubobject<UChampion_SkillComponent>(TEXT("SkillComponent"));
-
-	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> FXAsset(TEXT("/Game/UI/NS_ClickIndicator.NS_ClickIndicator"));
-	if (FXAsset.Succeeded()) ClickFX = FXAsset.Object;
 
 	static ConstructorHelpers::FObjectFinder<UDataTable> ResourceDataAssetTable(TEXT("/Game/LOL_Data/Data_Champions/Data_ChampionResource.Data_ChampionResource"));
 	if (ResourceDataAssetTable.Succeeded()) DataTable = ResourceDataAssetTable.Object;
@@ -270,15 +265,6 @@ void ABaseChampion::ProcessMoveInput(FVector ClickLocation, AActor* TargetActor)
 	{
 		TargetChampion = nullptr;
 		TargetActor = nullptr;
-	}
-	if (ClickFX && TargetChampion == nullptr)
-	{
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
-			GetWorld(),
-			ClickFX,
-			ClickLocation + FVector(0.f, 0.f, 20.f), // 바닥에 살짝 띄움
-			FRotator(-90.f, 0.f, 0.f)
-		);
 	}
 	Server_ProcessMoveInput(ClickLocation, TargetActor, bIsPressA);
 }
