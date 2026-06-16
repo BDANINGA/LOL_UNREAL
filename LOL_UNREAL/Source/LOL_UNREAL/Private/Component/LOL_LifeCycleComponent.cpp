@@ -30,15 +30,30 @@ void ULOL_LifeCycleComponent::BeginPlay()
 	{
 		if (ULOL_StatComponent* StatComp = OwnerPawn->FindComponentByClass<ULOL_StatComponent>())
 		{
-			StatComp->OnHpZero.AddUObject(this, &ULOL_LifeCycleComponent::Server_HandleDeath);
+			StatComp->OnHpZero.AddDynamic(this, &ULOL_LifeCycleComponent::Server_HandleDeath);
 		}
 	}
 	
 }
-void ULOL_LifeCycleComponent::Server_HandleDeath()
+void ULOL_LifeCycleComponent::Server_HandleDeath(AController* KillerInstigator, AActor* DamageCauser)
 {
 	if (!OwnerPawn || !OwnerPawn->HasAuthority()) return;
 
+	if (KillerInstigator)
+	{
+		APawn* KillerPawn = KillerInstigator->GetPawn();
+		if (ABaseChampion* KillerChampion = Cast<ABaseChampion>(KillerPawn))
+		{
+			ULOL_StatComponent* KillerStatComp = KillerChampion->FindComponentByClass<ULOL_StatComponent>();
+			ULOL_StatComponent* MyStatComp = OwnerPawn->FindComponentByClass<ULOL_StatComponent>();
+
+			if (KillerStatComp && MyStatComp)
+			{
+				KillerStatComp->AddGold(MyStatComp->GetGiveGold());
+				KillerStatComp->AddEXP(MyStatComp->GetGiveEXP());
+			}
+		}
+	}
 
 	if (ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>())
 	{

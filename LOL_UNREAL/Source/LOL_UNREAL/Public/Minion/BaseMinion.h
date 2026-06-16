@@ -2,7 +2,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Pawn.h"
+#include "GameFramework/Character.h"
 #include "BaseMinion.generated.h"
 
 // 미니언 리소스 데이터 테이블
@@ -29,7 +29,7 @@ public:
 };
 
 UCLASS()
-class LOL_UNREAL_API ABaseMinion : public APawn
+class LOL_UNREAL_API ABaseMinion : public ACharacter
 {
 	GENERATED_BODY()
 
@@ -43,12 +43,6 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|Pawn")
-	class UCapsuleComponent* CapsuleComponent;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|Pawn")
-	class USkeletalMeshComponent* MeshComponent;
 
 	// ------------------------------------------------------------------------------
 
@@ -71,9 +65,6 @@ public:
 	class ULOL_StateComponent* StateComponent;
 
 	// -------------------------------------------------------------------------------
-	FORCEINLINE class UCapsuleComponent* GetCapsuleComponent() const { return CapsuleComponent; }
-	FORCEINLINE class USkeletalMeshComponent* GetMesh() const { return MeshComponent; }
-
 	UDataTable* DataTable;
 
 	UPROPERTY()
@@ -82,6 +73,12 @@ public:
 	virtual FName GetMinionName() const { return MinionName; };
 	void SetMinionData(FName RowName);
 
+	void MoveToNextWaypoint();
+
+	UPROPERTY()
+	TArray<FVector> PathPoints;
+
+	int32 CurrentPathIndex = 0;
 protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Minion|Data")

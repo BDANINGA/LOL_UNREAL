@@ -3,6 +3,6 @@
 
 AMinion_Caster::AMinion_Caster()
 {
-	MinionName = TEXT("Caster");
+	MinionName = TEXT("Minion_Caster");
 	SetMinionData(MinionName);
 }

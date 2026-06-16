@@ -3,6 +3,6 @@
 
 AMinion_Melee::AMinion_Melee()
 {
-	MinionName = TEXT("Melee");
+	MinionName = TEXT("Minion_Melee");
 	SetMinionData(MinionName);
 }

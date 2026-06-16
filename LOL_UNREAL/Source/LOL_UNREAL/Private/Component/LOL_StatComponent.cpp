@@ -30,6 +30,8 @@ ULOL_StatComponent::ULOL_StatComponent()
 void ULOL_StatComponent::BeginPlay()
 {
 	Super::BeginPlay();
+
+
 }
 void ULOL_StatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
@@ -101,6 +103,55 @@ void ULOL_StatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ULOL_StatComponent, BaseStat);
+	DOREPLIFETIME(ULOL_StatComponent, CurrentHP);
+	DOREPLIFETIME(ULOL_StatComponent, CurrentMP);
+}
+
+void ULOL_StatComponent::AddGold(float Amount)
+{
+	if (Amount <= 0.f) return;
+
+	CurrentGold += Amount;
+}
+
+void ULOL_StatComponent::AddEXP(float Amount)
+{
+	if (Amount <= 0.f) return;
+
+	if (BaseStat.Level >= 18) return;
+
+	CurrentEXP += Amount;
+
+	while (CurrentEXP >= MaxEXP)
+	{
+		CurrentEXP -= MaxEXP;
+		BaseStat.Level++;
+
+		MaxEXP = 280.f + (BaseStat.Level - 1) * 100.f;
+
+		BaseStat.MaxHP += BaseStat.HPPerLevel;
+		BaseStat.HPRegen += BaseStat.HPRegenPerLevel;
+		BaseStat.MaxMP += BaseStat.MPPerLevel;
+		BaseStat.MPRegen += BaseStat.MPRegenPerLevel;
+		BaseStat.Armor += BaseStat.ArmorPerLevel;
+		BaseStat.SpellBlock += BaseStat.SpellBlockPerLevel;
+		BaseStat.AttackDamage += BaseStat.AttackDamagePerLevel;
+		BaseStat.AttackSpeed += BaseStat.AttackSpeedPerLevel;
+		
+
+		SetHP(CurrentHP + BaseStat.HPPerLevel);
+		SetMP(CurrentMP + BaseStat.MPPerLevel);
+
+		// 클라이언트들에게 능력치가 변했음을 전파
+		OnRep_BaseStat();
+
+		// 만렙 도달 시 탈출
+		if (BaseStat.Level >= 18)
+		{
+			CurrentEXP = 0.f;
+			break;
+		}
+	}
 }
 
 void ULOL_StatComponent::OnRep_BaseStat()
@@ -122,7 +173,7 @@ void ULOL_StatComponent::OnRep_CurrentMP()
 	if (OnMpChanged.IsBound()) OnMpChanged.Broadcast(CurrentMP);
 }
 
-float ULOL_StatComponent::ApplyDamage(float InDamage, EDamageType DamageType)
+float ULOL_StatComponent::ApplyDamage(float InDamage, EDamageType DamageType, AController* Instigator, AActor* Causer)
 {
 	if (InDamage <= 0.f || CurrentHP <= 0.f) return 0.f;
 
@@ -133,7 +184,7 @@ float ULOL_StatComponent::ApplyDamage(float InDamage, EDamageType DamageType)
 
 	if (CurrentHP <= 0.f)
 	{
-		OnHpZero.Broadcast();
+		OnHpZero.Broadcast(Instigator, Causer);
 	}
 
 	return ActualDamage;

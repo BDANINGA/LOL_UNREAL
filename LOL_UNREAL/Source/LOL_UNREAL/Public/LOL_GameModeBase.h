@@ -28,20 +28,20 @@ protected:
     TSubclassOf<APawn> VayneClass;
 
     void StartMinionWave();
-
-    UFUNCTION()
     void SpawnNextMinion();
 
+private:
     FTimerHandle MinionSpawnTimerHandle;
 
     UPROPERTY()
     TArray<TSubclassOf<class ABaseMinion>> CurrentWaveMinions;
-
+    UPROPERTY(EditAnywhere, Category = "Spawn")
     int32 SpawnedMinionCount;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning", meta = (AllowPrivateAccess = "true"))
-    AActor* BlueTeamSpawnPoint;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning", meta = (AllowPrivateAccess = "true"))
-    AActor* RedTeamSpawnPoint;
+    TArray<AActor*> BlueTopLanePoints;
+    TArray<AActor*> BlueMidLanePoints;
+    TArray<AActor*> BlueBotLanePoints;
+    TArray<AActor*> RedTopLanePoints;
+    TArray<AActor*> RedMidLanePoints;
+    TArray<AActor*> RedBotLanePoints;
 };

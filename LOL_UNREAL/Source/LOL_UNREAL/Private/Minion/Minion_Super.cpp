@@ -3,6 +3,6 @@
 
 AMinion_Super::AMinion_Super()
 {
-	MinionName = TEXT("Super");
+	MinionName = TEXT("Minion_Super");
 	SetMinionData(MinionName);
 }

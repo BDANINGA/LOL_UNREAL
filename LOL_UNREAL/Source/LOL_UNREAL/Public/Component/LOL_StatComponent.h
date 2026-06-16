@@ -17,6 +17,12 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Stat|Live")
 	int32 Level = 1;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stat|Reward")
+	float GiveGold = 300;
+	// 미니언 스탯 구조체 내부 (예시)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stat|Reward")
+	float GiveEXP = 0;
+
 	//------------------------------------------
 	// =========== 기본 능력치 (Base) ===========
 
@@ -146,13 +152,13 @@ class ULOL_DamageMagic : public UDamageType { GENERATED_BODY() };
 UCLASS()
 class ULOL_DamageTrueDamage : public UDamageType { GENERATED_BODY() };
 
-
-DECLARE_MULTICAST_DELEGATE(FOnHpZeroDelegate);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnHpChangedDelegate, float /*CurrentHp*/);
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMpChangedDelegate, float /*CurrentMp*/);
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnStatChangedDelegate, const FChampionStat&);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHpZeroDelegate, AController*, KillerInstigator, AActor*, DamageCauser);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class LOL_UNREAL_API ULOL_StatComponent : public UActorComponent
@@ -166,6 +172,7 @@ protected:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 public:	
+	UPROPERTY(BlueprintAssignable)
 	FOnHpZeroDelegate OnHpZero;
 	FOnHpChangedDelegate OnHpChanged;
 
@@ -173,7 +180,7 @@ public:
 
 	FOnStatChangedDelegate OnStatChanged;
 
-	float ApplyDamage(float InDagame, EDamageType DamageType);
+	float ApplyDamage(float InDagame, EDamageType DamageType, AController* Instigator, AActor* Causer);
 
 	void SetHP(float NewHP);
 	void SetMP(float NewMP);
@@ -188,6 +195,12 @@ public:
 	float CalculateReducedDamage(float RawDamage, EDamageType Type);
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	FORCEINLINE float GetGiveGold() const { return BaseStat.GiveGold; }
+	FORCEINLINE float GetGiveEXP() const { return BaseStat.GiveEXP; }
+
+	void AddGold(float Amount);
+	void AddEXP(float Amount);
 protected:
 	// 능력치 관련
 	UPROPERTY(ReplicatedUsing = OnRep_BaseStat, EditAnywhere, Category = "Stat|Data")
@@ -199,12 +212,10 @@ protected:
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentMP)
 	float CurrentMP;
 
-	float CurrentEXP;
-	float CurrentGold;
+	float CurrentEXP = 0;
+	float CurrentGold = 0;
 	
-	float MaxEXP;
-	float GiveGold;
-	float GiveEXP;
+	float MaxEXP = 280;
 
 	UFUNCTION()
 	void OnRep_BaseStat();

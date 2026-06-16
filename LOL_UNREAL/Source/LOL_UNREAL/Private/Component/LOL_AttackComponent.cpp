@@ -124,7 +124,6 @@ void ULOL_AttackComponent::StartAttack()
             }
         }
     }
-
     float AttackDelay = 1.0f / StatComp->GetStat().AttackSpeed;
     GetWorld()->GetTimerManager().SetTimer(AttackTimerHandle, this, &ULOL_AttackComponent::ResetAttack, AttackDelay, false);
 }

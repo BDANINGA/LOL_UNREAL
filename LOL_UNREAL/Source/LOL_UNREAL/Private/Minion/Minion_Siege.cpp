@@ -3,6 +3,6 @@
 
 AMinion_Siege::AMinion_Siege()
 {
-	MinionName = TEXT("Siege");
+	MinionName = TEXT("Minion_Siege");
 	SetMinionData(MinionName);
 }

@@ -14,6 +14,7 @@
 #include "Component/LOL_StateComponent.h"
 
 #include "Engine/DamageEvents.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 #include "UObject/ConstructorHelpers.h"
 
@@ -21,17 +22,18 @@ ABaseMinion::ABaseMinion()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	CapsuleComponent = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CapsuleComp"));
-	CapsuleComponent->InitCapsuleSize(35.f, 70.f);
-	CapsuleComponent->SetCollisionProfileName(TEXT("Pawn"));
-	RootComponent = CapsuleComponent;
+	GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -90.f));
+	GetMesh()->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	GetMesh()->SetWorldScale3D(FVector(0.5f, 0.5f, 0.5f));
 
-	MeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("MeshComp"));
-	MeshComponent->SetupAttachment(RootComponent);
-	MeshComponent->SetRelativeLocation(FVector(0.f, 0.f, -70.f)); 
-	MeshComponent->SetRelativeRotation(FRotator(0.f, -90.f, 0.f)); 
-	MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	MeshComponent->SetWorldScale3D(FVector(0.5f, 0.5f, 0.5f));
+	GetCharacterMovement()->MaxWalkSpeed = 600.0f;
+	GetCharacterMovement()->bOrientRotationToMovement = true; 
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 540.0f, 0.0f);
+
+	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.f);
+	GetCapsuleComponent()->SetCollisionProfileName(TEXT("Pawn"));
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 
 	static ConstructorHelpers::FObjectFinder<UDataTable> ResourceDataAssetTable(TEXT("/Game/LOL_Data/Data_Minions/Data_MinionResource.Data_MinionResource"));
 	if (ResourceDataAssetTable.Succeeded()) DataTable = ResourceDataAssetTable.Object;
@@ -53,10 +55,15 @@ void ABaseMinion::BeginPlay()
 	if (HasAuthority() && StatComponent)
 	{
 		StatComponent->InitializeStat();
+		if (GetCharacterMovement() && StatComponent)
+		{
+			GetCharacterMovement()->MaxWalkSpeed = StatComponent->GetStat().MoveSpeed;
+		}
 	}
 	if (StatComponent && UIComponent)
 	{
 		StatComponent->OnHpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateHpFromStat);
+		//StatComponent->OnHpZero.AddDynamic(LifeCycleComponent, &ULOL_LifeCycleComponent::Server_HandleDeath);
 
 		UIComponent->SetMaxHp(StatComponent->GetStat().MaxHP);
 		UIComponent->UpdateHpFromStat(StatComponent->GetCurrentHP());
@@ -91,7 +98,7 @@ float ABaseMinion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEven
 		{
 			DamageType = EDamageType::TrueDamage;
 		}
-		ActualDamage = StatComponent->ApplyDamage(ActualDamage, DamageType);
+		ActualDamage = StatComponent->ApplyDamage(ActualDamage, DamageType, EventInstigator, DamageCauser);
 	}
 
 	return ActualDamage;
@@ -119,5 +126,14 @@ void ABaseMinion::SetMinionData(FName RowName)
 		MinionResource.AttackMontage = Data->AttackMontage;
 
 		MinionResource.ProjectileMesh = Data->ProjectileMesh;
+	}
+}
+
+void ABaseMinion::MoveToNextWaypoint()
+{
+	CurrentPathIndex++;
+	if (PathPoints.IsValidIndex(CurrentPathIndex))
+	{
+		MoveComponent->SetMoveTarget(PathPoints[CurrentPathIndex], nullptr);
 	}
 }

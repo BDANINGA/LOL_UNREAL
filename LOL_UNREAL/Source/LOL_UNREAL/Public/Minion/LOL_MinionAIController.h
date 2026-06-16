@@ -23,6 +23,4 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "AI")
 	float SearchRadius = 400.0f;
-
-	FVector OriginalDestination;
 };

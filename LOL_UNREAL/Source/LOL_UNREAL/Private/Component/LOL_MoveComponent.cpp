@@ -8,8 +8,12 @@
 
 #include "BaseChampion.h"
 #include "Minion/BaseMinion.h"
+
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Blueprint/AIBlueprintHelperLibrary.h"
+#include "AIController.h"
 #include "Net/UnrealNetwork.h"
+#include "Navigation/PathFollowingComponent.h"
 
 ULOL_MoveComponent::ULOL_MoveComponent()
 {
@@ -27,7 +31,8 @@ void ULOL_MoveComponent::BeginPlay()
 void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
 {
     if (!OwnerPawn) return;
-    if (ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>())
+    ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>();
+    if (StateComp)
     {
         if (StateComp->HasStatusTag(LOLTags::State_Dead)) return;
     }
@@ -69,44 +74,27 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
             }
         }
 
-        if (Champion->StateComponent->HasStatusTag(LOLTags::State_Moving))
+        if (StateComp && StateComp->HasStatusTag(LOLTags::State_Moving))
         {
-            FVector CurrentLocation = Champion->GetActorLocation();
-            FVector Direction = TargetLocation - CurrentLocation;
-            Direction.Z = 0.f;
-            float Distance = Direction.Size();
-
-            if (Distance <= 10.f) {
+            float Distance = FVector::Dist2D(OwnerPawn->GetActorLocation(), TargetLocation);
+            if (Distance <= 50.f) {
                 StopMovement();
-            }
-            else {
-                Champion->AddMovementInput(Direction.GetSafeNormal(), 1.0f);
             }
         }
     }
-    // 소유주가 미니언일 경우
     else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
     {
-        if (!Minion->StateComponent->HasStatusTag(LOLTags::State_Moving)) return;
-
-        FVector CurrentLocation = Minion->GetActorLocation();
-        FVector Direction = TargetLocation - CurrentLocation;
-        Direction.Z = 0.f;
-        float Distance = Direction.Size();
-
-        if (Distance <= 15.f) // 미니언은 약간의 오차 범위를 더 줍니다.
+        if (StateComp && StateComp->HasStatusTag(LOLTags::State_Moving))
         {
-            StopMovement();
-        }
-        else
-        {
-            float MoveSpeed = 300.f;
-            FVector NewLocation = CurrentLocation + (Direction.GetSafeNormal() * MoveSpeed * DeltaTime);
-
-            // 두 번째 인자 'true' (Sweep)는 미니언이 벽을 뚫고 가지 않도록 충돌 처리를 켜주는 옵션입니다.
-            Minion->SetActorLocation(NewLocation, true);
-
-            Minion->SetActorRotation(Direction.Rotation());
+            float Distance = FVector::Dist2D(OwnerPawn->GetActorLocation(), TargetLocation);
+            if (Distance <= 100.f)
+            {
+                StopMovement(); 
+                if (Minion->CurrentPathIndex < Minion->PathPoints.Num() - 1)
+                {
+                    Minion->MoveToNextWaypoint();
+                }
+            }
         }
     }
 }
@@ -114,6 +102,7 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
 void ULOL_MoveComponent::SetMoveTarget(FVector NewLocation, AActor* TargetActor)
 {
     if (!OwnerPawn) return;
+    TargetLocation = NewLocation;
 
     if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
     {
@@ -122,19 +111,24 @@ void ULOL_MoveComponent::SetMoveTarget(FVector NewLocation, AActor* TargetActor)
             Champion->StateComponent->RemoveStatusTag(LOLTags::State_Moving);
         }
         else {
-            TargetLocation = NewLocation;
             if (!Champion->StateComponent->HasStatusTag(LOLTags::State_Attacking))
+            {
                 Champion->StateComponent->AddStatusTag(LOLTags::State_Moving);
+            }
+
+            UAIBlueprintHelperLibrary::SimpleMoveToLocation(Champion->GetController(), TargetLocation);
         }
     }
-    else
+    else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
     {
-        TargetLocation = NewLocation;
-        if (ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>()) {
+        if (ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>())
             StateComp->AddStatusTag(LOLTags::State_Moving);
+
+        if (AAIController* AICon = Cast<AAIController>(Minion->GetController()))
+        {
+            AICon->MoveToLocation(TargetLocation, 15.f);
         }
     }
-    
 }
 
 void ULOL_MoveComponent::StopMovement()
@@ -144,11 +138,13 @@ void ULOL_MoveComponent::StopMovement()
     ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>();
     if (StateComp) StateComp->RemoveStatusTag(LOLTags::State_Moving);
 
-    if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn)) {
-        if (Champion->GetCharacterMovement()) Champion->GetCharacterMovement()->StopMovementImmediately();
+    if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
+    {
+        if (AController* PC = Champion->GetController()) PC->StopMovement();
     }
-    else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn)) {
-        TargetLocation = Minion->GetActorLocation();
+    else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
+    {
+        if (AAIController* AICon = Cast<AAIController>(Minion->GetController())) AICon->StopMovement();
     }
 }
 

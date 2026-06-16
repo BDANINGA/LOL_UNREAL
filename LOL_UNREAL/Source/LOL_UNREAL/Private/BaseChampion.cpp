@@ -103,7 +103,6 @@ void ABaseChampion::BeginPlay()
 	Super::BeginPlay();
 
 	if (StatComponent) StatComponent->InitializeStat();
-
 	if (SkillComponent) SkillComponent->InitializeSkills();
 
 	// UI 설정
@@ -115,7 +114,7 @@ void ABaseChampion::BeginPlay()
 
 		StatComponent->OnHpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateHpFromStat);
 		StatComponent->OnMpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateMpFromStat);
-		StatComponent->OnHpZero.AddUObject(LifeCycleComponent, &ULOL_LifeCycleComponent::Server_HandleDeath);
+		//StatComponent->OnHpZero.AddDynamic(LifeCycleComponent, &ULOL_LifeCycleComponent::Server_HandleDeath);
 		
 		UIComponent->SetMaxHp(StatComponent->GetStat().MaxHP);
 		UIComponent->SetMaxMp(StatComponent->GetStat().MaxMP);
@@ -139,6 +138,13 @@ void ABaseChampion::BeginPlay()
 					MyHUD->UpdateMP(StatComponent->GetCurrentMP());
 				}
 			}
+		}
+	}
+	if (GetLocalRole() == ROLE_AutonomousProxy && !HasAuthority())
+	{
+		if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+		{
+			Movement->bOrientRotationToMovement = false;
 		}
 	}
 }
@@ -190,6 +196,18 @@ void ABaseChampion::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (HasAuthority())
+	{
+		ServerCharacterRotation = GetActorRotation();
+	}
+	if (GetLocalRole() == ROLE_AutonomousProxy && !HasAuthority())
+	{
+		FRotator CurrentRot = GetActorRotation();
+		FRotator TargetRot = FRotator(0.f, ServerCharacterRotation.Yaw, 0.f);
+		FRotator NewRot = FMath::RInterpTo(CurrentRot, TargetRot, DeltaTime, 15.f);
+		SetActorRotation(NewRot);
+	}
+
 	if (bIsKnockedBack)
 	{
 		return;
@@ -222,7 +240,7 @@ float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 		}
 
 		// 2. 판별된 타입을 포함하여 StatComponent 호출
-		ActualDamage = StatComponent->ApplyDamage(ActualDamage, Type);
+		ActualDamage = StatComponent->ApplyDamage(ActualDamage, Type, EventInstigator, DamageCauser);
 	}
 
 	return ActualDamage;
@@ -249,6 +267,7 @@ void ABaseChampion::OnEnemyLeaveRange(UPrimitiveComponent* OverlappedComponent, 
 }
 void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(ABaseChampion, ServerCharacterRotation);
 }
 
 void ABaseChampion::Server_ExecuteAttackHit_Implementation()
@@ -260,12 +279,6 @@ void ABaseChampion::Server_ExecuteAttackHit_Implementation()
 }
 void ABaseChampion::ProcessMoveInput(FVector ClickLocation, AActor* TargetActor)
 {
-	ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
-	if (TargetChampion == this)
-	{
-		TargetChampion = nullptr;
-		TargetActor = nullptr;
-	}
 	Server_ProcessMoveInput(ClickLocation, TargetActor, bIsPressA);
 }
 void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation, AActor* TargetActor, bool bIsSearch)
@@ -277,7 +290,7 @@ void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation
 	MoveComponent->bIsSearchAttack = bIsSearch;
 
 	ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
-	if (!TargetChampion && TargetChampion == this)
+	if (TargetChampion == this)
 	{
 		TargetChampion = nullptr;
 		TargetActor = nullptr;
@@ -294,7 +307,7 @@ void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation
 	if (AttackComponent) AttackComponent->SetCombatTarget(TargetChampion);
 
 	MoveComponent->bIsSearchAttack = bIsSearch;
-	MoveComponent->SetMoveTarget(ClickLocation, TargetChampion);
+	MoveComponent->SetMoveTarget(ClickLocation, TargetActor);
 }
 bool ABaseChampion::Server_ProcessMoveInput_Validate(FVector ClickLocation, AActor* TargetActor, bool bIsSearch)
 {

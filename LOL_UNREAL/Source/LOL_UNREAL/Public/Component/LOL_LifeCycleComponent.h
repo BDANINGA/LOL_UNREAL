@@ -14,7 +14,8 @@ class LOL_UNREAL_API ULOL_LifeCycleComponent : public UActorComponent
 public:	
 	ULOL_LifeCycleComponent();
 
-	void Server_HandleDeath();
+	UFUNCTION()
+	void Server_HandleDeath(AController* KillerInstigator, AActor* DamageCauser);
 	
 	UFUNCTION()
 	void Respawn();

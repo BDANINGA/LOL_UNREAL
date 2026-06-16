@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
+using UnrealBuildTool.Rules;
 
 public class LOL_UNREAL : ModuleRules
 {
@@ -8,7 +9,10 @@ public class LOL_UNREAL : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "NavigationSystem", "AIModule", "UMG", "Niagara", "Paper2D", "GameplayTags" });
+        PublicDependencyModuleNames.AddRange(new string[] { 
+			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", 
+			"UMG", "Niagara", "Paper2D", "GameplayTags", "AIModule", 
+			"NavigationSystem" });
 
         PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 

@@ -23,12 +23,6 @@ void ALOL_MinionAIController::OnPossess(APawn* InPawn)
 	ABaseMinion* Minion = Cast<ABaseMinion>(InPawn);
 	if (Minion)
 	{
-		OriginalDestination = Minion->GetActorLocation() + (Minion->GetActorForwardVector() * 5000.f);
-		if (Minion->MoveComponent)
-		{
-			Minion->MoveComponent->SetMoveTarget(OriginalDestination, nullptr);
-		}
-
 		GetWorld()->GetTimerManager().SetTimer(
 			AI_DecisionTimer,
 			this,
@@ -77,7 +71,10 @@ void ALOL_MinionAIController::DecisionLoop()
 
 		if (Minion->MoveComponent)
 		{
-			Minion->MoveComponent->SetMoveTarget(OriginalDestination, nullptr);
+			if (Minion->PathPoints.IsValidIndex(Minion->CurrentPathIndex))
+			{
+				Minion->MoveComponent->SetMoveTarget(Minion->PathPoints[Minion->CurrentPathIndex], nullptr);
+			}
 		}
 	}
 }
@@ -86,8 +83,7 @@ AActor* ALOL_MinionAIController::ScanForClosestEnemy()
 	APawn* ControlledPawn = GetPawn();
 	if (!IsValid(ControlledPawn))
 	{
-		// 미니언이 죽었으면 탐색 타이머를 멈추고 함수를 빠져나갑니다.
-		GetWorldTimerManager().ClearTimer(AI_DecisionTimer); // (타이머 핸들 이름은 사장님 변수명에 맞게 변경하세요)
+		GetWorldTimerManager().ClearTimer(AI_DecisionTimer); 
 		return nullptr;
 	}
 

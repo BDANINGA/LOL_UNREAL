@@ -144,9 +144,9 @@ void ALOL_PlayerController::SetupInputComponent()
 void ALOL_PlayerController::OnRightClick()
 {
 	FHitResult HitResult;
-	AActor* HitActor = HitResult.GetActor();
 	if (GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
 	{
+		AActor* HitActor = HitResult.GetActor();
 		if (MyChampion && MyChampion->IsLocallyControlled())
 		{
 			MyChampion->SetIsPressA(false);
@@ -173,9 +173,10 @@ void ALOL_PlayerController::OnLeftClick()
 		if (MyChampion->GetIsPressA())
 		{
 			FHitResult HitResult;
-			AActor* HitActor = HitResult.GetActor();
+			
 			if (GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
 			{
+				AActor* HitActor = HitResult.GetActor();
 				MyChampion->ProcessMoveInput(HitResult.Location, HitActor);
 				MyChampion->SetIsPressA(false);
 				MyChampion->MoveComponent->bIsSearchAttack = true;

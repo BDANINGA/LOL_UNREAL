@@ -66,22 +66,31 @@ void ALOL_GameModeBase::BeginPlay()
 {
     Super::BeginPlay();
 
-    TArray<AActor*> FoundBlueActors;
-    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("BlueSpawn"), FoundBlueActors);
-
-    if (FoundBlueActors.Num() > 0)
-    {
-        BlueTeamSpawnPoint = FoundBlueActors[0];
-    }
-
-    TArray<AActor*> FoundRedActors;
-    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("RedSpawn"), FoundRedActors);
-
-    if (FoundRedActors.Num() > 0)
-    {
-        RedTeamSpawnPoint = FoundRedActors[0];
-    }
-
+    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("TopLanePoint"), BlueTopLanePoints);
+    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("MidLanePoint"), BlueMidLanePoints);
+    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("BotLanePoint"), BlueBotLanePoints);
+    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("TopLanePoint"), RedTopLanePoints);
+    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("MidLanePoint"), RedMidLanePoints);
+    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("BotLanePoint"), RedBotLanePoints);
+    
+    BlueTopLanePoints.Sort([](const AActor& A, const AActor& B) {
+        return A.GetActorLabel() < B.GetActorLabel();
+        });
+    BlueMidLanePoints.Sort([](const AActor& A, const AActor& B) {
+        return A.GetActorLabel() < B.GetActorLabel();
+        });
+    BlueBotLanePoints.Sort([](const AActor& A, const AActor& B) {
+        return A.GetActorLabel() < B.GetActorLabel();
+        });
+    RedTopLanePoints.Sort([](const AActor& A, const AActor& B) {
+        return A.GetActorLabel() > B.GetActorLabel();
+        });
+    RedMidLanePoints.Sort([](const AActor& A, const AActor& B) {
+        return A.GetActorLabel() > B.GetActorLabel();
+        });
+    RedBotLanePoints.Sort([](const AActor& A, const AActor& B) {
+        return A.GetActorLabel() > B.GetActorLabel();
+        });
     GetWorld()->GetTimerManager().SetTimer(MinionSpawnTimerHandle, this, &ALOL_GameModeBase::StartMinionWave, 3.0f, false);
 }
 
@@ -105,7 +114,6 @@ void ALOL_GameModeBase::RequestRespawn(ABaseChampion* DeadChampion)
 
 void ALOL_GameModeBase::StartMinionWave()
 {
-    // 웨이브 구성: 전사 3마리 -> 마법사 3마리 순서로 세팅
     CurrentWaveMinions.Empty();
     CurrentWaveMinions.Add(AMinion_Melee::StaticClass());
     CurrentWaveMinions.Add(AMinion_Melee::StaticClass());
@@ -125,38 +133,55 @@ void ALOL_GameModeBase::StartMinionWave()
 
 void ALOL_GameModeBase::SpawnNextMinion()
 {
+    TArray<AActor*> SelectedPoints{};
+    FVector SpawnLocation = FVector::ZeroVector;
+    FRotator SpawnRotation = FRotator::ZeroRotator;
     if (SpawnedMinionCount < CurrentWaveMinions.Num())
     {
-        FVector SpawnLocation = FVector::ZeroVector;
-        FRotator SpawnRotation = FRotator::ZeroRotator;
-
         UClass* MinionClass = CurrentWaveMinions[SpawnedMinionCount];
         if (MinionClass)
         {
-            if (BlueTeamSpawnPoint)
-            {
-                SpawnLocation = BlueTeamSpawnPoint->GetActorLocation();
-                SpawnRotation = BlueTeamSpawnPoint->GetActorRotation();
+            for (int i = 0; i < 6; ++i) {
+                if (i == 0) SelectedPoints = BlueTopLanePoints;
+                else if (i == 1) SelectedPoints = BlueMidLanePoints;
+                else if (i == 2) SelectedPoints = BlueBotLanePoints;
+                else if (i == 3) SelectedPoints = RedTopLanePoints;
+                else if (i == 4) SelectedPoints = RedMidLanePoints;
+                else if (i == 5) SelectedPoints = RedBotLanePoints;
+                SpawnLocation = SelectedPoints[0]->GetActorLocation();
+                SpawnRotation = SelectedPoints[0]->GetActorRotation();
+
+                FActorSpawnParameters SpawnParams;
+                SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+                ABaseMinion* SpawnedMinion = GetWorld()->SpawnActor<ABaseMinion>(
+                    MinionClass,
+                    SpawnLocation,
+                    SpawnRotation,
+                    SpawnParams);
+
+                if (SpawnedMinion)
+                {
+                    if (i < 3) SpawnedMinion->StateComponent->AddStatusTag(LOLTags::Team_Blue);
+                    else SpawnedMinion->StateComponent->AddStatusTag(LOLTags::Team_Red);
+                    
+                    for (AActor* Point : SelectedPoints)
+                    {
+                        if (Point)
+                        {
+                            SpawnedMinion->PathPoints.Add(Point->GetActorLocation());
+                        }
+                    }
+
+                    SpawnedMinion->MoveToNextWaypoint();
+                }
             }
-
-            FActorSpawnParameters SpawnParams;
-            SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-
-            ABaseMinion* SpawnedMinion = GetWorld()->SpawnActor<ABaseMinion>(
-                MinionClass, 
-                SpawnLocation,
-                SpawnRotation,
-                SpawnParams);
-
-            if (SpawnedMinion)
-            {
-                SpawnedMinion->StateComponent->AddStatusTag(LOLTags::Team_Blue);
-                SpawnedMinionCount++;
-            }
+            SpawnedMinionCount++;
         }
     }
     else
     {
         GetWorld()->GetTimerManager().ClearTimer(MinionSpawnTimerHandle);
+        GetWorld()->GetTimerManager().SetTimer(MinionSpawnTimerHandle, this, &ALOL_GameModeBase::StartMinionWave, 30.0f, false);
     }
 }
