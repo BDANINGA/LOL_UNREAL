@@ -2,6 +2,7 @@
 #include "LOL_GameModeBase.h"
 #include "LOL_PlayerController.h"
 #include "LOL_HUD.h"
+#include "LOL_GameState.h"
 
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_StateComponent.h"
@@ -18,7 +19,6 @@
 #include "Champion/Champion_Tryndamere.h"
 #include "VisionManager/VisionManager.h"
 
-
 #include "Minion/Minion_Melee.h"
 #include "Minion/Minion_Caster.h"
 #include "Minion/Minion_Siege.h"
@@ -33,6 +33,8 @@ ALOL_GameModeBase::ALOL_GameModeBase()
     PlayerControllerClass = ALOL_PlayerController::StaticClass();
 
     HUDClass = ALOL_HUD::StaticClass();
+
+    GameStateClass = ALOL_GameState::StaticClass();
 }  
 
 UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(AController* InController)
@@ -142,20 +144,33 @@ void ALOL_GameModeBase::RequestRespawn(ABaseChampion* DeadChampion)
 
 void ALOL_GameModeBase::StartMinionWave()
 {
+    ALOL_GameState* GS = Cast<ALOL_GameState>(GetWorld()->GetGameState());
+    int32 TimeWave = 0;
+    if (GS->CurrentMatchTime < 15.0f * 60.0f) {
+        TimeWave = 3;
+    }
+    else if (GS->CurrentMatchTime < 25.0f * 60.0f) {
+        TimeWave = 2;
+    }
+    else
+        TimeWave = 1;
+
+
     CurrentWaveMinions.Empty();
     CurrentWaveMinions.Add(AMinion_Melee::StaticClass());
     CurrentWaveMinions.Add(AMinion_Melee::StaticClass());
     CurrentWaveMinions.Add(AMinion_Melee::StaticClass());
+    if (MinionWaveCount % TimeWave == 0)
+    {
+        CurrentWaveMinions.Add(AMinion_Siege::StaticClass());
+    }
     CurrentWaveMinions.Add(AMinion_Caster::StaticClass());
     CurrentWaveMinions.Add(AMinion_Caster::StaticClass());
     CurrentWaveMinions.Add(AMinion_Caster::StaticClass());
-
-    // 대포 미니언이 필요할 때 아래 코드 활성화
-    // CurrentWaveMinions.Add(AMinion_Siege::StaticClass());
 
     SpawnedMinionCount = 0;
+    MinionWaveCount += 1;
 
-    // 1초 간격으로 반복하면서 하나씩 스폰 (첫 스폰은 딜레이 없이 즉시 실행)
     GetWorld()->GetTimerManager().SetTimer(MinionSpawnTimerHandle, this, &ALOL_GameModeBase::SpawnNextMinion, 1.0f, true, 0.0f);
 }
 

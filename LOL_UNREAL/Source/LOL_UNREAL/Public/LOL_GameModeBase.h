@@ -11,14 +11,12 @@ class LOL_UNREAL_API ALOL_GameModeBase : public AGameModeBase
 public:
     ALOL_GameModeBase();
 
-    // 플레이어 컨트롤러에 따른 캐릭터 클래스 반환 함수
     virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
 
     virtual APawn* SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot) override;
 
     void RequestRespawn(class ABaseChampion* DeadChampion);
 
-    // 게임 시작 시 호출되는 함수
     virtual void BeginPlay() override;
 protected:
     UPROPERTY()
@@ -35,8 +33,9 @@ private:
 
     UPROPERTY()
     TArray<TSubclassOf<class ABaseMinion>> CurrentWaveMinions;
-    UPROPERTY(EditAnywhere, Category = "Spawn")
-    int32 SpawnedMinionCount;
+
+    int32 SpawnedMinionCount{};
+    int32 MinionWaveCount{};
 
     TArray<AActor*> BlueTopLanePoints;
     TArray<AActor*> BlueMidLanePoints;

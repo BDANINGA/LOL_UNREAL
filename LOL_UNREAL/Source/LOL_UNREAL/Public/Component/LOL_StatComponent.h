@@ -201,6 +201,8 @@ public:
 
 	void AddGold(float Amount);
 	void AddEXP(float Amount);
+
+	void HandleRegeneration();
 protected:
 	// 능력치 관련
 	UPROPERTY(ReplicatedUsing = OnRep_BaseStat, EditAnywhere, Category = "Stat|Data")

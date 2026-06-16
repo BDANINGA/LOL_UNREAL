@@ -1,8 +1,7 @@
-	// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_UIComponent.h"
+#include "Component/LOL_StateComponent.h"
+
 #include "BaseChampion.h"
 #include "JungleMonster/BaseJungleMonster.h"
 #include "Minion/BaseMinion.h"
@@ -10,6 +9,7 @@
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/DataTable.h"
 #include "LOL_HUD.h"
+#include "LOL_GameState.h"
 
 ULOL_StatComponent::ULOL_StatComponent()
 {
@@ -38,7 +38,10 @@ void ULOL_StatComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-
+	if (ALOL_GameState* GS = Cast<ALOL_GameState>(GetWorld()->GetGameState()))
+	{
+		GS->OnOneSecondEvent.AddUObject(this, &ULOL_StatComponent::HandleRegeneration);
+	}
 }
 void ULOL_StatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
@@ -163,6 +166,28 @@ void ULOL_StatComponent::AddEXP(float Amount)
 			CurrentEXP = 0.f;
 			break;
 		}
+	}
+}
+
+void ULOL_StatComponent::HandleRegeneration()
+{
+	ABaseChampion* OwnerChampion = Cast<ABaseChampion>(GetOwner());
+	if (!OwnerChampion) return;
+
+	ULOL_StateComponent* StateComp = OwnerChampion->FindComponentByClass<ULOL_StateComponent>();
+	if(StateComp->HasStatusTag(LOLTags::State_Dead)) return;
+
+	float HPRatio = BaseStat.HPRegen / 5.0f;
+	float MPRatio = BaseStat.MPRegen / 5.0f;
+
+	if (CurrentHP > 0.0f)
+	{
+		SetHP(CurrentHP + HPRatio);
+	}
+
+	if (CurrentMP > 0.0f)
+	{
+		SetMP(CurrentMP + MPRatio);
 	}
 }
 
