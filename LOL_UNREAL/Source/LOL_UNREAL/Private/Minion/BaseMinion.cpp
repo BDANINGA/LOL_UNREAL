@@ -2,6 +2,8 @@
 #include "Minion/BaseMinion.h"
 #include "Minion/LOL_MinionAIController.h"
 
+#include "BaseChampion.h"
+
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/WidgetComponent.h"
@@ -55,6 +57,7 @@ void ABaseMinion::BeginPlay()
 	if (HasAuthority() && StatComponent)
 	{
 		StatComponent->InitializeStat();
+
 		if (GetCharacterMovement() && StatComponent)
 		{
 			GetCharacterMovement()->MaxWalkSpeed = StatComponent->GetStat().MoveSpeed;
@@ -63,11 +66,13 @@ void ABaseMinion::BeginPlay()
 	if (StatComponent && UIComponent)
 	{
 		StatComponent->OnHpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateHpFromStat);
+		StateComponent->OnStateTagsChanged.AddUObject(this, &ABaseMinion::UpdateTeamVisual);
 		//StatComponent->OnHpZero.AddDynamic(LifeCycleComponent, &ULOL_LifeCycleComponent::Server_HandleDeath);
 
 		UIComponent->SetMaxHp(StatComponent->GetStat().MaxHP);
 		UIComponent->UpdateHpFromStat(StatComponent->GetCurrentHP());
 	}
+	UpdateTeamVisual();
 }
 
 void ABaseMinion::Tick(float DeltaTime)
@@ -126,6 +131,12 @@ void ABaseMinion::SetMinionData(FName RowName)
 		MinionResource.AttackMontage = Data->AttackMontage;
 
 		MinionResource.ProjectileMesh = Data->ProjectileMesh;
+
+		MinionResource.AllyTexture = Data->AllyTexture;
+		MinionResource.EnemyTexture = Data->EnemyTexture;
+
+		MinionResource.AllyHPBarImage = Data->AllyHPBarImage;
+		MinionResource.EnemyHPBarImage = Data->EnemyHPBarImage;
 	}
 }
 
@@ -135,5 +146,37 @@ void ABaseMinion::MoveToNextWaypoint()
 	if (PathPoints.IsValidIndex(CurrentPathIndex))
 	{
 		MoveComponent->SetMoveTarget(PathPoints[CurrentPathIndex], nullptr);
+	}
+}
+void ABaseMinion::UpdateTeamVisual()
+{
+	if (!StateComponent || !MinionResource.AllyTexture || !MinionResource.EnemyTexture) return;
+
+	APlayerController* PC = GetWorld()->GetFirstPlayerController();
+	if (!PC) return;
+
+	ABaseChampion* LocalPlayer = Cast<ABaseChampion>(PC->GetPawn());
+
+	if (!LocalPlayer || !LocalPlayer->StateComponent)
+	{
+		GetWorld()->GetTimerManager().SetTimerForNextTick(this, &ABaseMinion::UpdateTeamVisual);
+		return;
+	}
+
+	bool bIsEnemy = LocalPlayer->StateComponent->IsEnemy(StateComponent);
+
+	UTexture2D* TargetTexture = bIsEnemy ? MinionResource.EnemyTexture : MinionResource.AllyTexture;
+
+	UMaterialInstanceDynamic* DynamicMaterial = GetMesh()->CreateDynamicMaterialInstance(0);
+	if (DynamicMaterial)
+	{
+		DynamicMaterial->SetTextureParameterValue(FName("TeamTexture"), TargetTexture);
+	}
+
+	if (UIComponent)
+	{
+		UTexture2D* TargetUITexture = bIsEnemy ? MinionResource.EnemyHPBarImage : MinionResource.AllyHPBarImage;
+
+		UIComponent->UpdateHPBarImage(TargetUITexture);
 	}
 }

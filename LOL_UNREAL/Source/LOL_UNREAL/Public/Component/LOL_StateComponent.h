@@ -6,6 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "LOL_StateComponent.generated.h"
 
+DECLARE_MULTICAST_DELEGATE(FOnStateTagsChanged);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class LOL_UNREAL_API ULOL_StateComponent : public UActorComponent, public IGameplayTagAssetInterface
@@ -28,6 +29,8 @@ public:
 	bool IsEnemy(ULOL_StateComponent* OtherState) const;
 
 	virtual void GetOwnedGameplayTags(FGameplayTagContainer& TagContainer) const override;
+
+	FOnStateTagsChanged OnStateTagsChanged;
 
 protected:
 	virtual void BeginPlay() override;

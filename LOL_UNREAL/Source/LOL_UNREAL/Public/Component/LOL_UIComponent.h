@@ -27,6 +27,8 @@ public:
 	void ShowRangeIndicator();
 	void HideRangeIndicator();
 
+	void UpdateHPBarImage(UTexture2D* TargetTexture);
+
 protected:
 	virtual void BeginPlay() override;
 

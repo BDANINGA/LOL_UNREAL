@@ -26,6 +26,18 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Projectile")
 	TArray<UStaticMesh*> ProjectileMesh;
+
+	UPROPERTY(EditAnywhere, Category = "Material")
+	UTexture2D* AllyTexture;
+
+	UPROPERTY(EditAnywhere, Category = "Material")
+	UTexture2D* EnemyTexture;
+
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* AllyHPBarImage;
+
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* EnemyHPBarImage;
 };
 
 UCLASS()
@@ -79,6 +91,9 @@ public:
 	TArray<FVector> PathPoints;
 
 	int32 CurrentPathIndex = 0;
+
+	UFUNCTION()
+	void UpdateTeamVisual();
 protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Minion|Data")

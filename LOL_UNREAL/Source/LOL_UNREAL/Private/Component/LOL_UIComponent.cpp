@@ -62,9 +62,12 @@ void ULOL_UIComponent::BeginPlay()
         else
         {
             ActorWidget->SetWidgetClass(MinionWidgetClass);
+
+            ActorWidget->InitWidget();
+
             ActorWidget->SetDrawSize(FVector2D(50.f, 5.f));
             ActorWidget->SetRelativeLocation(FVector(0.0f, 0.0f, 130.0f));
-            
+
             RangeIndicator->DestroyComponent();
         }
     }
@@ -135,5 +138,17 @@ void ULOL_UIComponent::UpdateMpFromStat(float NewMp)
     if (ULOL_ChampionWidget* ChampWidgetObj = Cast<ULOL_ChampionWidget>(ActorWidget->GetUserWidgetObject()))
     {
         ChampWidgetObj->UpdateMP(NewMp / StatComp->GetStat().MaxMP);
+    }
+}
+
+void ULOL_UIComponent::UpdateHPBarImage(UTexture2D* TargetTexture)
+{
+    UUserWidget* UserWidgetObj = ActorWidget->GetUserWidgetObject();
+    if (!UserWidgetObj) return;
+    ULOL_MinionWidget* MinionWidgetObj = Cast<ULOL_MinionWidget>(UserWidgetObj);
+
+    if (MinionWidgetObj)
+    {
+        MinionWidgetObj->SetHPBarImage(TargetTexture);
     }
 }

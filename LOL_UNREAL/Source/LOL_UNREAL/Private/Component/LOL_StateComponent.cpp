@@ -17,6 +17,7 @@ void ULOL_StateComponent::AddStatusTag(FGameplayTag Tag)
 	if (GetOwnerRole() == ROLE_Authority && Tag.IsValid())
 	{
 		StatusTags.AddTag(Tag);
+		OnStateTagsChanged.Broadcast();
 	}
 }
 
@@ -63,5 +64,5 @@ void ULOL_StateComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 
 void ULOL_StateComponent::OnRep_StatusTags()
 {
-	// 태그가 변경되었을 때
+	OnStateTagsChanged.Broadcast();
 }
