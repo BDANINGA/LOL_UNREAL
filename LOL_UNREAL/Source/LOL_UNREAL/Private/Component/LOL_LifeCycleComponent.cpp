@@ -65,7 +65,7 @@ void ULOL_LifeCycleComponent::Server_HandleDeath(AController* KillerInstigator, 
 
 	Multicast_OnDeath();
 
-	if (bCanRespawn)
+	if (Cast<ABaseChampion>(OwnerPawn))
 	{
 		if (ALOL_GameModeBase* GM = Cast<ALOL_GameModeBase>(GetWorld()->GetAuthGameMode()))
 		{
@@ -98,8 +98,6 @@ void ULOL_LifeCycleComponent::Multicast_OnDeath_Implementation()
 		MovementComp->StopMovementImmediately();
 	}
 
-
-			
 	TArray<UPrimitiveComponent*> PrimitiveComps;
 	OwnerPawn->GetComponents<UPrimitiveComponent>(PrimitiveComps);
 	for (UPrimitiveComponent* Comp : PrimitiveComps)

@@ -81,7 +81,7 @@ float ABaseJungleMonster::TakeDamage(float DamageAmount, FDamageEvent const& Dam
 			DamageType = EDamageType::TrueDamage;
 		}
 
-		ActualDamage = StatComponent->ApplyDamage(ActualDamage, DamageType);
+		ActualDamage = StatComponent->ApplyDamage(ActualDamage, DamageType, EventInstigator, DamageCauser);
 	}
 
 	return ActualDamage;
