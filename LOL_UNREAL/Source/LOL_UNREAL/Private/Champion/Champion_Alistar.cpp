@@ -2,6 +2,8 @@
 
 #include "Component/Champion_SkillComponent.h"
 #include "Component/LOL_StatComponent.h"
+#include "Component/LOL_StateComponent.h"
+#include "Component/LOL_MoveComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 
 #include "Kismet/GameplayStatics.h"
@@ -134,34 +136,38 @@ void AChampion_Alistar::Server_Skill_Q_Implementation()
     }
 }
 
+
 void AChampion_Alistar::Skill_W()
 {
     if (!IsLocallyControlled()) return;
 
-    // 마우스 아래 적 검출
     APlayerController* PC = Cast<APlayerController>(GetController());
     if (!PC) return;
 
     FHitResult HitResult;
-    if (PC->GetHitResultUnderCursor(ECC_Pawn, false, HitResult))
+    if (!PC->GetHitResultUnderCursor(ECC_Pawn, false, HitResult)) return;
+
+    ACharacter* Target = Cast<ACharacter>(HitResult.GetActor());
+    if (!IsValid(Target) || Target == this) return;
+
+    const float Distance = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
+
+    if (Distance <= W_CastRange)
     {
-        ACharacter* Target = Cast<ACharacter>(HitResult.GetActor());
-        if (!Target || Target == this) return;
+        bIsChasingForW = false;
+        ReservedWTarget = nullptr;
 
-        // 사거리 체크
-        float SkillRange = 550.0f;
-        float Distance = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
-        if (Distance > SkillRange) return;
-
-        // 본인 화면 즉시 회전 (반응성)
-        FVector DashDirection = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-        FRotator LookRotation = DashDirection.Rotation();
-        LookRotation.Pitch = 0.0f;
-        LookRotation.Roll = 0.0f;
-        SetActorRotation(LookRotation);
-
-        // 서버 RPC
         Server_Skill_W(Target);
+        return;
+    }
+
+    ReservedWTarget = Target;
+    bIsChasingForW = true;
+
+    if (ULOL_StateComponent* StateComp = FindComponentByClass<ULOL_StateComponent>())
+    {
+        StateComp->AddStatusTag(LOLTags::State_Moving);
+        StateComp->RemoveStatusTag(LOLTags::State_Attacking);
     }
 }
 
@@ -173,39 +179,50 @@ bool AChampion_Alistar::Server_Skill_W_Validate(ACharacter* Target)
 
 void AChampion_Alistar::Server_Skill_W_Implementation(ACharacter* Target)
 {
-    if (!SkillComponent->TryCastSkill("W", 1)) return;
+    if (!SkillComponent) return;
     if (!IsValid(Target) || Target == this) return;
 
-    // 추적 상태 시작
+    const float Distance = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
+    if (Distance > W_CastRange + 50.0f) return;
+
+    if (!SkillComponent->TryCastSkill("W", 1)) return;
+
     CurrentWTarget = Target;
     bIsW_Dashing = true;
 
-    // 회전 (서버 권한, 자동 동기화)
-    FVector DashDirection = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+    FVector DashDirection = Target->GetActorLocation() - GetActorLocation();
+    DashDirection.Z = 0.0f;
+
     FRotator LookRotation = DashDirection.Rotation();
     LookRotation.Pitch = 0.0f;
     LookRotation.Roll = 0.0f;
-    Multicast_SetTargetAndPlayMontage(ChampionResource.WMontage[AM_SKIll_W_IDX], 2.0f, LookRotation);
 
-    // 돌진 시작
-    float DashSpeed = 1200.0f;
-    LaunchCharacter(DashDirection * DashSpeed, true, true);
+    Multicast_SetTargetAndPlayMontage(
+        ChampionResource.WMontage[AM_SKIll_W_IDX],
+        2.0f,
+        LookRotation
+    );
 }
 
 void AChampion_Alistar::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
+
+    if (IsLocallyControlled() && bIsChasingForW)
+    {
+        UpdateWChaseToCast();
+    }
+
     if (!HasAuthority()) return;
-    //에어본 상태일때
+
     if (bIsKnockedBack)
     {
         if (GetCharacterMovement())
         {
             GetCharacterMovement()->StopMovementImmediately();
         }
-        return; // 아래의 추적/공격 로직을 실행하지 않음
+        return;
     }
-
 
     if (bIsW_Dashing && CurrentWTarget)
     {
@@ -213,16 +230,57 @@ void AChampion_Alistar::Tick(float DeltaTime)
         FVector TargetLoc = CurrentWTarget->GetActorLocation();
         float Distance = FVector::Dist(CurrentLoc, TargetLoc);
 
-        // 타겟 위치로 보간하며 이동 (공격 대상이 움직여도 따라감)
         FVector NewLocation = FMath::VInterpTo(CurrentLoc, TargetLoc, DeltaTime, 15.0f);
         SetActorLocation(NewLocation, true);
 
-        // 판정 거리 (100.0f 이내면 충돌로 간주)
         if (Distance < 100.0f)
         {
             ApplyWKnockback(CurrentWTarget);
         }
     }
+}
+
+void AChampion_Alistar::UpdateWChaseToCast()
+{
+    if (!IsValid(ReservedWTarget))
+    {
+        bIsChasingForW = false;
+        ReservedWTarget = nullptr;
+        return;
+    }
+
+    ULOL_StateComponent* StateComp = FindComponentByClass<ULOL_StateComponent>();
+    ULOL_MoveComponent* MoveComp = FindComponentByClass<ULOL_MoveComponent>();
+
+    if (!StateComp || !MoveComp) return;
+
+    if (StateComp->HasStatusTag(LOLTags::State_Dead)) return;
+
+    const float Distance = FVector::Dist(GetActorLocation(), ReservedWTarget->GetActorLocation());
+
+    if (Distance <= W_CastRange)
+    {
+        ACharacter* Target = ReservedWTarget;
+
+        bIsChasingForW = false;
+        ReservedWTarget = nullptr;
+
+        MoveComp->StopMovement();
+        StateComp->RemoveStatusTag(LOLTags::State_Moving);
+
+        Server_Skill_W(Target);
+        return;
+    }
+
+    StateComp->AddStatusTag(LOLTags::State_Moving);
+    StateComp->RemoveStatusTag(LOLTags::State_Attacking);
+
+    MoveComp->TargetLocation = ReservedWTarget->GetActorLocation();
+
+    FVector Direction = MoveComp->TargetLocation - GetActorLocation();
+    Direction.Z = 0.f;
+
+    AddMovementInput(Direction.GetSafeNormal(), 1.0f);
 }
 
 void AChampion_Alistar::ApplyWKnockback(ACharacter* Target)

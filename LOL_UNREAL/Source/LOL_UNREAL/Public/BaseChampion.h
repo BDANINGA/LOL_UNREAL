@@ -100,6 +100,17 @@ public:
 
 	FName GetChampionName() const { return ChampionName; }
 	void SetChampionData(FName RowName);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Vision")
+	int32 TeamId = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision")
+	float SightRadius = 1200.0f;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Transient, Category = "Vision")
+	bool bVisibleByVision = true;
+
+	void SetVisibleByVision(bool bVisible);
 	
 	// 스킬 관련
 	void PressSkill(const uint8 skilltype);
@@ -119,6 +130,7 @@ public:
 	void Server_ExecuteAttackHit();
 
 	void ProcessMoveInput(FVector ClickLocation, AActor* TargetActor);
+	virtual bool IsMoveInputBlocked() const { return false; }
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_ProcessMoveInput(FVector ClickLocation, AActor* TargetActor, bool bIsSearch);
@@ -151,7 +163,7 @@ public:
 
 	virtual void OnBasicAttackHit(ACharacter* Target) {};
 
-	int32 GetAM_Atk_Idx() { return AM_Atk_Idx; }
+	virtual int32 GetAM_Atk_Idx() { return AM_Atk_Idx; }
 	//베인 벽꿍 관련 함수
 	void StartKnockbackWithWallCheck(const FVector& InLaunchVelocity, float MaxKnockbackTime, float InWallStunDuration);
 	void CheckKnockbackWall();
@@ -181,6 +193,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void PossessedBy(AController* NewController) override;
 
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;

@@ -4,6 +4,7 @@
 
 #include "Components/CapsuleComponent.h"
 #include "Component/LOL_StateComponent.h"
+#include "Component/LOL_MoveComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -132,6 +133,11 @@ void AChampion_Vayne::Tick(float DeltaTime)
             FString::Printf(TEXT("MaxWalkSpeed: 90.0f"), Speed));
         GEngine->AddOnScreenDebugMessage(2, 0.f, FColor::Yellow,
             FString::Printf(TEXT("AttackDamage: 35.0f"), AD));
+    }
+
+    if (IsLocallyControlled() && bIsChasingForE)
+    {
+        UpdateEChaseToCast();
     }
 }
 
@@ -282,35 +288,109 @@ void AChampion_Vayne::TriggerSilverBolts(ACharacter* Target)
 void AChampion_Vayne::Skill_E()
 {
     if (!IsLocallyControlled()) return;
+    if (bIsStunned || bIsKnockedBack) return;
 
-    // 1. 클라이언트(내 화면)에서 타겟팅 수행
     APlayerController* PC = Cast<APlayerController>(GetController());
-    if (PC && PC->IsLocalController())
+    if (!PC || !PC->IsLocalController()) return;
+
+    FHitResult Hit;
+    if (!PC->GetHitResultUnderCursor(ECC_Pawn, false, Hit)) return;
+
+    ACharacter* Target = Cast<ACharacter>(Hit.GetActor());
+    if (!IsValid(Target) || Target == this) return;
+
+    const float Range = GetESkillRange();
+    const float Distance = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
+
+    if (Distance <= Range)
     {
-        FHitResult Hit;
-        if (PC->GetHitResultUnderCursor(ECC_Pawn, false, Hit))
+        bIsChasingForE = false;
+        ReservedETarget = nullptr;
+
+        FVector Direction = Target->GetActorLocation() - GetActorLocation();
+        Direction.Z = 0.0f;
+
+        if (!Direction.IsNearlyZero())
         {
-            ACharacter* Target = Cast<ACharacter>(Hit.GetActor());
-
-            // 거리 체크 (500)
-            if (Target && Target != this && FVector::Dist(GetActorLocation(), Target->GetActorLocation()) <= 500.0f)
-            {
-                // ★ 추가 — 본인 화면에서 즉시 회전 (반응성 향상)
-                FVector Direction = Target->GetActorLocation() - GetActorLocation();
-                Direction.Z = 0.0f;
-                if (!Direction.IsNearlyZero())
-                {
-                    FRotator LookRotation = Direction.Rotation();
-                    LookRotation.Pitch = 0.0f;
-                    LookRotation.Roll = 0.0f;
-                    SetActorRotation(LookRotation);
-                }
-
-                // 2. 서버에 실행 요청 (인자로 타겟 전달)
-                Server_ExecuteCondemn(Target);
-            }
+            SetActorRotation(Direction.Rotation());
         }
+
+        Server_ExecuteCondemn(Target);
+        return;
     }
+
+    ReservedETarget = Target;
+    bIsChasingForE = true;
+
+    if (ULOL_StateComponent* StateComp = FindComponentByClass<ULOL_StateComponent>())
+    {
+        StateComp->AddStatusTag(LOLTags::State_Moving);
+        StateComp->RemoveStatusTag(LOLTags::State_Attacking);
+    }
+}
+
+void AChampion_Vayne::UpdateEChaseToCast()
+{
+    if (bIsStunned || bIsKnockedBack || !IsValid(ReservedETarget))
+    {
+        bIsChasingForE = false;
+        ReservedETarget = nullptr;
+        return;
+    }
+
+    ULOL_StateComponent* StateComp = FindComponentByClass<ULOL_StateComponent>();
+    ULOL_MoveComponent* MoveComp = FindComponentByClass<ULOL_MoveComponent>();
+    if (!StateComp || !MoveComp) return;
+
+    const float Range = GetESkillRange();
+    const float Distance = FVector::Dist(GetActorLocation(), ReservedETarget->GetActorLocation());
+
+    if (Distance <= Range)
+    {
+        ACharacter* Target = ReservedETarget;
+
+        bIsChasingForE = false;
+        ReservedETarget = nullptr;
+
+        MoveComp->StopMovement();
+        StateComp->RemoveStatusTag(LOLTags::State_Moving);
+
+        FVector Direction = Target->GetActorLocation() - GetActorLocation();
+        Direction.Z = 0.0f;
+
+        if (!Direction.IsNearlyZero())
+        {
+            SetActorRotation(Direction.Rotation());
+        }
+
+        Server_ExecuteCondemn(Target);
+        return;
+    }
+
+    StateComp->AddStatusTag(LOLTags::State_Moving);
+    StateComp->RemoveStatusTag(LOLTags::State_Attacking);
+
+    MoveComp->TargetLocation = ReservedETarget->GetActorLocation();
+
+    FVector Direction = MoveComp->TargetLocation - GetActorLocation();
+    Direction.Z = 0.0f;
+
+    if (!Direction.IsNearlyZero())
+    {
+        AddMovementInput(Direction.GetSafeNormal(), 1.0f);
+    }
+}
+
+float AChampion_Vayne::GetESkillRange()
+{
+    if (!SkillComponent) return 500.0f;
+
+    FSkillData& EData = SkillComponent->GetE_Data();
+    const int32 SkillLevelIdx = 0;
+
+    return EData.Range.IsValidIndex(SkillLevelIdx)
+        ? EData.Range[SkillLevelIdx]
+        : 500.0f;
 }
 
 void AChampion_Vayne::Multicast_PlayEMontage_Implementation()
@@ -336,7 +416,16 @@ bool AChampion_Vayne::Server_ExecuteCondemn_Validate(ACharacter* Target)
 // 서버 RPC 실제 실행 (AChampion_Vayne:: 를 반드시 붙여야 함)
 void AChampion_Vayne::Server_ExecuteCondemn_Implementation(ACharacter* Target)
 {
-    if (!Target || !Target->GetCharacterMovement()) return;
+    if (!SkillComponent || !StatComponent) return;
+    if (!IsValid(Target) || !Target->GetCharacterMovement()) return;
+
+    const float Range = GetESkillRange();
+    if (FVector::Dist(GetActorLocation(), Target->GetActorLocation()) > Range + 50.0f)
+    {
+        return;
+    }
+
+    if (!SkillComponent->TryCastSkill("E", 1)) return;
 
     // ★ 회전 멀티캐스트 (모든 클라에서 베인이 적을 향해 돎)
     FVector RotDirection = Target->GetActorLocation() - GetActorLocation();

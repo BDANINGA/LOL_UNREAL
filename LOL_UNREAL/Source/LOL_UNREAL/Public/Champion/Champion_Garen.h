@@ -21,7 +21,16 @@ public:
 
 	virtual void OnBasicAttackHit(ACharacter* Target) override;
 
+    virtual void Tick(float DeltaTime) override;
+
+    UPROPERTY()
+    bool bIsSpinning = false;
+
+
+
 protected:
+    virtual int32 GetAM_Atk_Idx() override;
+
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_Skill_Q();
 
@@ -71,21 +80,33 @@ protected:
     int32 E_CurrentTick = 0;
     int32 E_MaxTicks = 0;
     float E_DamagePerTick = 0.0f;
+    TMap<TWeakObjectPtr<ABaseChampion>, int32> E_HitCounts;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | Skills")
+    int32 E_TotalHits = 7;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | Skills")
     float E_DefaultDuration = 3.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | Skills")
-    float E_TickInterval = 0.25f;
+    float E_DefaultRadius = 100.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | Skills")
-    float E_DefaultRadius = 325.0f;
+    float E_ADRatio = 0.4f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | Skills")
-    float E_ADRatio = 1.0f;
+    int32 E_ArmorReductionHitCount = 6;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | Skills")
+    float E_ArmorReductionRatio = 0.25f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | Skills")
+    float E_ArmorReductionDuration = 6.0f;
+
+    TSet<TWeakObjectPtr<ABaseChampion>> E_ArmorReducedTargets;
 
     UFUNCTION(Server, Reliable, WithValidation)
-    void Server_Skill_R();
+    void Server_Skill_R(AActor* TargetActor);
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | Skills")
     float R_DefaultRange = 400.0f;
@@ -93,4 +114,18 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | Skills")
     float R_MissingHPRatio = 0.25f;
 	FTimerHandle UltTimerHandle;
+
+    UPROPERTY()
+    ABaseChampion* ReservedRTarget = nullptr;
+
+    bool bIsChasingForR = false;
+
+    void UpdateRChaseToCast();
+    float GetRSkillRange();
+
+    bool bIsCastingR = false;
+
+    FTimerHandle R_CastLockTimerHandle;
+
+    void EndRCastLock();
 };

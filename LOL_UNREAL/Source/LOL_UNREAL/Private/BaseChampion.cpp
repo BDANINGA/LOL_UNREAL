@@ -26,6 +26,7 @@
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_UIComponent.h"
 #include "Component/LOL_StateComponent.h"
+#include "GamePlayTag/LOL_GamePlayTags.h"
 #include "Component/Champion_SkillComponent.h"
 #include "DrawDebugHelpers.h"
 
@@ -152,6 +153,23 @@ void ABaseChampion::BeginPlay()
 	}
 }
 
+void ABaseChampion::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	if (HasAuthority())
+	{
+		// Listen-server host gets team 0, remote clients get team 1 for now.
+		TeamId = NewController && NewController->IsLocalController() ? 0 : 1;
+	}
+}
+
+void ABaseChampion::SetVisibleByVision(bool bVisible)
+{
+	bVisibleByVision = bVisible;
+	SetActorHiddenInGame(!bVisible);
+}
+
 void ABaseChampion::SetChampionData(FName RowName)
 {
 	FChampionResourceData* Data = DataTable->FindRow<FChampionResourceData>(RowName, TEXT(""));
@@ -261,6 +279,8 @@ void ABaseChampion::OnEnemyLeaveRange(UPrimitiveComponent* OverlappedComponent, 
 }
 void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(ABaseChampion, TeamId);
+	DOREPLIFETIME(ABaseChampion, bIsSilenced);
 }
 
 void ABaseChampion::Server_ExecuteAttackHit_Implementation()
@@ -273,6 +293,8 @@ void ABaseChampion::Server_ExecuteAttackHit_Implementation()
 }
 void ABaseChampion::ProcessMoveInput(FVector ClickLocation, AActor* TargetActor)
 {
+	if (IsMoveInputBlocked()) return;
+
 	ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
 	if (TargetChampion == this)
 	{
@@ -292,6 +314,7 @@ void ABaseChampion::ProcessMoveInput(FVector ClickLocation, AActor* TargetActor)
 }
 void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation, AActor* TargetActor, bool bIsSearch)
 {
+	if (IsMoveInputBlocked()) return;
 	if (bIsKnockedBack) return;
 	if (StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
 	if (bIsStunned) return;

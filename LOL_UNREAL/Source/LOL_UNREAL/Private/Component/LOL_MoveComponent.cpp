@@ -7,6 +7,7 @@
 #include "Components/SphereComponent.h"
 
 #include "BaseChampion.h"
+#include "JungleMonster/BaseJungleMonster.h"
 #include "Minion/BaseMinion.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
@@ -109,6 +110,25 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
             Minion->SetActorRotation(Direction.Rotation());
         }
     }
+    else if (ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(OwnerPawn))
+    {
+        if (!JungleMonster->StateComponent->HasStatusTag(LOLTags::State_Moving)) return;
+
+        FVector CurrentLocation = JungleMonster->GetActorLocation();
+        FVector Direction = TargetLocation - CurrentLocation;
+        Direction.Z = 0.f;
+        float Distance = Direction.Size();
+
+        if (Distance <= 15.f)
+        {
+            StopMovement();
+        }
+        else
+        {
+            JungleMonster->AddMovementInput(Direction.GetSafeNormal(), 1.0f);
+            JungleMonster->SetActorRotation(Direction.Rotation());
+        }
+    }
 }
 
 void ULOL_MoveComponent::SetMoveTarget(FVector NewLocation, AActor* TargetActor)
@@ -149,6 +169,10 @@ void ULOL_MoveComponent::StopMovement()
     }
     else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn)) {
         TargetLocation = Minion->GetActorLocation();
+    }
+    else if (ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(OwnerPawn)) {
+        TargetLocation = JungleMonster->GetActorLocation();
+        if (JungleMonster->GetCharacterMovement()) JungleMonster->GetCharacterMovement()->StopMovementImmediately();
     }
 }
 

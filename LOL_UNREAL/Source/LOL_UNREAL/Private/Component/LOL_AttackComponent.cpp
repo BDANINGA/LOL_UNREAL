@@ -7,8 +7,10 @@
 #include "Components/StaticMeshComponent.h"
 
 #include "BaseChampion.h"
+#include "JungleMonster/BaseJungleMonster.h"
 #include "Minion/BaseMinion.h"
 #include "Champion/Projectile/BaseProjectile.h"
+#include "Champion/Champion_Garen.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
@@ -107,8 +109,8 @@ void ULOL_AttackComponent::StartAttack()
             if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
             {
                 Champion->Multicast_SetTargetAndPlayMontage(
-                    Champion->ChampionResource.AttackMontage[Champion->GetAM_Atk_Idx()],
-                    StatComp->GetStat().AttackSpeed, NewRotation);
+                Champion->ChampionResource.AttackMontage[Champion->GetAM_Atk_Idx()],
+                StatComp->GetStat().AttackSpeed, NewRotation);
             }
             else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
             {
@@ -122,6 +124,17 @@ void ULOL_AttackComponent::StartAttack()
                     }
                 }
             }
+            else if (ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(OwnerPawn))
+            {
+                JungleMonster->SetActorRotation(NewRotation);
+                if (JungleMonster->JungleMonsterResource.AttackMontage.Num() > 0 && JungleMonster->JungleMonsterResource.AttackMontage[0])
+                {
+                    if (UAnimInstance* AnimInst = JungleMonster->GetMesh()->GetAnimInstance())
+                    {
+                        AnimInst->Montage_Play(JungleMonster->JungleMonsterResource.AttackMontage[0], StatComp->GetStat().AttackSpeed);
+                    }
+                }
+            }
         }
     }
 
@@ -131,13 +144,29 @@ void ULOL_AttackComponent::StartAttack()
 
 void ULOL_AttackComponent::EndAttack()
 {
-    ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn);
-    Champion->StateComponent->AddStatusTag(LOLTags::State_Moving);
-    Champion->StateComponent->RemoveStatusTag(LOLTags::State_Attacking);
+    if (!OwnerPawn) return;
+
+    if (ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>())
+    {
+        StateComp->AddStatusTag(LOLTags::State_Moving);
+        StateComp->RemoveStatusTag(LOLTags::State_Attacking);
+    }
 }
 
 void ULOL_AttackComponent::ResetAttack()
 {
+    if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
+    {
+        if (AChampion_Garen* Garen = Cast<AChampion_Garen>(Champion))
+        {
+            if (Garen->bIsSpinning)
+            {
+                bCanAttack = false;
+                return;
+            }
+        }
+    }
+
     bCanAttack = true;
 }
 

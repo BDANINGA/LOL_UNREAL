@@ -9,11 +9,20 @@
 #include "Champion/Champion_Vayne.h"
 #include "Champion/Champion_Blitz.h"
 #include "Champion/Champion_Garen.h"
+#include "Champion/Champion_Ezreal.h"
+#include "Champion/Champion_Fizz.h"
+#include "Champion/Champion_Jax.h"
+#include "Champion/Champion_Leesin.h"
+#include "Champion/Champion_Gragas.h"
+#include "Champion/Champion_Tryndamere.h"
+#include "VisionManager/VisionManager.h"
+
 
 #include "Minion/Minion_Melee.h"
 #include "Minion/Minion_Caster.h"
 #include "Minion/Minion_Siege.h"
 #include "Minion/Minion_Super.h"
+#include "EngineUtils.h"
 #include "TimerManager.h"
 
 ALOL_GameModeBase::ALOL_GameModeBase()
@@ -37,12 +46,32 @@ UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(ACont
     }
 
     // 2. 그 외에 접속하는 클라이언트 플레이어들
-    return AChampion_Garen::StaticClass();
+    return AChampion_Tryndamere::StaticClass();
 }
 
 void ALOL_GameModeBase::BeginPlay()
 {
     Super::BeginPlay();
+
+    if (HasAuthority())
+    {
+        bool bHasVisionManager = false;
+        for (TActorIterator<AVisionManager> It(GetWorld()); It; ++It)
+        {
+            bHasVisionManager = true;
+            break;
+        }
+
+        if (!bHasVisionManager)
+        {
+            GetWorld()->SpawnActor<AVisionManager>(
+                AVisionManager::StaticClass(),
+                FVector::ZeroVector,
+                FRotator::ZeroRotator
+            );
+        }
+    }
+
     MinionSpawnLocation = FVector(-4803.f, 5708.f, -1201.f);
     GetWorld()->GetTimerManager().SetTimer(MinionSpawnTimerHandle, this, &ALOL_GameModeBase::StartMinionWave, 3.0f, false);
 }

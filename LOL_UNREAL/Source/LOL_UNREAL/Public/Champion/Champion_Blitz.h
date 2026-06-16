@@ -18,7 +18,7 @@ public:
     virtual void Skill_R() override;
 
     // E스킬 활성화 상태에서 적을 때렸을 때 호출할 함수 (기본공격 판정부에서 호출 필요)
-    void OnAttackHitWithE(ABaseChampion* Target);
+    virtual void OnBasicAttackHit(ACharacter* Target) override;
 
 
 protected:
@@ -67,14 +67,19 @@ protected:
     void EndWSlow();
 
     // --- E 스킬 (서버 실행) ---
-    bool bIsEActive = false;
     float E_AirborneDuration = 1.0f;
     float E_DamageMultiplier = 2.0f;
 
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_Skill_E();
 
+    UPROPERTY()
+    bool bIsEActive = false;
+
+    UFUNCTION()
     void ResetE();
+
+    void OnAttackHitWithE(ABaseChampion* Target);
 
     // --- R 스킬 (서버 실행) ---
     UFUNCTION(Server, Reliable, WithValidation)

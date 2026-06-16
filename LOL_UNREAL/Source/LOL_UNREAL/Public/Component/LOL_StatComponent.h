@@ -220,4 +220,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Stat|Data")
 	class UDataTable* MinionStatDataTable;
+
+	UPROPERTY(EditAnywhere, Category = "Stat|Data")
+	class UDataTable* JungleMonsterStatDataTable;
 };
