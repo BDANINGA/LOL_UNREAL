@@ -2,8 +2,10 @@
 
 #include "Component/Champion_SkillComponent.h"
 #include "Component/LOL_StateComponent.h"
+#include "Component/LOL_MoveComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 
+#include "Component/LOL_AttackComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 
@@ -38,6 +40,12 @@ void AChampion_Garen::Server_Skill_Q_Implementation()
 
     bQEmpowered = true;
 
+    // 1. 현재 재생 중인 평타 애니메이션을 즉시 끊어버립니다.
+    if (UAnimInstance* AnimInst = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+    {
+        AnimInst->StopAllMontages(0.1f);
+    }
+
     if (GetCharacterMovement() && StatComponent)
     {
         const float BaseMoveSpeed = StatComponent->GetStat().MoveSpeed > 0.f ? StatComponent->GetStat().MoveSpeed : 330.0f;
@@ -46,17 +54,6 @@ void AChampion_Garen::Server_Skill_Q_Implementation()
 
     GetWorldTimerManager().ClearTimer(Q_BuffTimerHandle);
     GetWorldTimerManager().SetTimer(Q_BuffTimerHandle, this, &AChampion_Garen::EndQBuff, BuffDuration, false);
-}
-
-void AChampion_Garen::EndQBuff()
-{
-    bQEmpowered = false;
-
-    if (GetCharacterMovement() && StatComponent)
-    {
-        const float BaseMoveSpeed = StatComponent->GetStat().MoveSpeed > 0.f ? StatComponent->GetStat().MoveSpeed : 330.0f;
-        GetCharacterMovement()->MaxWalkSpeed = BaseMoveSpeed;
-    }
 }
 
 void AChampion_Garen::OnBasicAttackHit(ACharacter* Target)
@@ -72,15 +69,15 @@ void AChampion_Garen::OnBasicAttackHit(ACharacter* Target)
     FSkillData& QData = SkillComponent->GetQ_Data();
     const int32 SkillLevelIdx = 0;
 
-    const float BaseDamage = QData.BaseDamage.IsValidIndex(SkillLevelIdx) ? QData.BaseDamage[SkillLevelIdx] : 0.0f;
+    float SkillDamage = QData.BaseDamage.IsValidIndex(0) ? QData.BaseDamage[0] : 0.0f;
+    SkillDamage += StatComponent->GetStat().AttackDamage * 0.8f;
     const float SilenceDuration = QData.SecondaryValue.IsValidIndex(SkillLevelIdx) ? QData.SecondaryValue[SkillLevelIdx] : Q_DefaultSilenceDuration;
-    const float BonusDamage = BaseDamage + StatComponent->GetStat().AttackDamage * Q_ADRatio;
 
-    if (BonusDamage > 0.f)
+    if (SkillDamage > 0.f)
     {
         UGameplayStatics::ApplyDamage(
             Target,
-            BonusDamage,
+            SkillDamage,
             GetController(),
             this,
             ULOL_DamagePhysical::StaticClass()
@@ -91,6 +88,37 @@ void AChampion_Garen::OnBasicAttackHit(ACharacter* Target)
 
     bQEmpowered = false;
     GetWorldTimerManager().ClearTimer(Q_BuffTimerHandle);
+
+    if (GetCharacterMovement() && StatComponent)
+    {
+        const float BaseMoveSpeed = StatComponent->GetStat().MoveSpeed > 0.f ? StatComponent->GetStat().MoveSpeed : 330.0f;
+        GetCharacterMovement()->MaxWalkSpeed = BaseMoveSpeed;
+    }
+}
+
+int32 AChampion_Garen::GetAM_Atk_Idx()
+{
+    if (bQEmpowered)
+    {
+        // 어택 컴포넌트가 일반 평타를 실행한 직후 바로 다음 틱에 Q 애니메이션으로 덮어씁니다.
+        GetWorldTimerManager().SetTimerForNextTick([this]()
+            {
+                if (bQEmpowered)
+                {
+                    // 원하시는 멀티캐스트 재생 코드 (배율 2.0f)
+                    Multicast_PlayMontage(ChampionResource.QMontage[AM_SKIll_Q_IDX], 1.0f);
+                }
+            });
+
+        return Super::GetAM_Atk_Idx();
+    }
+
+    return Super::GetAM_Atk_Idx();
+}
+
+void AChampion_Garen::EndQBuff()
+{
+    bQEmpowered = false;
 
     if (GetCharacterMovement() && StatComponent)
     {
@@ -111,6 +139,8 @@ bool AChampion_Garen::Server_Skill_W_Validate() { return true; }
 
 void AChampion_Garen::Server_Skill_W_Implementation()
 {
+    Multicast_PlayMontage(ChampionResource.WMontage[AM_SKIll_W_IDX], 1.0f);
+
     if (!SkillComponent || !StatComponent) return;
     if (!SkillComponent->TryCastSkill("W", 1)) return;
 
@@ -159,21 +189,55 @@ void AChampion_Garen::Server_Skill_E_Implementation()
     if (!SkillComponent || !StatComponent) return;
     if (!SkillComponent->TryCastSkill("E", 1)) return;
 
-    FSkillData& EData = SkillComponent->GetE_Data();
-    const int32 SkillLevelIdx = 0;
+    bIsSpinning = true;
 
-    const float Duration = EData.Duration.IsValidIndex(SkillLevelIdx) ? EData.Duration[SkillLevelIdx] : E_DefaultDuration;
-    const float TotalBaseDamage = EData.BaseDamage.IsValidIndex(SkillLevelIdx) ? EData.BaseDamage[SkillLevelIdx] : 0.0f;
-    const float TotalDamage = TotalBaseDamage + StatComponent->GetStat().AttackDamage * E_ADRatio;
+    StopAnimMontage();
+
+    if (ULOL_AttackComponent* AttackComp = FindComponentByClass<ULOL_AttackComponent>())
+    {
+        AttackComp->bCanAttack = false;
+        AttackComp->CombatTarget = nullptr;
+        AttackComp->HitTarget = nullptr;
+
+        GetWorldTimerManager().ClearTimer(AttackComp->AttackTimerHandle);
+    }
+
+    Multicast_PlayMontage(ChampionResource.EMontage[AM_SKIll_E_IDX], 1.0f);
+
+    if (ULOL_AttackComponent* AttackComp = FindComponentByClass<ULOL_AttackComponent>())
+    {
+        AttackComp->bCanAttack = false;
+    }
 
     E_CurrentTick = 0;
-    E_MaxTicks = FMath::Max(1, FMath::RoundToInt(Duration / E_TickInterval));
-    E_DamagePerTick = TotalDamage / E_MaxTicks;
+    E_MaxTicks = 7;
+    E_HitCounts.Empty();
+    E_ArmorReducedTargets.Empty();
 
-    GetWorldTimerManager().ClearTimer(E_TickTimerHandle);
-    GetWorldTimerManager().SetTimer(E_TickTimerHandle, this, &AChampion_Garen::ApplyEDamageTick, E_TickInterval, true);
+    const float TickInterval = 3.0f / static_cast<float>(E_MaxTicks);
+
+    GetWorldTimerManager().SetTimer(
+        E_TickTimerHandle,
+        this,
+        &AChampion_Garen::ApplyEDamageTick,
+        TickInterval,
+        true
+    );
 
     ApplyEDamageTick();
+}
+
+void AChampion_Garen::EndESpin()
+{
+    bIsSpinning = false;
+
+    GetWorldTimerManager().ClearTimer(E_TickTimerHandle);
+    E_CurrentTick = 0;
+
+    if (ULOL_AttackComponent* AttackComp = FindComponentByClass<ULOL_AttackComponent>())
+    {
+        AttackComp->bCanAttack = true;
+    }
 }
 
 void AChampion_Garen::ApplyEDamageTick()
@@ -183,14 +247,12 @@ void AChampion_Garen::ApplyEDamageTick()
         EndESpin();
         return;
     }
-
     FSkillData& EData = SkillComponent->GetE_Data();
-    const int32 SkillLevelIdx = 0;
-    const float Radius = EData.Range.IsValidIndex(SkillLevelIdx) ? EData.Range[SkillLevelIdx] : E_DefaultRadius;
+
+    const float Radius = 200.f;
 
     TArray<FHitResult> Hits;
     const FCollisionShape Sphere = FCollisionShape::MakeSphere(Radius);
-
     const bool bHit = GetWorld()->SweepMultiByChannel(
         Hits,
         GetActorLocation(),
@@ -200,24 +262,73 @@ void AChampion_Garen::ApplyEDamageTick()
         Sphere
     );
 
-    if (bHit && E_DamagePerTick > 0.f)
+    TArray<ABaseChampion*> Targets;
+    TSet<ABaseChampion*> UniqueTargets;
+    if (bHit)
     {
-        TSet<ABaseChampion*> HitChampions;
-
         for (const FHitResult& Hit : Hits)
         {
             ABaseChampion* TargetChampion = Cast<ABaseChampion>(Hit.GetActor());
-            if (!TargetChampion || TargetChampion == this || HitChampions.Contains(TargetChampion)) continue;
-            if (TargetChampion->StateComponent->HasStatusTag(LOLTags::State_Dead)) continue;
+            if (!TargetChampion || TargetChampion == this) continue;
+            if (UniqueTargets.Contains(TargetChampion)) continue;
+            UniqueTargets.Add(TargetChampion);
+            Targets.Add(TargetChampion);
+        }
+    }
 
-            HitChampions.Add(TargetChampion);
+    ABaseChampion* NearestTarget = nullptr;
+    float NearestDistSq = TNumericLimits<float>::Max();
+    for (ABaseChampion* Target : Targets)
+    {
+        const float DistSq = FVector::DistSquared(GetActorLocation(), Target->GetActorLocation());
+        if (DistSq < NearestDistSq)
+        {
+            NearestDistSq = DistSq;
+            NearestTarget = Target;
+        }
+    }
 
-            UGameplayStatics::ApplyDamage(
-                TargetChampion,
-                E_DamagePerTick,
-                GetController(),
-                this,
-                ULOL_DamagePhysical::StaticClass()
+    const float DamagePerTick = SkillComponent->GetQ_Data().BaseDamage[0] +
+        StatComponent->GetStat().AttackDamage * 0.04f;
+
+    for (ABaseChampion* TargetChampion : Targets)
+    {
+        float FinalDamage = DamagePerTick;
+        if (TargetChampion == NearestTarget)
+        {
+            FinalDamage *= 1.25f;
+        }
+
+        UGameplayStatics::ApplyDamage(
+            TargetChampion,
+            FinalDamage,
+            GetController(),
+            this,
+            ULOL_DamageMagic::StaticClass()
+        );
+
+        int32& HitCount = E_HitCounts.FindOrAdd(TargetChampion);
+        HitCount++;
+        if (HitCount >= 6 && !E_ArmorReducedTargets.Contains(TargetChampion) && TargetChampion->StatComponent)
+        {
+            E_ArmorReducedTargets.Add(TargetChampion);
+            const FChampionStat OriginalStat = TargetChampion->StatComponent->GetStat();
+            FChampionStat ReducedStat = OriginalStat;
+            ReducedStat.Armor *= 0.75f;
+            TargetChampion->StatComponent->SetStat(ReducedStat);
+            TWeakObjectPtr<ABaseChampion> TargetKey(TargetChampion);
+            FTimerHandle ArmorReductionTimerHandle;
+            GetWorldTimerManager().SetTimer(
+                ArmorReductionTimerHandle,
+                FTimerDelegate::CreateLambda([TargetKey, OriginalStat]()
+                    {
+                        if (TargetKey.IsValid() && TargetKey->StatComponent)
+                        {
+                            TargetKey->StatComponent->SetStat(OriginalStat);
+                        }
+                    }),
+                6.0f,
+                false
             );
         }
     }
@@ -229,46 +340,103 @@ void AChampion_Garen::ApplyEDamageTick()
     }
 }
 
-void AChampion_Garen::EndESpin()
-{
-    GetWorldTimerManager().ClearTimer(E_TickTimerHandle);
-    E_CurrentTick = 0;
-    E_MaxTicks = 0;
-    E_DamagePerTick = 0.0f;
-}
-
 void AChampion_Garen::Skill_R()
 {
     if (!IsLocallyControlled()) return;
-    if (bIsStunned || bIsKnockedBack) return;
+    if (bIsStunned || bIsKnockedBack || bIsCastingR) return;
 
-    Server_Skill_R();
+    APlayerController* PC = Cast<APlayerController>(GetController());
+    if (!PC) return;
+
+    FHitResult HitResult;
+    if (!PC->GetHitResultUnderCursor(ECC_Pawn, false, HitResult)) return;
+
+    ABaseChampion* TargetChampion = Cast<ABaseChampion>(HitResult.GetActor());
+    if (!IsValid(TargetChampion) || TargetChampion == this) return;
+
+    const float Range = GetRSkillRange();
+    const float Distance = GetDistanceTo(TargetChampion);
+
+    if (Distance <= Range)
+    {
+        bIsChasingForR = false;
+        ReservedRTarget = nullptr;
+        Server_Skill_R(TargetChampion);
+        return;
+    }
+
+    ReservedRTarget = TargetChampion;
+    bIsChasingForR = true;
+
+    if (ULOL_StateComponent* StateComp = FindComponentByClass<ULOL_StateComponent>())
+    {
+        StateComp->AddStatusTag(LOLTags::State_Moving);
+        StateComp->RemoveStatusTag(LOLTags::State_Attacking);
+    }
 }
 
-bool AChampion_Garen::Server_Skill_R_Validate() { return true; }
-
-void AChampion_Garen::Server_Skill_R_Implementation()
+bool AChampion_Garen::Server_Skill_R_Validate(AActor* TargetActor)
 {
-    /*if (!SkillComponent || !StatComponent) return;
+    return true;
+}
 
-    ABaseChampion* TargetChampion = Cast<ABaseChampion>(CombatTarget);
+void AChampion_Garen::Server_Skill_R_Implementation(AActor* TargetActor)
+{
+    if (!SkillComponent || !StatComponent) return;
+    if (!TargetActor) return;
+
+    ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
     if (!TargetChampion || TargetChampion == this) return;
     if (!TargetChampion->StatComponent) return;
-    if (TargetChampion->StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
 
     FSkillData& RData = SkillComponent->GetR_Data();
     const int32 SkillLevelIdx = 0;
 
-    const float Range = RData.Range.IsValidIndex(SkillLevelIdx) ? RData.Range[SkillLevelIdx] : R_DefaultRange;
+    const float Range = RData.Range.IsValidIndex(SkillLevelIdx)
+        ? RData.Range[SkillLevelIdx]
+        : R_DefaultRange;
+
     if (GetDistanceTo(TargetChampion) > Range) return;
 
     if (!SkillComponent->TryCastSkill("R", 1)) return;
 
-    const float BaseDamage = RData.BaseDamage.IsValidIndex(SkillLevelIdx) ? RData.BaseDamage[SkillLevelIdx] : 0.0f;
+    bIsCastingR = true;
+
+    if (GetCharacterMovement())
+    {
+        GetCharacterMovement()->StopMovementImmediately();
+        GetCharacterMovement()->DisableMovement();
+    }
+
+    if (ULOL_StateComponent* StateComp = FindComponentByClass<ULOL_StateComponent>())
+    {
+        StateComp->RemoveStatusTag(LOLTags::State_Moving);
+        StateComp->AddStatusTag(LOLTags::State_Attacking);
+    }
+
+    Multicast_PlayMontage(ChampionResource.RMontage[AM_SKIll_R_IDX], 1.0f);
+
+    const float RLockDuration = 1.0f; // R 몽타주 길이에 맞게 조절
+    GetWorldTimerManager().SetTimer(
+        R_CastLockTimerHandle,
+        this,
+        &AChampion_Garen::EndRCastLock,
+        RLockDuration,
+        false
+    );
+
+    const float BaseDamage = RData.BaseDamage.IsValidIndex(SkillLevelIdx)
+        ? RData.BaseDamage[SkillLevelIdx]
+        : 0.0f;
+
     const float MaxHP = TargetChampion->StatComponent->GetStat().MaxHP;
     const float CurrentHP = TargetChampion->StatComponent->GetCurrentHP();
     const float MissingHP = FMath::Max(0.0f, MaxHP - CurrentHP);
-    const float MissingHPRatio = RData.SecondaryValue.IsValidIndex(SkillLevelIdx) ? RData.SecondaryValue[SkillLevelIdx] : R_MissingHPRatio;
+
+    const float MissingHPRatio = RData.SecondaryValue.IsValidIndex(SkillLevelIdx)
+        ? RData.SecondaryValue[SkillLevelIdx]
+        : R_MissingHPRatio;
+
     const float SkillDamage = BaseDamage + MissingHP * MissingHPRatio;
 
     if (SkillDamage <= 0.0f) return;
@@ -279,5 +447,83 @@ void AChampion_Garen::Server_Skill_R_Implementation()
         GetController(),
         this,
         ULOL_DamageTrueDamage::StaticClass()
-    );*/
+    );
+}
+
+void AChampion_Garen::UpdateRChaseToCast()
+{
+    if (bIsStunned || bIsKnockedBack || !IsValid(ReservedRTarget))
+    {
+        bIsChasingForR = false;
+        ReservedRTarget = nullptr;
+        return;
+    }
+
+    ULOL_StateComponent* StateComp = FindComponentByClass<ULOL_StateComponent>();
+    ULOL_MoveComponent* MoveComp = FindComponentByClass<ULOL_MoveComponent>();
+    if (!StateComp || !MoveComp) return;
+
+    const float Range = GetRSkillRange();
+    const float Distance = GetDistanceTo(ReservedRTarget);
+
+    if (Distance <= Range)
+    {
+        ABaseChampion* Target = ReservedRTarget;
+
+        bIsChasingForR = false;
+        ReservedRTarget = nullptr;
+
+        MoveComp->StopMovement();
+        StateComp->RemoveStatusTag(LOLTags::State_Moving);
+
+        Server_Skill_R(Target);
+        return;
+    }
+
+    StateComp->AddStatusTag(LOLTags::State_Moving);
+    StateComp->RemoveStatusTag(LOLTags::State_Attacking);
+
+    MoveComp->TargetLocation = ReservedRTarget->GetActorLocation();
+
+    FVector Direction = MoveComp->TargetLocation - GetActorLocation();
+    Direction.Z = 0.f;
+
+    AddMovementInput(Direction.GetSafeNormal(), 1.0f);
+}
+
+float AChampion_Garen::GetRSkillRange()
+{
+    if (!SkillComponent) return R_DefaultRange;
+
+    FSkillData& RData = SkillComponent->GetR_Data();
+    const int32 SkillLevelIdx = 0;
+
+    return RData.Range.IsValidIndex(SkillLevelIdx)
+        ? RData.Range[SkillLevelIdx]
+        : R_DefaultRange;
+}
+
+void AChampion_Garen::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+
+    if (IsLocallyControlled() && bIsChasingForR)
+    {
+        UpdateRChaseToCast();
+    }
+}
+
+void AChampion_Garen::EndRCastLock()
+{
+    bIsCastingR = false;
+
+    if (GetCharacterMovement())
+    {
+        GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+    }
+
+    if (ULOL_StateComponent* StateComp = FindComponentByClass<ULOL_StateComponent>())
+    {
+        StateComp->RemoveStatusTag(LOLTags::State_Attacking);
+    }
 }

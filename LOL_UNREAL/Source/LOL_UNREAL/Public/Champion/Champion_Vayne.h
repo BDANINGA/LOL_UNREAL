@@ -99,7 +99,13 @@ protected:
     virtual void OnBasicAttackHit(ACharacter* Target) override;
 
     // --- E ��ų ���� ���� ---
+    UPROPERTY()
+    ACharacter* ReservedETarget = nullptr;
 
+    bool bIsChasingForE = false;
+
+    void UpdateEChaseToCast();
+    float GetESkillRange();
     // �������� ���� ó���� ������ RPC
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_ExecuteCondemn(ACharacter* Target);

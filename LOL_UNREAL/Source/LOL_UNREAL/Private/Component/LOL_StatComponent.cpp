@@ -4,6 +4,7 @@
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_UIComponent.h"
 #include "BaseChampion.h"
+#include "JungleMonster/BaseJungleMonster.h"
 #include "Minion/BaseMinion.h"
 #include "Net/UnrealNetwork.h"
 #include "UObject/ConstructorHelpers.h"
@@ -25,6 +26,12 @@ ULOL_StatComponent::ULOL_StatComponent()
 	if (MinionStatTableObject.Succeeded())
 	{
 		MinionStatDataTable = MinionStatTableObject.Object;
+	}
+
+	static ConstructorHelpers::FObjectFinder<UDataTable> JungleMonsterStatTableObject(TEXT("/Game/LOL_Data/Data_JungleMonsters/Data_JungleMonsterStats.Data_JungleMonsterStats"));
+	if (JungleMonsterStatTableObject.Succeeded())
+	{
+		JungleMonsterStatDataTable = JungleMonsterStatTableObject.Object;
 	}
 }
 void ULOL_StatComponent::BeginPlay()
@@ -85,6 +92,11 @@ void ULOL_StatComponent::InitializeStat()
 	{
 		TableToUse = MinionStatDataTable;
 		RowName = Minion->GetMinionName();
+	}
+	else if (ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(Owner))
+	{
+		TableToUse = JungleMonsterStatDataTable;
+		RowName = JungleMonster->GetJungleMonsterName();
 	}
 
 	if (TableToUse && !RowName.IsNone())

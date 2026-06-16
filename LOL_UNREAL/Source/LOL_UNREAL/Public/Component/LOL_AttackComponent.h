@@ -40,6 +40,9 @@ public:
 
 	void SetCombatTarget(AActor* Target) { CombatTarget = Target; }
 
+	FTimerHandle AttackTimerHandle;
+
+	bool bCanAttack = true;
 protected:
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -56,7 +59,7 @@ private:
 	UPROPERTY()
 	class APawn* OwnerPawn;
 
-	FTimerHandle AttackTimerHandle;
-	bool bCanAttack = true;
+	
+	
 	bool bHitHappened = false;
 };

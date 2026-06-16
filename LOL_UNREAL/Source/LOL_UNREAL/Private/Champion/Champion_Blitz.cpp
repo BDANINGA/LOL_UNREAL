@@ -34,11 +34,11 @@ void AChampion_Blitz::Skill_Q()
     if (!PC) return;
 
     FHitResult HitResult;
-    if (PC->GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
-    {
-        Server_Skill_Q(HitResult.ImpactPoint);
-    }
+    if (!PC->GetHitResultUnderCursor(ECC_Visibility, false, HitResult)) return;
+
+    Server_Skill_Q(HitResult.ImpactPoint);
 }
+
 
 bool AChampion_Blitz::Server_Skill_Q_Validate(FVector TargetLocation)
 {
@@ -47,67 +47,95 @@ bool AChampion_Blitz::Server_Skill_Q_Validate(FVector TargetLocation)
 
 void AChampion_Blitz::Server_Skill_Q_Implementation(FVector TargetLocation)
 {
-    FVector LookDirection = (TargetLocation - GetActorLocation()).GetSafeNormal();
-    LookDirection.Z = 0.0f;
+    if (!SkillComponent) return;
 
-    SetActorRotation(LookDirection.Rotation());
+    FSkillData& QData = SkillComponent->GetQ_Data();
+    const int32 SkillLevelIdx = 0;
+
+    if (!QData.Range.IsValidIndex(SkillLevelIdx) ||
+        !QData.Cooldown.IsValidIndex(SkillLevelIdx))
+    {
+        UE_LOG(LogTemp, Error, TEXT("Blitz Q skill data not loaded. RangeNum=%d CooldownNum=%d"),
+            QData.Range.Num(),
+            QData.Cooldown.Num());
+        return;
+    }
+
+    if (!SkillComponent->TryCastSkill("Q", 1)) return;
+
+    FVector LookDirection = TargetLocation - GetActorLocation();
+    LookDirection.Z = 0.0f;
+    if (LookDirection.IsNearlyZero()) return;
+
+    const FRotator LookRotation = LookDirection.Rotation();
+    const FVector SkillDirection = LookRotation.Vector();
+
+    SetActorRotation(LookRotation);
+
+    if (ChampionResource.QMontage.IsValidIndex(AM_SKIll_Q_IDX) &&
+        ChampionResource.QMontage[AM_SKIll_Q_IDX])
+    {
+        Multicast_SetTargetAndPlayMontage(
+            ChampionResource.QMontage[AM_SKIll_Q_IDX],
+            1.0f,
+            LookRotation
+        );
+    }
+
+    const float QRange = QData.Range[SkillLevelIdx];
 
     FVector Start = GetActorLocation() + FVector(0.f, 0.f, 50.f);
-    FVector End = Start + (GetActorForwardVector() * 1200.f);
+    FVector End = Start + SkillDirection * QRange;
 
     FHitResult HitResult;
     FCollisionQueryParams Params;
     Params.AddIgnoredActor(this);
 
-    bool bHit = GetWorld()->SweepSingleByChannel(
-        HitResult, Start, End, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(70.0f), Params
+    const bool bHit = GetWorld()->SweepSingleByChannel(
+        HitResult,
+        Start,
+        End,
+        FQuat::Identity,
+        ECC_Pawn,
+        FCollisionShape::MakeSphere(70.0f),
+        Params
     );
 
-    if (bHit)
+    if (!bHit) return;
+
+    ABaseChampion* Target = Cast<ABaseChampion>(HitResult.GetActor());
+    if (!Target || Target == this) return;
+
+    GetWorldTimerManager().ClearTimer(PullTimerHandle);
+    GetWorldTimerManager().ClearTimer(PullTimeoutTimerHandle);
+
+    GrabbedTarget = Target;
+
+    PullDestination = GetActorLocation() + SkillDirection * 95.0f;
+    PullDestination.Z = GrabbedTarget->GetActorLocation().Z;
+
+    if (GrabbedTarget->GetCharacterMovement())
     {
-        ABaseChampion* Target = Cast<ABaseChampion>(HitResult.GetActor());
-        if (Target)
-        {
-            GetWorldTimerManager().ClearTimer(PullTimerHandle);
-
-            GrabbedTarget = Target;
-
-            PullDestination = GetActorLocation() + (GetActorForwardVector() * 95.0f);
-            PullDestination.Z = GrabbedTarget->GetActorLocation().Z;
-
-            // ����� ���� �̵� ����
-            if (GetCharacterMovement())
-            {
-                GetCharacterMovement()->StopMovementImmediately();
-                GetCharacterMovement()->DisableMovement();
-            }
-
-            // �������� ��� �̵� ����
-            if (GrabbedTarget->GetCharacterMovement())
-            {
-                GrabbedTarget->GetCharacterMovement()->StopMovementImmediately();
-                GrabbedTarget->GetCharacterMovement()->DisableMovement();
-            }
-
-            GetWorld()->GetTimerManager().SetTimer(
-                PullTimerHandle,
-                this,
-                &AChampion_Blitz::TickPullTarget,
-                0.01f,
-                true
-            );
-
-            GetWorldTimerManager().SetTimer(
-                PullTimeoutTimerHandle,
-                this,
-                &AChampion_Blitz::FinishPullTarget,
-                0.5f,
-                false
-            );
-        }
+        GrabbedTarget->GetCharacterMovement()->StopMovementImmediately();
+        GrabbedTarget->GetCharacterMovement()->DisableMovement();
     }
-}
 
+    GetWorldTimerManager().SetTimer(
+        PullTimerHandle,
+        this,
+        &AChampion_Blitz::TickPullTarget,
+        0.01f,
+        true
+    );
+
+    GetWorldTimerManager().SetTimer(
+        PullTimeoutTimerHandle,
+        this,
+        &AChampion_Blitz::FinishPullTarget,
+        0.5f,
+        false
+    );
+}
 
 void AChampion_Blitz::TickPullTarget()
 {
@@ -237,8 +265,17 @@ bool AChampion_Blitz::Server_Skill_E_Validate() { return true; }
 
 void AChampion_Blitz::Server_Skill_E_Implementation()
 {
+    if (!SkillComponent) return;
+    if (!SkillComponent->TryCastSkill("E", 1)) return;
+
     bIsEActive = true;
 
+    UE_LOG(LogTemp, Warning, TEXT("Blitz E Active"));
+}
+
+void AChampion_Blitz::ResetE()
+{
+    bIsEActive = false;
 }
 
 void AChampion_Blitz::OnAttackHitWithE(ABaseChampion* Target)
@@ -246,17 +283,37 @@ void AChampion_Blitz::OnAttackHitWithE(ABaseChampion* Target)
     if (!HasAuthority() || !Target) return;
     if (!bIsEActive) return;
 
-    FVector LaunchVelocity = FVector(0.f, 0.f, 600.f);
+    UE_LOG(LogTemp, Warning, TEXT("Blitz E KnockUp"));
 
-    Target->LaunchCharacter(LaunchVelocity, false, true);
+    Target->StopAnimMontage();
+
+    if (UCharacterMovementComponent* MoveComp = Target->GetCharacterMovement())
+    {
+        MoveComp->StopMovementImmediately();
+        MoveComp->CurrentRootMotion.Clear();
+        MoveComp->SetMovementMode(MOVE_Falling);
+    }
+
+    Target->LaunchCharacter(FVector(0.f, 0.f, 500.f), true, true);
 
     ResetE();
-
 }
 
-void AChampion_Blitz::ResetE()
+void AChampion_Blitz::OnBasicAttackHit(ACharacter* Target)
 {
-    bIsEActive = false;
+    Super::OnBasicAttackHit(Target);
+
+    UE_LOG(LogTemp, Warning, TEXT("Blitz OnBasicAttackHit Called. EActive=%d Target=%s"),
+        bIsEActive,
+        Target ? *Target->GetName() : TEXT("NULL"));
+
+    if (!HasAuthority()) return;
+    if (!bIsEActive) return;
+
+    ABaseChampion* TargetChampion = Cast<ABaseChampion>(Target);
+    if (!TargetChampion) return;
+
+    OnAttackHitWithE(TargetChampion);
 }
 
 void AChampion_Blitz::Skill_R()

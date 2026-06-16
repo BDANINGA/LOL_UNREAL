@@ -12,6 +12,8 @@ class LOL_UNREAL_API AChampion_Alistar : public ABaseChampion
 public:
 	AChampion_Alistar();
 
+	void UpdateWChaseToCast();
+
 	virtual void Skill_Q() override;
 	virtual void Skill_W() override;
 	virtual void Skill_E() override;
@@ -37,6 +39,15 @@ protected:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_Skill_W(ACharacter* Target);
+
+	// --- W 스킬 ---
+	UPROPERTY()
+	ACharacter* ReservedWTarget = nullptr;
+
+	bool bIsChasingForW = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Skill|W")
+	float W_CastRange = 550.0f;
 	
 	void ApplyWKnockback(ACharacter* Target);
 	// --- E 스킬: 분쇄 ---
