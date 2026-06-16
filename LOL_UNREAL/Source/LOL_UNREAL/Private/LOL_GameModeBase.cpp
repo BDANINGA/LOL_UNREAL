@@ -48,7 +48,7 @@ UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(ACont
     }
 
     // 2. 그 외에 접속하는 클라이언트 플레이어들
-    return AChampion_Tryndamere::StaticClass();
+    return AChampion_Ezreal::StaticClass();
 }
 
 APawn* ALOL_GameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot)
@@ -160,7 +160,7 @@ void ALOL_GameModeBase::StartMinionWave()
     CurrentWaveMinions.Add(AMinion_Melee::StaticClass());
     CurrentWaveMinions.Add(AMinion_Melee::StaticClass());
     CurrentWaveMinions.Add(AMinion_Melee::StaticClass());
-    if (MinionWaveCount % TimeWave == 0)
+    if (MinionWaveCount != 0 || MinionWaveCount % TimeWave == 0)
     {
         CurrentWaveMinions.Add(AMinion_Siege::StaticClass());
     }

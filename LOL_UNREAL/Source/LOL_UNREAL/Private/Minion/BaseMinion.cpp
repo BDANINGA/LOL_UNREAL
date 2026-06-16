@@ -181,3 +181,10 @@ void ABaseMinion::UpdateTeamVisual()
 		UIComponent->UpdateHPBarImage(TargetUITexture);
 	}
 }
+
+void ABaseMinion::Multicast_SetTargetAndPlayMontage_Implementation(UAnimMontage* AnimMontage, float InplayRate, FRotator TargetRotation)
+{
+	SetActorRotation(TargetRotation);
+
+	if (AnimMontage) PlayAnimMontage(AnimMontage, InplayRate);
+}

@@ -9,6 +9,7 @@
 #include "BaseChampion.h"
 #include "JungleMonster/BaseJungleMonster.h"
 #include "Minion/BaseMinion.h"
+#include "Building/Building_Turret.h"
 #include "Champion/Projectile/BaseProjectile.h"
 #include "Champion/Champion_Garen.h"
 
@@ -19,6 +20,8 @@ ULOL_AttackComponent::ULOL_AttackComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
     SetIsReplicatedByDefault(true);
+
+    bCanAttack = true;
 }
 
 void ULOL_AttackComponent::BeginPlay()
@@ -114,15 +117,8 @@ void ULOL_AttackComponent::StartAttack()
             }
             else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
             {
-                // TODO: 미니언 멀티캐스트 몽타주 재생 로직 추가 필요
-                Minion->SetActorRotation(NewRotation);
-                if (Minion->MinionResource.AttackMontage.Num() > 0 && Minion->MinionResource.AttackMontage[0])
-                {
-                    if (UAnimInstance* AnimInst = Minion->GetMesh()->GetAnimInstance())
-                    {
-                        AnimInst->Montage_Play(Minion->MinionResource.AttackMontage[0], StatComp->GetStat().AttackSpeed);
-                    }
-                }
+                Minion->Multicast_SetTargetAndPlayMontage(Minion->MinionResource.AttackMontage[0],
+                    StatComp->GetStat().AttackSpeed, NewRotation);   
             }
             else if (ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(OwnerPawn))
             {
@@ -134,6 +130,11 @@ void ULOL_AttackComponent::StartAttack()
                         AnimInst->Montage_Play(JungleMonster->JungleMonsterResource.AttackMontage[0], StatComp->GetStat().AttackSpeed);
                     }
                 }
+            }
+            else if (ABuilding_Turret* Turret = Cast<ABuilding_Turret>(OwnerPawn))
+            {
+                ExecuteRangeAttackHit();
+                if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("포탑 공격"));
             }
         }
     }
@@ -245,6 +246,30 @@ void ULOL_AttackComponent::ExecuteRangeAttackHit()
         }
 
         FVector SpawnLocation = Minion->GetActorLocation() + (Minion->GetActorForwardVector() * 50.f);
+        Arrow->Activate(SpawnLocation, HitTarget);
+    }
+    else if (ABuilding_Turret* Turret = Cast<ABuilding_Turret>(OwnerPawn))
+    {
+        UNiagaraSystem* TargetNiagara = nullptr;
+
+        APlayerController* PC = Turret->GetWorld()->GetFirstPlayerController();
+        if (PC && PC->GetPawn())
+        {
+            if (ABaseChampion* LocalPlayer = Cast<ABaseChampion>(PC->GetPawn()))
+            {
+                ULOL_StateComponent* TStateComp = Turret->FindComponentByClass<ULOL_StateComponent>();
+                bool bIsEnemy = LocalPlayer->StateComponent->IsEnemy(TStateComp);
+                TargetNiagara = bIsEnemy ? Turret->GetEnemyProjectileNiagara() : Turret->GetAllyProjectileNiagara();
+            }
+        }
+
+        if (TargetNiagara)
+        {
+            Arrow->SetShooter(Turret);
+            Arrow->SetNiagara(TargetNiagara);
+        }
+
+        FVector SpawnLocation = Turret->GetActorLocation() + (Turret->GetActorForwardVector() * 50.f);
         Arrow->Activate(SpawnLocation, HitTarget);
     }
 }

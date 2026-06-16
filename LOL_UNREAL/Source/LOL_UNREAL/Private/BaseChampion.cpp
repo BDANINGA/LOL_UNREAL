@@ -111,7 +111,7 @@ void ABaseChampion::BeginPlay()
 	{
 		AttackRangeSphere->OnComponentBeginOverlap.AddDynamic(this, &ABaseChampion::OnEnemyEnterRange);
 		AttackRangeSphere->OnComponentEndOverlap.AddDynamic(this, &ABaseChampion::OnEnemyLeaveRange);
-		AttackRangeSphere->SetSphereRadius(StatComponent->GetStat().AttackRange);
+		AttackRangeSphere->SetSphereRadius(400.f);
 
 		StatComponent->OnHpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateHpFromStat);
 		StatComponent->OnMpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateMpFromStat);

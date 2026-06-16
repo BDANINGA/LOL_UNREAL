@@ -236,4 +236,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Stat|Data")
 	class UDataTable* JungleMonsterStatDataTable;
+
+	UPROPERTY(EditAnywhere, Category = "Stat|Data")
+	class UDataTable* BuildingStatDataTable;
 };

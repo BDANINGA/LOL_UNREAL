@@ -59,6 +59,9 @@ public:
 
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
 
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_SetTargetAndPlayMontage(UAnimMontage* AnimMontage, float InplayRate, FRotator TargetRotation);
+
 	// ------------------------------------------------------------------------------
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
@@ -101,4 +104,5 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Minion|Data")
 	FName MinionName;
+
 };
