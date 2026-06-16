@@ -328,8 +328,14 @@ void ALOL_PlayerController::UpdateCursorSelection()
 	{
 		AActor* TargetActor = Hit.GetActor();
 		ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
+		ABaseMinion* TargetMinion = Cast<ABaseMinion>(TargetActor);
 
 		if (TargetChampion && TargetChampion != MyChampion && MyChampion->GetIsPressA())
+		{
+			ChangeCursorType(TEXT("SelectEnemy"));
+			return;
+		}
+		else if (TargetMinion && MyChampion->GetIsPressA())
 		{
 			ChangeCursorType(TEXT("SelectEnemy"));
 			return;
@@ -337,6 +343,11 @@ void ALOL_PlayerController::UpdateCursorSelection()
 		else if (TargetChampion && TargetChampion != MyChampion)
 		{
 			ChangeCursorType(TEXT("Attack")); 
+			return;
+		}
+		else if (TargetMinion)
+		{
+			ChangeCursorType(TEXT("Attack"));
 			return;
 		}
 		else if (MyChampion->GetIsPressA())

@@ -130,7 +130,8 @@ void ABaseMinion::SetMinionData(FName RowName)
 
 		MinionResource.AttackMontage = Data->AttackMontage;
 
-		MinionResource.ProjectileMesh = Data->ProjectileMesh;
+		MinionResource.AllyProjectileNiagara = Data->AllyProjectileNiagara;
+		MinionResource.EnemyProjectileNiagara = Data->EnemyProjectileNiagara;
 
 		MinionResource.AllyTexture = Data->AllyTexture;
 		MinionResource.EnemyTexture = Data->EnemyTexture;

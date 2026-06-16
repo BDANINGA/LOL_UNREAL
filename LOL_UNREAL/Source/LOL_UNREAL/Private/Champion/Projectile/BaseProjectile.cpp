@@ -1,11 +1,18 @@
 // 롤 챔피언 투사체
 #include "Champion/Projectile/BaseProjectile.h"
+
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Component/LOL_AttackComponent.h"
+#include "Component/LOL_StateComponent.h"
+
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
+
 #include "BaseChampion.h"
-#include "Component/LOL_AttackComponent.h"
+#include "Minion/BaseMinion.h"
+
+#include "NiagaraComponent.h"
 
 ABaseProjectile::ABaseProjectile()
 {
@@ -22,6 +29,10 @@ ABaseProjectile::ABaseProjectile()
 	MeshComp->SetupAttachment(RootComponent);
 	MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     MeshComp->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
+
+    NiagaraComp = CreateDefaultSubobject<UNiagaraComponent>(TEXT("NiagaraComp"));
+    NiagaraComp->SetupAttachment(RootComponent);
+    NiagaraComp->bAutoActivate = false;
 
 	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileComp"));
 	ProjectileMovement->UpdatedComponent = CollisionComp;
@@ -51,13 +62,19 @@ void ABaseProjectile::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor
 {
     if (OtherActor && OtherActor != this && OtherActor != Shooter)
     {
-        if (ABaseChampion* HitChampion = Cast<ABaseChampion>(OtherActor))
+        if (Shooter)
         {
-            // 적중 이펙트나 사운드 Multicast
-            if (ABaseChampion* OwnerChampion = Cast<ABaseChampion>(Shooter))
-                OwnerChampion->AttackComponent->ExecuteAttackHit();
+            ULOL_StateComponent* ShooterState = Shooter->FindComponentByClass<ULOL_StateComponent>();
+            ULOL_StateComponent* TargetState = OtherActor->FindComponentByClass<ULOL_StateComponent>();
 
-            Deactivate();
+            if (ShooterState && TargetState && ShooterState->IsEnemy(TargetState))
+            {
+                if (ULOL_AttackComponent* AttackComp = Shooter->FindComponentByClass<ULOL_AttackComponent>())
+                {
+                    AttackComp->ExecuteAttackHit();
+                }
+                Deactivate();
+            }
         }
     }
 }
@@ -70,6 +87,11 @@ void ABaseProjectile::Deactivate()
     CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     ProjectileMovement->StopMovementImmediately();
     ProjectileMovement->SetComponentTickEnabled(false);
+
+    if (NiagaraComp)
+    {
+        NiagaraComp->Deactivate();
+    }
 }
 void ABaseProjectile::Activate(FVector SpawnLocation, AActor* Target)
 {
@@ -78,10 +100,29 @@ void ABaseProjectile::Activate(FVector SpawnLocation, AActor* Target)
     SetActorLocation(SpawnLocation);
     SetActorHiddenInGame(false);
     CollisionComp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-    ProjectileMovement->Velocity = FVector::ZeroVector;
+
+    ProjectileMovement->SetUpdatedComponent(CollisionComp);
+
+    if (Target)
+    {
+        FVector Direction = (Target->GetActorLocation() - SpawnLocation).GetSafeNormal();
+        ProjectileMovement->Velocity = Direction * ProjectileMovement->InitialSpeed;
+        FireAtTarget(Target);
+    }
+    else
+    {
+        ProjectileMovement->Velocity = FVector::ZeroVector;
+        ProjectileMovement->bIsHomingProjectile = false;
+    }
+
     ProjectileMovement->SetComponentTickEnabled(true);
-    ProjectileMovement->Activate();
-    FireAtTarget(Target);
+    ProjectileMovement->Activate(true);
+
+    if (NiagaraComp && NiagaraComp->GetAsset())
+    {
+        NiagaraComp->Activate(true);
+        NiagaraComp->ReinitializeSystem();
+    }
 }
 
 void ABaseProjectile::SetShooter(AActor* Actor)
@@ -91,5 +132,30 @@ void ABaseProjectile::SetShooter(AActor* Actor)
 
 void ABaseProjectile::SetMesh(UStaticMesh* InMesh)
 {
-    MeshComp->SetStaticMesh(InMesh);
+    if (NiagaraComp)
+    {
+        NiagaraComp->SetAsset(nullptr);
+        NiagaraComp->SetVisibility(false);
+    }
+
+    if (MeshComp && InMesh)
+    {
+        MeshComp->SetStaticMesh(InMesh);
+        MeshComp->SetVisibility(true);
+    }
+}
+
+void ABaseProjectile::SetNiagara(UNiagaraSystem* InNiagara)
+{
+    if (MeshComp)
+    {
+        MeshComp->SetStaticMesh(nullptr);
+        MeshComp->SetVisibility(false);
+    }
+
+    if (NiagaraComp && InNiagara)
+    {
+        NiagaraComp->SetAsset(InNiagara);
+        NiagaraComp->SetVisibility(true);
+    }
 }

@@ -216,12 +216,36 @@ void ULOL_AttackComponent::ExecuteRangeAttackHit()
         {
             if (Champion->ChampionResource.ProjectileMesh.Num() > 0 && Champion->ChampionResource.ProjectileMesh[0])
             {
+                Arrow->SetShooter(Champion);
                 Arrow->SetMesh(Champion->ChampionResource.ProjectileMesh[0]);
             }
 
             FVector SpawnLocation = Champion->GetActorLocation() + (Champion->GetActorForwardVector() * 50.f);
             Arrow->Activate(SpawnLocation, HitTarget);
         }
+    }
+    else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
+    {
+        UNiagaraSystem* TargetNiagara = nullptr;
+
+        APlayerController* PC = Minion->GetWorld()->GetFirstPlayerController();
+        if (PC && PC->GetPawn())
+        {
+            if (ABaseChampion* LocalPlayer = Cast<ABaseChampion>(PC->GetPawn()))
+            {
+                bool bIsEnemy = LocalPlayer->StateComponent->IsEnemy(Minion->StateComponent);
+                TargetNiagara = bIsEnemy ? Minion->MinionResource.EnemyProjectileNiagara : Minion->MinionResource.AllyProjectileNiagara;
+            }
+        }
+
+        if (TargetNiagara)
+        {
+            Arrow->SetShooter(Minion);
+            Arrow->SetNiagara(TargetNiagara);
+        }
+
+        FVector SpawnLocation = Minion->GetActorLocation() + (Minion->GetActorForwardVector() * 50.f);
+        Arrow->Activate(SpawnLocation, HitTarget);
     }
 }
 

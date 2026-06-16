@@ -19,6 +19,9 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     class UStaticMeshComponent* MeshComp;
 
+    UPROPERTY(VisibleAnywhere)
+    class UNiagaraComponent* NiagaraComp;
+
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     class UProjectileMovementComponent* ProjectileMovement;
 
@@ -33,6 +36,7 @@ public:
 
     void SetShooter(class AActor* Actor);
     void SetMesh(UStaticMesh* InMesh);
+    void SetNiagara(class UNiagaraSystem* InNiagara);
 
     bool bIsActive = false;
 protected:

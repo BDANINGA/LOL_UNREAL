@@ -25,7 +25,10 @@ public:
 	TArray<UAnimMontage*> AttackMontage;
 
 	UPROPERTY(EditAnywhere, Category = "Projectile")
-	TArray<UStaticMesh*> ProjectileMesh;
+	class UNiagaraSystem* AllyProjectileNiagara;
+
+	UPROPERTY(EditAnywhere, Category = "Projectile")
+	class UNiagaraSystem* EnemyProjectileNiagara;
 
 	UPROPERTY(EditAnywhere, Category = "Material")
 	UTexture2D* AllyTexture;
