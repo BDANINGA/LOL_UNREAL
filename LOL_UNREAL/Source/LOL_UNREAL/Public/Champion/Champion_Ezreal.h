@@ -5,6 +5,14 @@
 #include "Component/Champion_SkillComponent.h"
 #include "Champion_Ezreal.generated.h"
 
+struct FEzrealProjectileDamageData
+{
+    float Damage = 0.0f;
+    TSubclassOf<UDamageType> DamageType = nullptr;
+    bool bHitMultiple = false;
+    TSet<TWeakObjectPtr<AActor>> DamagedTargets;
+};
+
 UCLASS()
 class LOL_UNREAL_API AChampion_Ezreal : public ABaseChampion
 {
@@ -36,6 +44,28 @@ protected:
     UFUNCTION(NetMulticast, Reliable)
     void Multicast_PlayEzrealSkillMontage(UAnimMontage* Montage, float PlayRate, FRotator NewRotation);
 
+    UFUNCTION(NetMulticast, Reliable)
+    void Multicast_SpawnEzrealProjectile(
+        uint8 ProjectileType,
+        FVector StartLocation,
+        FVector EndLocation,
+        float TravelTime,
+        float CollisionRadius,
+        float Damage,
+        TSubclassOf<UDamageType> DamageType,
+        bool bHitMultiple
+    );
+
+    UFUNCTION()
+    void OnEzrealProjectileOverlap(
+        UPrimitiveComponent* OverlappedComponent,
+        AActor* OtherActor,
+        UPrimitiveComponent* OtherComp,
+        int32 OtherBodyIndex,
+        bool bFromSweep,
+        const FHitResult& SweepResult
+    );
+
     void ApplyEzrealLineSkill(
         FVector TargetLocation,
         FSkillData& SkillData,
@@ -45,4 +75,54 @@ protected:
         float ADRatio,
         bool bHitMultiple
     );
+
+    class UStaticMesh* GetEzrealProjectileMesh(uint8 ProjectileType);
+    void SpawnEzrealProjectileVisual(
+        uint8 ProjectileType,
+        FVector StartLocation,
+        FVector EndLocation,
+        float TravelTime,
+        float CollisionRadius,
+        float Damage,
+        TSubclassOf<UDamageType> DamageType,
+        bool bHitMultiple
+    );
+
+    TMap<AActor*, FEzrealProjectileDamageData> ActiveProjectiles;
+
+    UPROPERTY()
+    TObjectPtr<class UStaticMesh> QProjectileMesh;
+
+    UPROPERTY()
+    TObjectPtr<class UStaticMesh> WProjectileMesh;
+
+    UPROPERTY()
+    TObjectPtr<class UStaticMesh> RProjectileMesh;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
+    float QProjectileSpeed = 800.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
+    float WProjectileSpeed = 800.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
+    float RProjectileSpeed = 1200.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
+    float QProjectileVisualRadius = 90.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
+    float WProjectileVisualRadius = 100.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
+    float RProjectileVisualRadius = 180.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
+    float ProjectileVisualScale = 1.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
+    FVector ProjectileVisualScale3D = FVector(1.0f, 1.5f, 1.0f);
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
+    FRotator ProjectileRotationOffset = FRotator(90.0f, 0.0f, 0.0f);
 };

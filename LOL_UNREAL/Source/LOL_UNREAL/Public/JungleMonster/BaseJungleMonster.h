@@ -42,6 +42,7 @@ protected:
 
 public:	
 	virtual void Tick(float DeltaTime) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
 
@@ -58,19 +59,47 @@ public:
 	TObjectPtr<class ULOL_LifeCycleComponent> LifeCycleComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
+	TObjectPtr<class ULOL_UIComponent> UIComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
 	TObjectPtr<class ULOL_StateComponent> StateComponent;
 
 	UPROPERTY()
 	FJungleMonsterResourceData JungleMonsterResource;
 
 	virtual FName GetJungleMonsterName() const { return JungleMonsterName; }
+	FVector GetSpawnLocation() const { return SpawnLocation; }
+	FRotator GetSpawnRotation() const { return SpawnRotation; }
+	void InitializeJungleMonster(FName RowName);
 	void SetJungleMonsterData(FName RowName);
 
 protected:
-	UPROPERTY(EditDefaultsOnly, Category = "JungleMonster|Data")
+	FVector GetMeshScaleForMonster(FName RowName) const;
+	void StartReturnToSpawn();
+	void UpdateReturnToSpawn(float DeltaTime);
+	bool ShouldResetLeash() const;
+
+	UFUNCTION()
+	void OnRep_JungleMonsterName();
+
+	UPROPERTY(EditDefaultsOnly, ReplicatedUsing = OnRep_JungleMonsterName, Category = "JungleMonster|Data")
 	FName JungleMonsterName;
 
 	UPROPERTY(EditDefaultsOnly, Category = "JungleMonster|Data")
 	TObjectPtr<UDataTable> DataTable;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "JungleMonster|Leash")
+	float LeashRadius = 1200.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "JungleMonster|Leash")
+	float ReturnAcceptanceRadius = 50.0f;
+
+	UPROPERTY()
+	FVector SpawnLocation = FVector::ZeroVector;
+
+	UPROPERTY()
+	FRotator SpawnRotation = FRotator::ZeroRotator;
+
+	bool bReturningToSpawn = false;
 
 };

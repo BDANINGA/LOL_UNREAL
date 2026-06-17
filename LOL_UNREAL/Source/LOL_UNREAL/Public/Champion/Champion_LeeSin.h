@@ -58,6 +58,9 @@ protected:
 	void StartQDash(ABaseChampion* Target);
 	void UpdateQDash(float DeltaTime);
 	void FinishQDash();
+	void StartWDash(FVector Destination);
+	void UpdateWDash(float DeltaTime);
+	void FinishWDash();
 	void BeginSkillMovementLock(float Duration);
 	void EndSkillMovementLock();
 	float GetSkillMovementLockDuration(
@@ -89,13 +92,17 @@ protected:
 
 	bool bQMarkActive = false;
 	bool bIsQDashing = false;
+	bool bIsWDashing = false;
 	bool bRKnockbackActive = false;
 	bool bSkillMovementLocked = false;
 	FVector QDashStart = FVector::ZeroVector;
+	FVector WDashStart = FVector::ZeroVector;
+	FVector WDashEnd = FVector::ZeroVector;
 	FVector RKnockbackStart = FVector::ZeroVector;
 	FVector RKnockbackEnd = FVector::ZeroVector;
 	FVector RKnockbackLastLocation = FVector::ZeroVector;
 	float QDashElapsed = 0.0f;
+	float WDashElapsed = 0.0f;
 	float RKnockbackElapsed = 0.0f;
 	float WShieldRemaining = 0.0f;
 
@@ -111,16 +118,22 @@ protected:
 	float QProjectileRadius = 55.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | Q")
-	float QProjectileSpeed = 1500.0f;
+	float QProjectileSpeed = 850.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | Q")
-	float QProjectileVisualRadius = 22.0f;
+	float QProjectileVisualRadius = 45.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | Q")
+	float QProjectileVisualScale = 1.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | Q")
+	FRotator QProjectileRotationOffset = FRotator::ZeroRotator;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | Q")
 	float QMarkDuration = 3.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | Q")
-	float QDashDuration = 0.28f;
+	float QDashDuration = 0.55f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | Q")
 	float QBonusADRatio = 1.0f;
@@ -133,6 +146,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | W")
 	float WShieldDuration = 3.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | W")
+	float WDashDuration = 0.45f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | E")
 	float EBonusADRatio = 1.0f;

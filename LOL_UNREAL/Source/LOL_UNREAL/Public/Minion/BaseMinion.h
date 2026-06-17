@@ -75,6 +75,9 @@ public:
 
 	void MoveToNextWaypoint();
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision")
+	float SightRadius = 900.0f;
+
 	UPROPERTY()
 	TArray<FVector> PathPoints;
 

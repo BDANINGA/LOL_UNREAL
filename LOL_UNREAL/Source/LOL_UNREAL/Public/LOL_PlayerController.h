@@ -70,7 +70,6 @@ private:
 	UPROPERTY()
 	class ABaseChampion* MyChampion;
 
-
 	UPROPERTY()
 	class ULOL_CursorWidget* MyCursorWidget;
 	FString LastCursorState;

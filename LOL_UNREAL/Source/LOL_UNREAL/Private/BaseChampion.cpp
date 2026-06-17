@@ -10,6 +10,7 @@
 #include "Engine/DamageEvents.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/Controller.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/WidgetComponent.h"
@@ -55,7 +56,7 @@ ABaseChampion::ABaseChampion()
 	if (ResourceDataAssetTable.Succeeded()) DataTable = ResourceDataAssetTable.Object;
 
 	// 캡슐 컴포넌트의 콜리전 설정
-	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.f);
+	GetCapsuleComponent()->InitCapsuleSize(60.f, 130.f);
 	GetCapsuleComponent()->SetCollisionProfileName(TEXT("Pawn"));
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 
@@ -156,8 +157,19 @@ void ABaseChampion::PossessedBy(AController* NewController)
 
 	if (HasAuthority())
 	{
-		// Listen-server host gets team 0, remote clients get team 1 for now.
-		TeamId = NewController && NewController->IsLocalController() ? 0 : 1;
+		if (StateComponent && StateComponent->HasStatusTag(LOLTags::Team_Blue))
+		{
+			TeamId = 0;
+		}
+		else if (StateComponent && StateComponent->HasStatusTag(LOLTags::Team_Red))
+		{
+			TeamId = 1;
+		}
+		else
+		{
+			// Listen-server host gets team 0, remote clients get team 1 for now.
+			TeamId = NewController && NewController->IsLocalController() ? 0 : 1;
+		}
 	}
 }
 
@@ -243,6 +255,17 @@ void ABaseChampion::Tick(float DeltaTime)
 }
 float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
+	ULOL_StateComponent* SourceState = DamageCauser ? DamageCauser->FindComponentByClass<ULOL_StateComponent>() : nullptr;
+	if (!SourceState && EventInstigator && EventInstigator->GetPawn())
+	{
+		SourceState = EventInstigator->GetPawn()->FindComponentByClass<ULOL_StateComponent>();
+	}
+
+	if (StateComponent && SourceState && !SourceState->IsEnemy(StateComponent))
+	{
+		return 0.0f;
+	}
+
 	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 	if (StatComponent)
 	{
@@ -297,6 +320,26 @@ void ABaseChampion::Server_ExecuteAttackHit_Implementation()
 		AttackComponent->ExecuteAttackHit();
 	}
 }
+bool ABaseChampion::IsEnemyActor(AActor* TargetActor) const
+{
+	if (!TargetActor || TargetActor == this || !StateComponent)
+	{
+		return false;
+	}
+
+	ULOL_StateComponent* TargetState = TargetActor->FindComponentByClass<ULOL_StateComponent>();
+	if (TargetState)
+	{
+		return StateComponent->IsEnemy(TargetState);
+	}
+
+	if (const ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor))
+	{
+		return TargetChampion->TeamId != TeamId;
+	}
+
+	return true;
+}
 void ABaseChampion::ProcessMoveInput(FVector ClickLocation, AActor* TargetActor)
 {
 	if (IsMoveInputBlocked()) return;
@@ -311,22 +354,35 @@ void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation
 
 	MoveComponent->bIsSearchAttack = bIsSearch;
 
-	ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
-	if (TargetChampion == this)
+	AActor* AttackTarget = nullptr;
+	if (TargetActor && TargetActor != this && IsEnemyActor(TargetActor) && TargetActor->FindComponentByClass<ULOL_StateComponent>())
 	{
-		TargetChampion = nullptr;
+		AttackTarget = TargetActor;
+	}
+	else if (TargetActor)
+	{
 		TargetActor = nullptr;
 	}
 
 	if (AttackComponent && !AttackComponent->CanAttack())
 	{
-		if (TargetChampion == nullptr || TargetChampion != AttackComponent->CombatTarget)
+		if (AttackTarget == nullptr || AttackTarget != AttackComponent->CombatTarget)
 		{
 			AttackComponent->CancelAttack();
 		}
 	}
 
-	if (AttackComponent) AttackComponent->SetCombatTarget(TargetChampion);
+	if (AttackComponent) AttackComponent->SetCombatTarget(AttackTarget);
+
+	if (AttackTarget)
+	{
+		if (MoveComponent)
+		{
+			MoveComponent->StopMovement();
+			MoveComponent->bIsSearchAttack = bIsSearch;
+		}
+		return;
+	}
 
 	MoveComponent->bIsSearchAttack = bIsSearch;
 	MoveComponent->SetMoveTarget(ClickLocation, TargetActor);

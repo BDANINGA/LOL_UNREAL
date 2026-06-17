@@ -8,6 +8,7 @@
 
 #include "BaseChampion.h"
 #include "LOL_GameModeBase.h"
+#include "JungleMonster/BaseJungleMonster.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -75,6 +76,19 @@ void ULOL_LifeCycleComponent::Server_HandleDeath(AController* KillerInstigator, 
 	else
 	{
 		// 미니언/몬스터는 일정 시간(DespawnDelay) 뒤에 파괴(메모리 해제)
+		if (ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(OwnerPawn))
+		{
+			if (ALOL_GameModeBase* GM = Cast<ALOL_GameModeBase>(GetWorld()->GetAuthGameMode()))
+			{
+				GM->RequestJungleMonsterRespawn(
+					JungleMonster->GetJungleMonsterName(),
+					JungleMonster->GetSpawnLocation(),
+					JungleMonster->GetSpawnRotation(),
+					JungleRespawnDelay
+				);
+			}
+		}
+
 		FTimerHandle DestroyTimer;
 		GetWorld()->GetTimerManager().SetTimer(DestroyTimer, [this]() {
 			if (OwnerPawn) OwnerPawn->Destroy();

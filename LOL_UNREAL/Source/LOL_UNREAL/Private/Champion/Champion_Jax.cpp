@@ -36,6 +36,8 @@ AChampion_Jax::AChampion_Jax()
     {
         GrandmastersMightIdleMontage = RIdleMontageAsset.Object;
     }
+
+    GetMesh()->SetRelativeScale3D(FVector(0.8f, 0.8f, 0.8f));
 }
 
 int32 JaxSkillLevelIndex = 0;
@@ -555,17 +557,19 @@ void AChampion_Jax::FinishCounterStrike()
         QueryParams
     );
 
-    TSet<TWeakObjectPtr<ABaseChampion>> DamagedTargets;
+    TSet<TWeakObjectPtr<AActor>> DamagedTargets;
     if (bHit)
     {
         for (const FHitResult& Hit : Hits)
         {
-            ABaseChampion* Target = Cast<ABaseChampion>(Hit.GetActor());
+            AActor* Target = Hit.GetActor();
             if (!IsValid(Target) || Target == this || DamagedTargets.Contains(Target)) continue;
+            if (!Target->FindComponentByClass<ULOL_StateComponent>() || !IsEnemyActor(Target)) continue;
             DamagedTargets.Add(Target);
 
-            const float TargetMaxHP = Target->StatComponent
-                ? Target->StatComponent->GetStat().MaxHP
+            ULOL_StatComponent* TargetStat = Target->FindComponentByClass<ULOL_StatComponent>();
+            const float TargetMaxHP = TargetStat
+                ? TargetStat->GetStat().MaxHP
                 : 0.0f;
             // E = (base + 70% AP + 4% target max HP) * dodged-attack multiplier.
             const float SkillDamage = (
@@ -581,7 +585,10 @@ void AChampion_Jax::FinishCounterStrike()
                 this,
                 ULOL_DamageMagic::StaticClass()
             );
-            Target->Multicast_ApplyStun(EStunDuration);
+            if (ABaseChampion* TargetChampion = Cast<ABaseChampion>(Target))
+            {
+                TargetChampion->Multicast_ApplyStun(EStunDuration);
+            }
         }
     }
 

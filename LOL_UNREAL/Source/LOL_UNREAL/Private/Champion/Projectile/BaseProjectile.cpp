@@ -51,13 +51,14 @@ void ABaseProjectile::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor
 {
     if (OtherActor && OtherActor != this && OtherActor != Shooter)
     {
-        if (ABaseChampion* HitChampion = Cast<ABaseChampion>(OtherActor))
+        if (ABaseChampion* OwnerChampion = Cast<ABaseChampion>(Shooter))
         {
             // 적중 이펙트나 사운드 Multicast
-            if (ABaseChampion* OwnerChampion = Cast<ABaseChampion>(Shooter))
+            if (OwnerChampion->AttackComponent && OwnerChampion->AttackComponent->IsValidAttackTarget(OtherActor))
+            {
                 OwnerChampion->AttackComponent->ExecuteAttackHit();
-
-            Deactivate();
+                Deactivate();
+            }
         }
     }
 }

@@ -38,9 +38,11 @@ public:
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
 	AActor* HitTarget = nullptr;
 
-	void SetCombatTarget(AActor* Target) { CombatTarget = Target; }
+	void SetCombatTarget(AActor* Target);
+	bool IsValidAttackTarget(AActor* Target) const;
 
 	FTimerHandle AttackTimerHandle;
+	FTimerHandle AttackHitTimerHandle;
 
 	bool bCanAttack = true;
 protected:

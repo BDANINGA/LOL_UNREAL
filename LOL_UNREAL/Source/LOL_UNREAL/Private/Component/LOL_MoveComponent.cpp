@@ -55,7 +55,7 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
                 AActor* Enemy = Champion->EnemiesInRange[i];
 
                 ULOL_StateComponent* EnemyState = Enemy->FindComponentByClass<ULOL_StateComponent>();
-                if (!EnemyState || EnemyState->HasStatusTag(LOLTags::State_Dead))
+                if (!EnemyState || EnemyState->HasStatusTag(LOLTags::State_Dead) || !Champion->IsEnemyActor(Enemy))
                 {
                     Champion->EnemiesInRange.RemoveAt(i);
                     continue;
@@ -70,7 +70,7 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
             }
             if (BestTarget)
             {
-                Champion->AttackComponent->CombatTarget = BestTarget;
+                Champion->AttackComponent->SetCombatTarget(BestTarget);
                 return;
             }
         }
@@ -126,8 +126,13 @@ void ULOL_MoveComponent::SetMoveTarget(FVector NewLocation, AActor* TargetActor)
 
     if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
     {
-        ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
-        if (TargetChampion && TargetChampion != Champion) {
+        const bool bIsAttackTarget =
+            TargetActor &&
+            TargetActor != Champion &&
+            Champion->IsEnemyActor(TargetActor) &&
+            TargetActor->FindComponentByClass<ULOL_StateComponent>();
+
+        if (bIsAttackTarget) {
             Champion->StateComponent->RemoveStatusTag(LOLTags::State_Moving);
         }
         else {

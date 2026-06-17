@@ -5,6 +5,7 @@
 #include "Component/LOL_AttackComponent.h"
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_StatComponent.h"
+#include "Component/LOL_StateComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -13,6 +14,8 @@ AChampion_Tryndamere::AChampion_Tryndamere()
 {
 	ChampionName = TEXT("Tryndamere");
 	SetChampionData(ChampionName);
+
+	GetMesh()->SetRelativeScale3D(FVector(1.6f, 1.6f, 1.6f));
 }
 
 void AChampion_Tryndamere::Skill_Q()
@@ -292,8 +295,9 @@ void AChampion_Tryndamere::UpdateESpin(float DeltaTime)
 
 		for (const FHitResult& Hit : Hits)
 		{
-			ABaseChampion* Target = Cast<ABaseChampion>(Hit.GetActor());
+			AActor* Target = Hit.GetActor();
 			if (!IsValid(Target) || Target == this || EHitTargets.Contains(Target)) continue;
+			if (!Target->FindComponentByClass<ULOL_StateComponent>() || !IsEnemyActor(Target)) continue;
 
 			EHitTargets.Add(Target);
 			UGameplayStatics::ApplyDamage(
