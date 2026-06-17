@@ -19,6 +19,8 @@ public:
 	void UpdateHpFromStat(float NewHp);
 	void UpdateMpFromStat(float NewMp);
 
+	void UpdateLevel(const struct FChampionStat& CurrentStat);
+
 	void SetMaxHp(float InMaxHp) { CachedMaxHP = InMaxHp; }
 	void SetMaxMp(float InMaxMp) { CachedMaxMP = InMaxMp; }
 

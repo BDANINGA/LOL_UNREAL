@@ -115,6 +115,7 @@ void ABaseChampion::BeginPlay()
 
 		StatComponent->OnHpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateHpFromStat);
 		StatComponent->OnMpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateMpFromStat);
+		StatComponent->OnStatChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateLevel);
 		//StatComponent->OnHpZero.AddDynamic(LifeCycleComponent, &ULOL_LifeCycleComponent::Server_HandleDeath);
 		
 		UIComponent->SetMaxHp(StatComponent->GetStat().MaxHP);

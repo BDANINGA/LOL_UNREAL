@@ -141,6 +141,14 @@ void ULOL_UIComponent::UpdateMpFromStat(float NewMp)
     }
 }
 
+void ULOL_UIComponent::UpdateLevel(const FChampionStat& CurrentStat)
+{
+    if (ULOL_ChampionWidget* ChampWidgetObj = Cast<ULOL_ChampionWidget>(ActorWidget->GetUserWidgetObject()))
+    {
+        ChampWidgetObj->SetLevel(CurrentStat.Level);
+    }
+}
+
 void ULOL_UIComponent::UpdateHPBarImage(UTexture2D* TargetTexture)
 {
     UUserWidget* UserWidgetObj = ActorWidget->GetUserWidgetObject();
