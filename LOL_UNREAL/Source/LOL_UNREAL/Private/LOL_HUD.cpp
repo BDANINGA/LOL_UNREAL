@@ -49,6 +49,7 @@ void ALOL_HUD::UpdateStat(const FChampionStat& CurrentStat)
         MainHUDWidget->SetAbilityHaste(CurrentStat.AbilityHaste);
         MainHUDWidget->SetCriticalRate(CurrentStat.CriticalChance);
         MainHUDWidget->SetMoveSpeed(CurrentStat.MoveSpeed);
+        MainHUDWidget->SetLevel(CurrentStat.Level);
     }
 }
 

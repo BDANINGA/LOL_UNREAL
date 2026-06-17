@@ -68,6 +68,9 @@ public:
     UPROPERTY(meta = (BindWidget))
     UTextBlock* Txt_Gold;
 
+    UPROPERTY(meta = (BindWidget))
+    UTextBlock* Txt_Level;
+
     void SetAttackDamage(float Value) { if (Txt_AD) Txt_AD->SetText(FText::AsNumber(Value)); }
     void SetAbilityPower(float Value) { if (Txt_AP) Txt_AP->SetText(FText::AsNumber(Value)); }
     void SetArmor(float Value) { if (Txt_Armor) Txt_Armor->SetText(FText::AsNumber(Value)); }
@@ -76,6 +79,7 @@ public:
     void SetAbilityHaste(float Value) { if (Txt_AH) Txt_AH->SetText(FText::AsNumber(Value)); }
     void SetCriticalRate(float Value) { if (Txt_Crit) Txt_Crit->SetText(FText::AsNumber(Value)); }
     void SetMoveSpeed(float Value) { if (Txt_MS) Txt_MS->SetText(FText::AsNumber(Value)); }
+    void SetLevel(float Value) { if (Txt_Level) Txt_Level->SetText(FText::AsNumber(Value)); }
 
     void UpdateHP(float NewHP, float MaxHP);
     void UpdateMP(float NewMP, float MaxMP);
