@@ -1,4 +1,5 @@
 #include "Building/BaseBuilding.h"
+#include "BaseChampion.h"
 
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_StateComponent.h"
@@ -9,7 +10,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
 
-#include "BaseChampion.h"
+#include "Engine/DamageEvents.h"
 
 ABaseBuilding::ABaseBuilding()
 {
@@ -37,6 +38,14 @@ void ABaseBuilding::BeginPlay()
 		StatComponent->InitializeStat();
 	}
 
+	if (StatComponent && UIComponent)
+	{
+		StatComponent->OnHpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateHpFromStat);
+		StateComponent->OnStateTagsChanged.AddUObject(this, &ABaseBuilding::UpdateTeamVisual);
+
+		UIComponent->SetMaxHp(StatComponent->GetStat().MaxHP);
+		UIComponent->UpdateHpFromStat(StatComponent->GetCurrentHP());
+	}
 	UpdateTeamVisual();
 }
 
@@ -82,4 +91,24 @@ void ABaseBuilding::UpdateTeamVisual()
 		UTexture2D* TargetUITexture = bIsEnemy ? EnemyHPBarImage : AllyHPBarImage;
 		UIComponent->UpdateHPBarImage(TargetUITexture);
 	}
+}
+float ABaseBuilding::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+	if (StatComponent)
+	{
+		EDamageType DamageType = EDamageType::Physical;
+		if (DamageEvent.DamageTypeClass == ULOL_DamageMagic::StaticClass())
+		{
+			DamageType = EDamageType::Magic;
+		}
+		else if (DamageEvent.DamageTypeClass == ULOL_DamageTrueDamage::StaticClass())
+		{
+			DamageType = EDamageType::TrueDamage;
+		}
+		ActualDamage = StatComponent->ApplyDamage(ActualDamage, DamageType, EventInstigator, DamageCauser);
+	}
+
+	return ActualDamage;
 }

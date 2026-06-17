@@ -16,7 +16,7 @@
 
 ABaseProjectile::ABaseProjectile()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 
 	CollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComp"));
 	CollisionComp->InitSphereRadius(15.0f);
@@ -40,6 +40,29 @@ ABaseProjectile::ABaseProjectile()
 	ProjectileMovement->MaxSpeed = 1000.f;     // 최대 속도
     ProjectileMovement->ProjectileGravityScale = 0.f;
 	ProjectileMovement->bRotationFollowsVelocity = true;
+}
+
+void ABaseProjectile::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+
+    if (bIsActive)
+    {
+        if (!IsValid(CurrentTarget))
+        {
+            Deactivate();
+            return;
+        }
+
+        if (ULOL_StateComponent* TargetState = CurrentTarget->FindComponentByClass<ULOL_StateComponent>())
+        {
+            if (TargetState->HasStatusTag(LOLTags::State_Dead))
+            {
+                Deactivate();
+                return;
+            }
+        }
+    }
 }
 
 void ABaseProjectile::BeginPlay()
@@ -83,6 +106,9 @@ void ABaseProjectile::Deactivate()
 {
     bIsActive = false;
 
+    CurrentTarget = nullptr;
+    SetActorTickEnabled(false);
+
     SetActorHiddenInGame(true);
     CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     ProjectileMovement->StopMovementImmediately();
@@ -96,6 +122,9 @@ void ABaseProjectile::Deactivate()
 void ABaseProjectile::Activate(FVector SpawnLocation, AActor* Target)
 {
     bIsActive = true;
+
+    CurrentTarget = Target;
+    SetActorTickEnabled(true);
 
     SetActorLocation(SpawnLocation);
     SetActorHiddenInGame(false);

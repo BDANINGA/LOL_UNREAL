@@ -13,6 +13,8 @@ class LOL_UNREAL_API ABaseProjectile : public AActor
 public:	
 	ABaseProjectile();
 
+    virtual void Tick(float DeltaTime) override;
+
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     class USphereComponent* CollisionComp;
 
@@ -45,4 +47,7 @@ protected:
 private:
     UPROPERTY()
     AActor* Shooter;
+
+    UPROPERTY()
+    AActor* CurrentTarget;
 };

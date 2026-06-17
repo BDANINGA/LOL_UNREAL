@@ -83,7 +83,7 @@ AActor* ALOL_MinionAIController::ScanForClosestEnemy()
 	APawn* ControlledPawn = GetPawn();
 	if (!IsValid(ControlledPawn))
 	{
-		GetWorldTimerManager().ClearTimer(AI_DecisionTimer); 
+		GetWorldTimerManager().ClearTimer(AI_DecisionTimer);
 		return nullptr;
 	}
 
@@ -104,7 +104,8 @@ AActor* ALOL_MinionAIController::ScanForClosestEnemy()
 	);
 
 	AActor* BestTarget = nullptr;
-	float MinDistSquared = FLT_MAX; // 가장 가까운 적을 찾기 위한 비교 변수
+	float MinDistSquared = FLT_MAX;
+	int32 BestPriority = 999;
 
 	if (bHit)
 	{
@@ -115,12 +116,25 @@ AActor* ALOL_MinionAIController::ScanForClosestEnemy()
 
 			ULOL_StateComponent* MyState = ControlledPawn->FindComponentByClass<ULOL_StateComponent>();
 			ULOL_StateComponent* TargetState = HitActor->FindComponentByClass<ULOL_StateComponent>();
+
 			if (TargetState && !TargetState->HasStatusTag(LOLTags::State_Dead) && MyState && MyState->IsEnemy(TargetState))
 			{
-				float DistSquared = FVector::DistSquared(MyLoc, HitActor->GetActorLocation());
-				if (DistSquared < MinDistSquared)
+				int32 CurrentPriority = 999;
+				if (Cast<ABaseMinion>(HitActor)) CurrentPriority = 1;
+				else if (Cast<ABaseChampion>(HitActor)) CurrentPriority = 2;
+				else CurrentPriority = 3;
+
+				float DistSq = FVector::DistSquared(MyLoc, HitActor->GetActorLocation());
+
+				if (CurrentPriority < BestPriority)
 				{
-					MinDistSquared = DistSquared;
+					BestPriority = CurrentPriority;
+					MinDistSquared = DistSq;
+					BestTarget = HitActor;
+				}
+				else if (CurrentPriority == BestPriority && DistSq < MinDistSquared)
+				{
+					MinDistSquared = DistSq;
 					BestTarget = HitActor;
 				}
 			}

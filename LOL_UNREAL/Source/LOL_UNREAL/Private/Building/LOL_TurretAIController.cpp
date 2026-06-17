@@ -5,6 +5,8 @@
 #include "Component/LOL_AttackComponent.h"
 
 #include "Building/Building_Turret.h"
+#include "Minion/BaseMinion.h"
+#include "BaseChampion.h"
 
 #include "Engine/World.h"
 #include "Engine/OverlapResult.h"
@@ -107,6 +109,7 @@ AActor* ALOL_TurretAIController::ScanForClosestEnemy(float SearchRadius)
 
 	AActor* BestTarget = nullptr;
 	float MinDistSquared = FLT_MAX;
+	int32 BestPriority = 999;
 
 	if (bHit)
 	{
@@ -116,12 +119,32 @@ AActor* ALOL_TurretAIController::ScanForClosestEnemy(float SearchRadius)
 			if (!IsValid(HitActor) || HitActor == ControlledPawn) continue;
 
 			ULOL_StateComponent* OtherState = HitActor->FindComponentByClass<ULOL_StateComponent>();
-			if (!OtherState) continue;
+			if (!OtherState || OtherState->HasStatusTag(LOLTags::State_Dead)) continue;
 
 			if (MyState->IsEnemy(OtherState))
 			{
+				int32 CurrentPriority = 999;
+				if (Cast<ABaseMinion>(HitActor))
+				{
+					CurrentPriority = 1;
+				}
+				else if (Cast<ABaseChampion>(HitActor))
+				{
+					CurrentPriority = 2;
+				}
+				else
+				{
+					CurrentPriority = 3;
+				}
+
 				float DistSq = FVector::DistSquared(MyLoc, HitActor->GetActorLocation());
-				if (DistSq < MinDistSquared)
+				if (CurrentPriority < BestPriority)
+				{
+					BestPriority = CurrentPriority;
+					MinDistSquared = DistSq;
+					BestTarget = HitActor;
+				}
+				else if (CurrentPriority == BestPriority && DistSq < MinDistSquared)
 				{
 					MinDistSquared = DistSq;
 					BestTarget = HitActor;
