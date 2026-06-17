@@ -126,7 +126,16 @@ void ALOL_GameModeBase::BeginPlay()
 
 void ALOL_GameModeBase::RequestRespawn(ABaseChampion* DeadChampion)
 {
-    float RespawnDelay = 5.0f; // 나중에는 레벨에 따라 계산식 적용
+    if (!DeadChampion) return;
+
+    int32 ChampionLevel = 1;
+    ULOL_StatComponent* StatComp = DeadChampion->FindComponentByClass<ULOL_StatComponent>();
+    if (StatComp)
+    {
+        ChampionLevel = StatComp->GetStat().Level;
+    }
+
+    float RespawnDelay = 10.0f + (ChampionLevel * 2.5f);
 
     ULOL_LifeCycleComponent* LifeCycleComp = DeadChampion->FindComponentByClass<ULOL_LifeCycleComponent>();
 
@@ -135,7 +144,6 @@ void ALOL_GameModeBase::RequestRespawn(ABaseChampion* DeadChampion)
         FTimerHandle RespawnTimer;
         FTimerDelegate RespawnDelegate;
 
-        // 핵심 수정: 바인딩 대상을 컴포넌트와 컴포넌트의 Respawn 함수로 변경합니다.
         RespawnDelegate.BindUObject(LifeCycleComp, &ULOL_LifeCycleComponent::Respawn);
 
         GetWorldTimerManager().SetTimer(RespawnTimer, RespawnDelegate, RespawnDelay, false);

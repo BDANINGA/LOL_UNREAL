@@ -14,6 +14,8 @@
 #include "Components/WidgetComponent.h"
 #include "TimerManager.h"
 #include "Net/UnrealNetwork.h"
+#include "Kismet/GameplayStatics.h"
+#include "GameFramework/PlayerStart.h"
 
 ULOL_LifeCycleComponent::ULOL_LifeCycleComponent()
 {
@@ -114,6 +116,32 @@ void ULOL_LifeCycleComponent::Respawn()
 {
 	if (!OwnerPawn || !OwnerPawn->HasAuthority() || !bCanRespawn) return;
 
+	TArray<AActor*> FoundActors;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), APlayerStart::StaticClass(), FoundActors);
+	
+	AActor* TargetStart = nullptr;
+
+	FName TeamTag = "BlueTeam";
+
+	for (AActor* Actor : FoundActors)
+	{
+		if (Actor->ActorHasTag(TeamTag))
+		{
+			TargetStart = Actor;
+			break;
+		}
+	}
+
+	if (!TargetStart && FoundActors.Num() > 0)
+	{
+		TargetStart = FoundActors[0];
+	}
+
+	if (TargetStart)
+	{
+		OwnerPawn->TeleportTo(TargetStart->GetActorLocation(), TargetStart->GetActorRotation());
+	}
+
 	if (ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>())
 	{
 		StateComp->RemoveStatusTag(LOLTags::State_Dead);
@@ -125,7 +153,6 @@ void ULOL_LifeCycleComponent::Respawn()
 		StatComp->SetMP(StatComp->GetStat().MaxMP);
 	}
 
-	OwnerPawn->SetActorLocation(FVector(-4803.230668, 5708.599208, -1461.45844));
 	Multicast_OnRespawn();
 }
 void ULOL_LifeCycleComponent::Multicast_OnRespawn_Implementation()
@@ -134,6 +161,7 @@ void ULOL_LifeCycleComponent::Multicast_OnRespawn_Implementation()
 
 	TArray<UPrimitiveComponent*> PrimitiveComps;
 	OwnerPawn->GetComponents<UPrimitiveComponent>(PrimitiveComps);
+
 	for (UPrimitiveComponent* Comp : PrimitiveComps)
 	{
 		Comp->SetCollisionProfileName(TEXT("Pawn"));
