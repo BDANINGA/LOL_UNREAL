@@ -32,8 +32,8 @@ public:
     UPROPERTY(meta = (BindWidget))
     class UProgressBar* MPProgressBar;
 
-    UPROPERTY(meta = (BindWidget))
-    class UProgressBar* EXPProgressBar;
+    /*UPROPERTY(meta = (BindWidget))
+    class UProgressBar* EXPProgressBar;*/
 
     UPROPERTY(meta = (BindWidget))
     UTextBlock* Txt_AD;

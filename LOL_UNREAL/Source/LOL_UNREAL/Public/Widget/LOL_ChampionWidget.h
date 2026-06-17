@@ -18,14 +18,14 @@ protected:
     UPROPERTY(meta = (BindWidget))
     class UProgressBar* MPbar;
 
-    UPROPERTY(meta = (BindWidget))
-    UTextBlock* Txt_Level;
+    /*UPROPERTY(meta = (BindWidget))
+    UTextBlock* Txt_Level;*/
 
 public:
     void UpdateHP(float Percent);
     void UpdateMP(float Percent);
 
-    void SetLevel(float Value) { if (Txt_Level) Txt_Level->SetText(FText::AsNumber(Value)); }
+    void SetLevel(float Value) { /*if (Txt_Level) Txt_Level->SetText(FText::AsNumber(Value));*/ }
 
     void AdjustLayoutForResolution();
 };
