@@ -125,7 +125,7 @@ void ULOL_LifeCycleComponent::Respawn()
 	if (ABaseChampion* OwnerChampion = Cast<ABaseChampion>(OwnerPawn))
 	{
 		if(OwnerChampion->StateComponent->HasStatusTag(LOLTags::Team_Blue)) TeamTag = "BlueTeam";
-		else FName TeamTag = "RedTeam";
+		else TeamTag = "RedTeam";
 	}
 	
 

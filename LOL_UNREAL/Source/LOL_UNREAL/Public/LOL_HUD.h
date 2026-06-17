@@ -29,6 +29,8 @@ public:
 
     void UpdateHP(float NewHP);
     void UpdateMP(float NewMP);
+    void UpdateGold(float NewGold);
+    void UpdateEXP(float NewEXP);
 
     void UpdateSkillCoolDown(FName SkillName, float CoolLocalEndTime, float CoolEndTime);
 

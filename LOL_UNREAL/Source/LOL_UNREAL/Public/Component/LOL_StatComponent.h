@@ -156,6 +156,10 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnHpChangedDelegate, float /*CurrentHp*/);
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMpChangedDelegate, float /*CurrentMp*/);
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnGoldChangedDelegate, float /*CurrentGold*/);
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnEXPChangedDelegate, float /*CurrentEXP*/);
+
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnStatChangedDelegate, const FChampionStat&);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHpZeroDelegate, AController*, KillerInstigator, AActor*, DamageCauser);
@@ -174,9 +178,14 @@ protected:
 public:	
 	UPROPERTY(BlueprintAssignable)
 	FOnHpZeroDelegate OnHpZero;
+
 	FOnHpChangedDelegate OnHpChanged;
 
 	FOnMpChangedDelegate OnMpChanged;
+
+	FOnGoldChangedDelegate OnGoldChanged;
+
+	FOnEXPChangedDelegate OnEXPChanged;
 
 	FOnStatChangedDelegate OnStatChanged;
 
@@ -198,6 +207,7 @@ public:
 
 	FORCEINLINE float GetGiveGold() const { return BaseStat.GiveGold; }
 	FORCEINLINE float GetGiveEXP() const { return BaseStat.GiveEXP; }
+	FORCEINLINE float GetMaxEXP() const { return MaxEXP; }
 
 	void AddGold(float Amount);
 	void AddEXP(float Amount);
@@ -214,9 +224,13 @@ protected:
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentMP)
 	float CurrentMP;
 
+	UPROPERTY(ReplicatedUsing = OnRep_CurrentEXP)
 	float CurrentEXP = 0;
+
+	UPROPERTY(ReplicatedUsing = OnRep_CurrentGold)
 	float CurrentGold = 0;
-	
+
+	UPROPERTY()
 	float MaxEXP = 280;
 
 	UFUNCTION()
@@ -227,6 +241,12 @@ protected:
 
 	UFUNCTION()
 	void OnRep_CurrentMP();
+
+	UFUNCTION()
+	void OnRep_CurrentGold();
+
+	UFUNCTION()
+	void OnRep_CurrentEXP();
 
 	UPROPERTY(EditAnywhere, Category = "Stat|Data")
 	class UDataTable* ChampionStatDataTable;

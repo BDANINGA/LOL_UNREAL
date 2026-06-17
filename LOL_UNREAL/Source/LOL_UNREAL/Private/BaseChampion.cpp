@@ -133,6 +133,8 @@ void ABaseChampion::BeginPlay()
 					StatComponent->OnStatChanged.AddUObject(MyHUD, &ALOL_HUD::UpdateStat);
 					StatComponent->OnHpChanged.AddUObject(MyHUD, &ALOL_HUD::UpdateHP);
 					StatComponent->OnMpChanged.AddUObject(MyHUD, &ALOL_HUD::UpdateMP);
+					StatComponent->OnGoldChanged.AddUObject(MyHUD, &ALOL_HUD::UpdateGold);
+					StatComponent->OnEXPChanged.AddUObject(MyHUD, &ALOL_HUD::UpdateEXP);
 					MyHUD->UpdateAll_Images(this);
 					MyHUD->UpdateStat(StatComponent->GetStat());
 					MyHUD->UpdateHP(StatComponent->GetCurrentHP());

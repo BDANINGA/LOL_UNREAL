@@ -91,6 +91,25 @@ void ALOL_HUD::UpdateMP(float NewMP)
         MainHUDWidget->UpdateMP(NewMP, MyChampion->StatComponent->GetStat().MaxMP);
 }
 
+void ALOL_HUD::UpdateGold(float NewGold)
+{
+    if (MainHUDWidget) MainHUDWidget->UpdateGold(NewGold);
+}
+
+void ALOL_HUD::UpdateEXP(float NewEXP)
+{
+    if (MyChampion == nullptr)
+    {
+        APlayerController* PC = GetOwningPlayerController();
+        if (PC)
+        {
+            MyChampion = Cast<ABaseChampion>(PC->GetPawn());
+        }
+    }
+
+    if (MainHUDWidget && MyChampion && MyChampion->StatComponent) MainHUDWidget->UpdateEXP(NewEXP, MyChampion->StatComponent->GetMaxEXP());
+}
+
 void ALOL_HUD::UpdateSkillCoolDown(FName SkillName, float CoolLocalEndTime, float CoolEndTime)
 {
     if (MainHUDWidget)

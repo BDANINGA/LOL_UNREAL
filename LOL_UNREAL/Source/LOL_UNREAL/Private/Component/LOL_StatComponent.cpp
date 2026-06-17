@@ -141,6 +141,8 @@ void ULOL_StatComponent::AddGold(float Amount)
 	if (Amount <= 0.f) return;
 
 	CurrentGold += Amount;
+
+	OnRep_CurrentGold();
 }
 
 void ULOL_StatComponent::AddEXP(float Amount)
@@ -173,6 +175,7 @@ void ULOL_StatComponent::AddEXP(float Amount)
 
 		// 클라이언트들에게 능력치가 변했음을 전파
 		OnRep_BaseStat();
+		OnRep_CurrentEXP();
 
 		// 만렙 도달 시 탈출
 		if (BaseStat.Level >= 18)
@@ -203,6 +206,9 @@ void ULOL_StatComponent::HandleRegeneration()
 	{
 		SetMP(CurrentMP + MPRatio);
 	}
+
+	CurrentGold += 1;
+	OnRep_CurrentGold();
 }
 
 void ULOL_StatComponent::OnRep_BaseStat()
@@ -222,6 +228,16 @@ void ULOL_StatComponent::OnRep_CurrentHP()
 void ULOL_StatComponent::OnRep_CurrentMP()
 {
 	if (OnMpChanged.IsBound()) OnMpChanged.Broadcast(CurrentMP);
+}
+
+void ULOL_StatComponent::OnRep_CurrentGold()
+{
+	if (OnGoldChanged.IsBound()) OnGoldChanged.Broadcast(CurrentGold);
+}
+
+void ULOL_StatComponent::OnRep_CurrentEXP()
+{
+	if (OnEXPChanged.IsBound()) OnEXPChanged.Broadcast(CurrentEXP);
 }
 
 float ULOL_StatComponent::ApplyDamage(float InDamage, EDamageType DamageType, AController* Instigator, AActor* Causer)

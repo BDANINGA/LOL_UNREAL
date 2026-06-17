@@ -32,6 +32,8 @@ public:
     UPROPERTY(meta = (BindWidget))
     class UProgressBar* MPProgressBar;
 
+    UPROPERTY(meta = (BindWidget))
+    class UProgressBar* EXPProgressBar;
 
     UPROPERTY(meta = (BindWidget))
     UTextBlock* Txt_AD;
@@ -77,6 +79,8 @@ public:
 
     void UpdateHP(float NewHP, float MaxHP);
     void UpdateMP(float NewMP, float MaxMP);
+    void UpdateEXP(float NewEXP, float MaxEXP);
+    void UpdateGold(float NewGold) { if (Txt_Gold) Txt_Gold->SetText(FText::AsNumber(NewGold)); }
 
     void SetSkillCooldown(FName SkillName, float CoolLocalEndTime, float CoolEndTime);
     void SetSkillImage(FName SkillName, UTexture2D* IconTexture);

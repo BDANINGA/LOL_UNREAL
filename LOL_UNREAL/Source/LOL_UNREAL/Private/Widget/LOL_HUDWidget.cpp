@@ -105,6 +105,11 @@ void ULOL_HUDWidget::UpdateMP(float NewMP, float MaxMP)
     }
 }
 
+void ULOL_HUDWidget::UpdateEXP(float NewEXP, float MaxEXP)
+{
+    if (EXPProgressBar) MPProgressBar->SetPercent(NewEXP / MaxEXP);
+}
+
 void ULOL_HUDWidget::SetSkillImage(FName SkillName, UTexture2D* IconTexture)
 {
     UMaterialInstanceDynamic* TargetMID = nullptr;
