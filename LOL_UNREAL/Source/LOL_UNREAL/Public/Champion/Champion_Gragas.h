@@ -58,11 +58,15 @@ protected:
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_DestroyQProjectile();
 
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_SpawnGragasExplosionEffect(FVector SpawnLocation, float VisualRadius);
+
+	void SpawnGragasExplosionEffect(FVector SpawnLocation, float VisualRadius);
 	void ExplodeQ();
 	void EndWEmpower();
 	void EndWDamageReduction();
 	void UpdateEDash(float DeltaTime);
-	void FinishEDash(ABaseChampion* HitTarget);
+	void FinishEDash(AActor* HitTarget);
 	void ExplodeR();
 	void RestoreQSlow(TWeakObjectPtr<ABaseChampion> Target);
 	void BeginMovementLock(float Duration);
@@ -81,7 +85,13 @@ protected:
 	TObjectPtr<class UStaticMesh> RProjectileMesh;
 
 	UPROPERTY()
+	TObjectPtr<class UStaticMesh> FloatEffectMesh;
+
+	UPROPERTY()
 	TObjectPtr<class UMaterialInterface> ProjectileMaterial;
+
+	UPROPERTY()
+	TObjectPtr<class UMaterialInterface> FloatEffectMaterial;
 
 	UPROPERTY()
 	TObjectPtr<AActor> LocalQProjectileActor;
@@ -120,7 +130,7 @@ protected:
 	float QExplosionRadius = 300.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gragas | Q")
-	float QProjectileSpeed = 1100.0f;
+	float QProjectileSpeed = 650.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gragas | Q")
 	float QProjectileVisualRadius = 55.0f;
@@ -171,13 +181,28 @@ protected:
 	float RAbilityPowerRatio = 0.8f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gragas | R")
-	float RExplosionRadius = 400.0f;
+	float RExplosionRadius = 600.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gragas | R")
-	float RProjectileSpeed = 1200.0f;
+	float RProjectileSpeed = 700.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gragas | R")
 	float RProjectileVisualRadius = 70.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gragas | Visual")
+	float QExplosionEffectVisualRadius = 550.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gragas | Visual")
+	float RExplosionEffectVisualRadius = 900.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gragas | Visual")
+	float ExplosionEffectLifeTime = 2.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gragas | Visual")
+	float ExplosionEffectHeightOffset = 220.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gragas | Visual")
+	FRotator ExplosionEffectRotation = FRotator(90.0f, 0.0f, 0.0f);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gragas | R")
 	float RKnockbackSpeed = 1800.0f;

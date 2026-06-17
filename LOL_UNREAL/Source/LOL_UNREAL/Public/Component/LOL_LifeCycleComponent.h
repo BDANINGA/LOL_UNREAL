@@ -26,6 +26,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LifeCycle")
 	float DespawnDelay = 3.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LifeCycle")
+	float JungleRespawnDelay = 15.0f;
+
 protected:
 	virtual void BeginPlay() override;
 

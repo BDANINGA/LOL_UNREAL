@@ -41,9 +41,44 @@ void ULOL_AttackComponent::BeginPlay()
         }
     }
 }
+
+bool ULOL_AttackComponent::IsValidAttackTarget(AActor* Target) const
+{
+    if (!OwnerPawn || !Target || Target == OwnerPawn)
+    {
+        return false;
+    }
+
+    if (const ABaseChampion* OwnerChampion = Cast<ABaseChampion>(OwnerPawn))
+    {
+        return OwnerChampion->IsEnemyActor(Target);
+    }
+
+    ULOL_StateComponent* OwnerState = OwnerPawn->FindComponentByClass<ULOL_StateComponent>();
+    ULOL_StateComponent* TargetState = Target->FindComponentByClass<ULOL_StateComponent>();
+    if (OwnerState && TargetState)
+    {
+        return OwnerState->IsEnemy(TargetState);
+    }
+
+    return false;
+}
+
+void ULOL_AttackComponent::SetCombatTarget(AActor* Target)
+{
+    CombatTarget = IsValidAttackTarget(Target) ? Target : nullptr;
+}
+
 void ULOL_AttackComponent::UpdateAttackLogic()
 {
     if (!OwnerPawn || !CombatTarget) return;
+
+    if (!IsValidAttackTarget(CombatTarget))
+    {
+        CombatTarget = nullptr;
+        HitTarget = nullptr;
+        return;
+    }
 
     ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>();
     ULOL_StatComponent* StatComp = OwnerPawn->FindComponentByClass<ULOL_StatComponent>();
@@ -94,17 +129,28 @@ void ULOL_AttackComponent::StartAttack()
 {
     if (!OwnerPawn || !CombatTarget) return;
 
+    if (!IsValidAttackTarget(CombatTarget))
+    {
+        CombatTarget = nullptr;
+        HitTarget = nullptr;
+        return;
+    }
+
     ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>();
     ULOL_StatComponent* StatComp = OwnerPawn->FindComponentByClass<ULOL_StatComponent>();
     if (!StateComp || !StatComp) return;
 
     bCanAttack = false;
     bHitHappened = false;
+    GetWorld()->GetTimerManager().ClearTimer(AttackHitTimerHandle);
 
     StateComp->AddStatusTag(LOLTags::State_Attacking);
     StateComp->RemoveStatusTag(LOLTags::State_Moving);
 
     HitTarget = CombatTarget;
+    const bool bUseTimedHitFallback =
+        OwnerPawn->HasAuthority() &&
+        !StateComp->HasStatusTag(LOLTags::Champion_Ranged);
 
     if (OwnerPawn->HasAuthority())
     {
@@ -117,9 +163,17 @@ void ULOL_AttackComponent::StartAttack()
 
             if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
             {
+                const int32 AttackMontageIndex = Champion->GetAM_Atk_Idx();
+                UAnimMontage* AttackMontage =
+                    Champion->ChampionResource.AttackMontage.IsValidIndex(AttackMontageIndex)
+                    ? Champion->ChampionResource.AttackMontage[AttackMontageIndex]
+                    : nullptr;
+
                 Champion->Multicast_SetTargetAndPlayMontage(
-                Champion->ChampionResource.AttackMontage[Champion->GetAM_Atk_Idx()],
-                StatComp->GetStat().AttackSpeed, NewRotation);
+                    AttackMontage,
+                    StatComp->GetStat().AttackSpeed,
+                    NewRotation
+                );
             }
             else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
             {
@@ -144,6 +198,23 @@ void ULOL_AttackComponent::StartAttack()
         }
     }
     float AttackDelay = 1.0f / StatComp->GetStat().AttackSpeed;
+    if (bUseTimedHitFallback)
+    {
+        const float HitDelay = FMath::Clamp(AttackDelay * 0.35f, 0.1f, AttackDelay);
+        GetWorld()->GetTimerManager().SetTimer(
+            AttackHitTimerHandle,
+            FTimerDelegate::CreateWeakLambda(this, [this]()
+            {
+                if (!bHitHappened)
+                {
+                    ExecuteAttackHit();
+                }
+                EndAttack();
+            }),
+            HitDelay,
+            false
+        );
+    }
     GetWorld()->GetTimerManager().SetTimer(AttackTimerHandle, this, &ULOL_AttackComponent::ResetAttack, AttackDelay, false);
 }
 
@@ -178,6 +249,12 @@ void ULOL_AttackComponent::ResetAttack()
 void ULOL_AttackComponent::ExecuteAttackHit()
 {
     if (!OwnerPawn || !HitTarget) return;
+    if (!IsValidAttackTarget(HitTarget))
+    {
+        HitTarget = nullptr;
+        return;
+    }
+
     ULOL_StatComponent* StatComp = OwnerPawn->FindComponentByClass<ULOL_StatComponent>();
     ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>();
     if (!StatComp || !StateComp) return;
@@ -208,6 +285,11 @@ void ULOL_AttackComponent::ExecuteAttackHit()
 void ULOL_AttackComponent::ExecuteRangeAttackHit()
 {
     if (!OwnerPawn || !HitTarget) return;
+    if (!IsValidAttackTarget(HitTarget))
+    {
+        HitTarget = nullptr;
+        return;
+    }
 
     ULOL_StatComponent* StatComp = OwnerPawn->FindComponentByClass<ULOL_StatComponent>();
     ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>();
@@ -302,6 +384,7 @@ void ULOL_AttackComponent::CancelAttack()
             Champion->StopAnimMontage();
             ResetAttack();
             GetWorld()->GetTimerManager().ClearTimer(AttackTimerHandle);
+            GetWorld()->GetTimerManager().ClearTimer(AttackHitTimerHandle);
             Champion->StateComponent->RemoveStatusTag(LOLTags::State_Attacking);
         }
     }
@@ -314,6 +397,7 @@ void ULOL_AttackComponent::ReceivedCrowdControl()
     if (GetWorld())
     {
         GetWorld()->GetTimerManager().ClearTimer(AttackTimerHandle);
+        GetWorld()->GetTimerManager().ClearTimer(AttackHitTimerHandle);
     }
 }
 ABaseProjectile* ULOL_AttackComponent::GetProjectileFromPool()

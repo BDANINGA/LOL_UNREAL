@@ -11,6 +11,7 @@
 #include "Widget/LOL_MinionWidget.h"
 #include "LOL_HUD.h"
 #include "BaseChampion.h"
+#include "JungleMonster/BaseJungleMonster.h"
 
 ULOL_UIComponent::ULOL_UIComponent()
 {
@@ -25,6 +26,9 @@ ULOL_UIComponent::ULOL_UIComponent()
 
     static ConstructorHelpers::FClassFinder<UUserWidget> MinionRef(TEXT("/Game/UI/minion_widget/WBP_MinionWidget.WBP_MinionWidget_C"));
     if (MinionRef.Succeeded()) MinionWidgetClass = MinionRef.Class;
+
+    static ConstructorHelpers::FClassFinder<UUserWidget> JungleMonsterRef(TEXT("/Game/UI/minion_widget/minion_hp_enemy.minion_hp_enemy_C"));
+    if (JungleMonsterRef.Succeeded()) JungleMonsterWidgetClass = JungleMonsterRef.Class;
 
     RangeIndicator = CreateDefaultSubobject<UDecalComponent>(TEXT("RangeIndicator"));
     RangeIndicator->SetRelativeLocation(FVector(0.f, 0.f, -90.f)); 
@@ -58,6 +62,14 @@ void ULOL_UIComponent::BeginPlay()
             ActorWidget->SetRelativeLocation(FVector(0.0f, 0.0f, 200.0f));
 
             RangeIndicator->AttachToComponent(Champ->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+        }
+        else if (Cast<ABaseJungleMonster>(OwnerPawn))
+        {
+            ActorWidget->SetWidgetClass(JungleMonsterWidgetClass ? JungleMonsterWidgetClass : MinionWidgetClass);
+            ActorWidget->SetDrawSize(FVector2D(50.f, 5.f));
+            ActorWidget->SetRelativeLocation(FVector(0.0f, 0.0f, 130.0f));
+
+            RangeIndicator->DestroyComponent();
         }
         else
         {
@@ -140,7 +152,6 @@ void ULOL_UIComponent::UpdateMpFromStat(float NewMp)
         ChampWidgetObj->UpdateMP(NewMp / StatComp->GetStat().MaxMP);
     }
 }
-
 void ULOL_UIComponent::UpdateLevel(const FChampionStat& CurrentStat)
 {
     if (ULOL_ChampionWidget* ChampWidgetObj = Cast<ULOL_ChampionWidget>(ActorWidget->GetUserWidgetObject()))

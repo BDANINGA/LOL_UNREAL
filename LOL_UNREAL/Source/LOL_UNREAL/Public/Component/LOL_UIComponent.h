@@ -52,6 +52,7 @@ protected:
 private:
 	TSubclassOf<class UUserWidget> ChampionWidgetClass;
 	TSubclassOf<class UUserWidget> MinionWidgetClass;
+	TSubclassOf<class UUserWidget> JungleMonsterWidgetClass;
 
 	float CachedMaxHP = -1.f;
 	float CachedMaxMP = -1.f;

@@ -12,6 +12,7 @@
 #include "Widget/LOL_CursorWidget.h"
 
 #include "Component/LOL_MoveComponent.h"
+#include "Component/LOL_StateComponent.h"
 #include "Component/LOL_UIComponent.h"
 
 #include "Net/UnrealNetwork.h"
@@ -80,6 +81,7 @@ void ALOL_PlayerController::BeginPlay()
 				SetMouseCursorWidget(EMouseCursor::Default, MyCursorWidget);
 			}
 		}
+
 	}
 	
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
@@ -327,27 +329,19 @@ void ALOL_PlayerController::UpdateCursorSelection()
 	if (GetHitResultUnderCursor(ECC_Visibility, false, Hit))
 	{
 		AActor* TargetActor = Hit.GetActor();
-		ABaseChampion* TargetChampion = Cast<ABaseChampion>(TargetActor);
-		ABaseMinion* TargetMinion = Cast<ABaseMinion>(TargetActor);
-
-		if (TargetChampion && TargetChampion != MyChampion && MyChampion->GetIsPressA())
+		bool bIsEnemyTarget = false;
+		if (TargetActor && TargetActor != MyChampion && TargetActor->FindComponentByClass<ULOL_StateComponent>())
+		{
+			bIsEnemyTarget = MyChampion->IsEnemyActor(TargetActor);
+		}
+		if (bIsEnemyTarget && MyChampion->GetIsPressA())
 		{
 			ChangeCursorType(TEXT("SelectEnemy"));
 			return;
 		}
-		else if (TargetMinion && MyChampion->GetIsPressA())
-		{
-			ChangeCursorType(TEXT("SelectEnemy"));
-			return;
-		}
-		else if (TargetChampion && TargetChampion != MyChampion)
+		else if (bIsEnemyTarget)
 		{
 			ChangeCursorType(TEXT("Attack")); 
-			return;
-		}
-		else if (TargetMinion)
-		{
-			ChangeCursorType(TEXT("Attack"));
 			return;
 		}
 		else if (MyChampion->GetIsPressA())

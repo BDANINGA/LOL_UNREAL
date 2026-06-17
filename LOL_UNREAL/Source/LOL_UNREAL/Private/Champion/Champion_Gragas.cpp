@@ -5,6 +5,7 @@
 #include "Component/LOL_AttackComponent.h"
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_StatComponent.h"
+#include "Component/LOL_StateComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -33,11 +34,33 @@ AChampion_Gragas::AChampion_Gragas()
 		RProjectileMesh = RMeshAsset.Object;
 	}
 
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> FloatEffectMeshAsset(
+		TEXT("/Game/Level/gragas/tex_gragas/gragas_float.gragas_float"));
+	if (FloatEffectMeshAsset.Succeeded())
+	{
+		FloatEffectMesh = FloatEffectMeshAsset.Object;
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Gragas float effect mesh failed to load."));
+	}
+
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> MaterialAsset(
 		TEXT("/Game/Level/gragas/mat_gragas/m_gragas_q.m_gragas_q"));
 	if (MaterialAsset.Succeeded())
 	{
 		ProjectileMaterial = MaterialAsset.Object;
+	}
+
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> FloatMaterialAsset(
+		TEXT("/Game/Level/gragas/tex_gragas/m_gragas_float.m_gragas_float"));
+	if (FloatMaterialAsset.Succeeded())
+	{
+		FloatEffectMaterial = FloatMaterialAsset.Object;
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Gragas float effect material failed to load."));
 	}
 }
 
@@ -54,6 +77,13 @@ void AChampion_Gragas::Skill_Q()
 	if (PlayerController->GetHitResultUnderCursor(ECC_Visibility, false, Hit))
 	{
 		TargetLocation = Hit.ImpactPoint;
+	}
+
+	FVector Direction = TargetLocation - GetActorLocation();
+	Direction.Z = 0.0f;
+	if (!Direction.IsNearlyZero())
+	{
+		SetActorRotation(Direction.Rotation());
 	}
 
 	Server_Skill_Q(TargetLocation);
@@ -98,6 +128,13 @@ void AChampion_Gragas::Skill_R()
 		TargetLocation = Hit.ImpactPoint;
 	}
 
+	FVector Direction = TargetLocation - GetActorLocation();
+	Direction.Z = 0.0f;
+	if (!Direction.IsNearlyZero())
+	{
+		SetActorRotation(Direction.Rotation());
+	}
+
 	Server_Skill_R(TargetLocation);
 }
 
@@ -129,7 +166,7 @@ void AChampion_Gragas::Server_Skill_Q_Implementation(FVector TargetLocation)
 	BeginMovementLock(GetAnimationDuration(0, 0.55f));
 	Multicast_PlayGragasSkillAnimation(0, 1.0f, Direction.Rotation());
 
-	const FVector Start = GetActorLocation() + FVector(0.0f, 0.0f, 65.0f);
+	const FVector Start = GetActorLocation() + FVector(0.0f, 0.0f, 40.0f);
 	QExplosionLocation.Z = Start.Z;
 	QTravelTime =
 		FVector::Dist2D(Start, QExplosionLocation) /
@@ -260,7 +297,7 @@ void AChampion_Gragas::Server_Skill_R_Implementation(FVector TargetLocation)
 	BeginMovementLock(GetAnimationDuration(3, 0.7f));
 	Multicast_PlayGragasSkillAnimation(3, 1.0f, Direction.Rotation());
 
-	const FVector Start = GetActorLocation() + FVector(0.0f, 0.0f, 75.0f);
+	const FVector Start = GetActorLocation() + FVector(0.0f, 0.0f, 40.0f);
 	RExplosionLocation.Z = Start.Z;
 	const float TravelTime =
 		FVector::Dist2D(Start, RExplosionLocation) /
@@ -296,11 +333,20 @@ void AChampion_Gragas::Tick(float DeltaTime)
 
 void AChampion_Gragas::ExplodeQ()
 {
+	UE_LOG(LogTemp, Warning, TEXT("Gragas ExplodeQ called. HasAuthority=%d bQActive=%d"), HasAuthority() ? 1 : 0, bQActive ? 1 : 0);
 	if (!HasAuthority() || !bQActive || !SkillComponent || !StatComponent) return;
 
 	GetWorldTimerManager().ClearTimer(QExplosionTimerHandle);
 	bQActive = false;
 	Multicast_DestroyQProjectile();
+	SpawnGragasExplosionEffect(
+		QExplosionLocation,
+		QExplosionEffectVisualRadius
+	);
+	Multicast_SpawnGragasExplosionEffect(
+		QExplosionLocation,
+		QExplosionEffectVisualRadius
+	);
 
 	const FSkillData& QData = SkillComponent->GetQ_Data();
 	const float ChargeTime = FMath::Max(
@@ -334,11 +380,12 @@ void AChampion_Gragas::ExplodeQ()
 	);
 	if (!bHit) return;
 
-	TSet<TWeakObjectPtr<ABaseChampion>> DamagedTargets;
+	TSet<TWeakObjectPtr<AActor>> DamagedTargets;
 	for (const FHitResult& Hit : Hits)
 	{
-		ABaseChampion* Target = Cast<ABaseChampion>(Hit.GetActor());
+		AActor* Target = Hit.GetActor();
 		if (!IsValid(Target) || Target == this || DamagedTargets.Contains(Target)) continue;
+		if (!Target->FindComponentByClass<ULOL_StateComponent>() || !IsEnemyActor(Target)) continue;
 		DamagedTargets.Add(Target);
 
 		UGameplayStatics::ApplyDamage(
@@ -349,19 +396,22 @@ void AChampion_Gragas::ExplodeQ()
 			ULOL_DamageMagic::StaticClass()
 		);
 
-		UCharacterMovementComponent* TargetMovement = Target->GetCharacterMovement();
+		ABaseChampion* TargetChampion = Cast<ABaseChampion>(Target);
+		if (!TargetChampion) continue;
+
+		UCharacterMovementComponent* TargetMovement = TargetChampion->GetCharacterMovement();
 		if (!TargetMovement) continue;
 
-		const TWeakObjectPtr<ABaseChampion> TargetKey(Target);
+		const TWeakObjectPtr<ABaseChampion> TargetKey(TargetChampion);
 		if (FTimerHandle* ExistingTimer = QSlowTimerHandles.Find(TargetKey))
 		{
 			GetWorldTimerManager().ClearTimer(*ExistingTimer);
 		}
 
 		const float BaseMoveSpeed =
-			Target->StatComponent &&
-			Target->StatComponent->GetStat().MoveSpeed > 0.0f
-				? Target->StatComponent->GetStat().MoveSpeed
+			TargetChampion->StatComponent &&
+			TargetChampion->StatComponent->GetStat().MoveSpeed > 0.0f
+				? TargetChampion->StatComponent->GetStat().MoveSpeed
 				: TargetMovement->MaxWalkSpeed;
 		TargetMovement->MaxWalkSpeed =
 			BaseMoveSpeed * (1.0f - FMath::Clamp(QSlowRatio, 0.0f, 0.9f));
@@ -454,10 +504,9 @@ void AChampion_Gragas::UpdateEDash(float DeltaTime)
 		QueryParams
 	);
 
-	ABaseChampion* HitTarget = bHitChampion
-		? Cast<ABaseChampion>(ChampionHit.GetActor())
-		: nullptr;
-	if (IsValid(HitTarget) && HitTarget != this)
+	AActor* HitTarget = bHitChampion ? ChampionHit.GetActor() : nullptr;
+	if (IsValid(HitTarget) && HitTarget != this &&
+		HitTarget->FindComponentByClass<ULOL_StateComponent>() && IsEnemyActor(HitTarget))
 	{
 		FinishEDash(HitTarget);
 		return;
@@ -471,7 +520,7 @@ void AChampion_Gragas::UpdateEDash(float DeltaTime)
 	}
 }
 
-void AChampion_Gragas::FinishEDash(ABaseChampion* HitTarget)
+void AChampion_Gragas::FinishEDash(AActor* HitTarget)
 {
 	if (!bEDashing) return;
 
@@ -491,14 +540,17 @@ void AChampion_Gragas::FinishEDash(ABaseChampion* HitTarget)
 		EPushDirection.Z = 0.0f;
 	}
 
-	FVector LaunchVelocity =
-		EPushDirection.GetSafeNormal() * EKnockbackSpeed;
-	LaunchVelocity.Z = 80.0f;
-	HitTarget->StartKnockbackWithWallCheck(
-		LaunchVelocity,
-		EKnockbackDuration,
-		0.0f
-	);
+	if (ABaseChampion* HitChampion = Cast<ABaseChampion>(HitTarget))
+	{
+		FVector LaunchVelocity =
+			EPushDirection.GetSafeNormal() * EKnockbackSpeed;
+		LaunchVelocity.Z = 80.0f;
+		HitChampion->StartKnockbackWithWallCheck(
+			LaunchVelocity,
+			EKnockbackDuration,
+			0.0f
+		);
+	}
 
 	const FSkillData& EData = SkillComponent->GetE_Data();
 	const float BaseDamage = GetSkillValue(EData.BaseDamage, 0, 80.0f);
@@ -520,11 +572,12 @@ void AChampion_Gragas::FinishEDash(ABaseChampion* HitTarget)
 	);
 	if (!bHit) return;
 
-	TSet<TWeakObjectPtr<ABaseChampion>> DamagedTargets;
+	TSet<TWeakObjectPtr<AActor>> DamagedTargets;
 	for (const FHitResult& Hit : Hits)
 	{
-		ABaseChampion* Target = Cast<ABaseChampion>(Hit.GetActor());
+		AActor* Target = Hit.GetActor();
 		if (!IsValid(Target) || Target == this || DamagedTargets.Contains(Target)) continue;
+		if (!Target->FindComponentByClass<ULOL_StateComponent>() || !IsEnemyActor(Target)) continue;
 		DamagedTargets.Add(Target);
 
 		UGameplayStatics::ApplyDamage(
@@ -534,13 +587,26 @@ void AChampion_Gragas::FinishEDash(ABaseChampion* HitTarget)
 			this,
 			ULOL_DamageMagic::StaticClass()
 		);
-		Target->Multicast_ApplyStun(EStunDuration);
+		if (ABaseChampion* TargetChampion = Cast<ABaseChampion>(Target))
+		{
+			TargetChampion->Multicast_ApplyStun(EStunDuration);
+		}
 	}
 }
 
 void AChampion_Gragas::ExplodeR()
 {
+	UE_LOG(LogTemp, Warning, TEXT("Gragas ExplodeR called. HasAuthority=%d"), HasAuthority() ? 1 : 0);
 	if (!HasAuthority() || !SkillComponent || !StatComponent) return;
+
+	SpawnGragasExplosionEffect(
+		RExplosionLocation,
+		RExplosionEffectVisualRadius
+	);
+	Multicast_SpawnGragasExplosionEffect(
+		RExplosionLocation,
+		RExplosionEffectVisualRadius
+	);
 
 	const FSkillData& RData = SkillComponent->GetR_Data();
 	const float BaseDamage = GetSkillValue(RData.BaseDamage, 0, 200.0f);
@@ -562,11 +628,12 @@ void AChampion_Gragas::ExplodeR()
 	);
 	if (!bHit) return;
 
-	TSet<TWeakObjectPtr<ABaseChampion>> DamagedTargets;
+	TSet<TWeakObjectPtr<AActor>> DamagedTargets;
 	for (const FHitResult& Hit : Hits)
 	{
-		ABaseChampion* Target = Cast<ABaseChampion>(Hit.GetActor());
+		AActor* Target = Hit.GetActor();
 		if (!IsValid(Target) || Target == this || DamagedTargets.Contains(Target)) continue;
+		if (!Target->FindComponentByClass<ULOL_StateComponent>() || !IsEnemyActor(Target)) continue;
 		DamagedTargets.Add(Target);
 
 		UGameplayStatics::ApplyDamage(
@@ -577,20 +644,23 @@ void AChampion_Gragas::ExplodeR()
 			ULOL_DamageMagic::StaticClass()
 		);
 
+		ABaseChampion* TargetChampion = Cast<ABaseChampion>(Target);
+		if (!TargetChampion) continue;
+
 		FVector ExplosionPushDirection =
-			Target->GetActorLocation() - RExplosionLocation;
+			TargetChampion->GetActorLocation() - RExplosionLocation;
 		ExplosionPushDirection.Z = 0.0f;
 		if (ExplosionPushDirection.IsNearlyZero())
 		{
 			ExplosionPushDirection =
-				Target->GetActorLocation() - GetActorLocation();
+				TargetChampion->GetActorLocation() - GetActorLocation();
 			ExplosionPushDirection.Z = 0.0f;
 		}
 
 		FVector LaunchVelocity =
 			ExplosionPushDirection.GetSafeNormal() * RKnockbackSpeed;
 		LaunchVelocity.Z = 160.0f;
-		Target->StartKnockbackWithWallCheck(
+		TargetChampion->StartKnockbackWithWallCheck(
 			LaunchVelocity,
 			RKnockbackDuration,
 			0.0f
@@ -828,6 +898,111 @@ void AChampion_Gragas::Multicast_DestroyQProjectile_Implementation()
 		LocalQProjectileActor->Destroy();
 		LocalQProjectileActor = nullptr;
 	}
+}
+
+void AChampion_Gragas::Multicast_SpawnGragasExplosionEffect_Implementation(
+	FVector SpawnLocation,
+	float VisualRadius)
+{
+	if (HasAuthority()) return;
+
+	SpawnGragasExplosionEffect(SpawnLocation, VisualRadius);
+}
+
+void AChampion_Gragas::SpawnGragasExplosionEffect(
+	FVector SpawnLocation,
+	float VisualRadius)
+{
+	if (!GetWorld())
+	{
+		return;
+	}
+
+	if (!FloatEffectMesh)
+	{
+		FloatEffectMesh = LoadObject<UStaticMesh>(
+			nullptr,
+			TEXT("/Game/Level/gragas/tex_gragas/gragas_float.gragas_float")
+		);
+	}
+
+	if (!FloatEffectMaterial)
+	{
+		FloatEffectMaterial = LoadObject<UMaterialInterface>(
+			nullptr,
+			TEXT("/Game/Level/gragas/tex_gragas/m_gragas_float.m_gragas_float")
+		);
+	}
+
+	if (!FloatEffectMesh)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Gragas explosion effect skipped: FloatEffectMesh is still null after LoadObject."));
+		return;
+	}
+
+	SpawnLocation.Z += ExplosionEffectHeightOffset;
+
+	FActorSpawnParameters SpawnParameters;
+	SpawnParameters.Owner = this;
+	SpawnParameters.Instigator = this;
+	SpawnParameters.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	AActor* EffectActor = GetWorld()->SpawnActor<AActor>(
+		AActor::StaticClass(),
+		SpawnLocation,
+		ExplosionEffectRotation,
+		SpawnParameters
+	);
+	if (!EffectActor)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Gragas explosion effect actor spawn failed."));
+		return;
+	}
+
+	UStaticMeshComponent* EffectComponent =
+		NewObject<UStaticMeshComponent>(
+			EffectActor,
+			TEXT("GragasExplosionFloatEffect")
+		);
+	if (!EffectComponent)
+	{
+		EffectActor->Destroy();
+		return;
+	}
+
+	EffectActor->AddInstanceComponent(EffectComponent);
+	EffectActor->SetRootComponent(EffectComponent);
+	EffectComponent->SetStaticMesh(FloatEffectMesh);
+	if (FloatEffectMaterial)
+	{
+		EffectComponent->SetMaterial(0, FloatEffectMaterial);
+	}
+	EffectComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	EffectComponent->SetGenerateOverlapEvents(false);
+	EffectComponent->SetCastShadow(false);
+	EffectComponent->RegisterComponent();
+
+	const float MeshRadius = FloatEffectMesh->GetBounds().SphereRadius;
+	const float Scale = MeshRadius > KINDA_SMALL_NUMBER
+		? FMath::Max(VisualRadius, 1.0f) / MeshRadius
+		: 1.0f;
+	EffectComponent->SetWorldScale3D(FVector(Scale));
+	EffectComponent->SetVisibility(true, true);
+	EffectComponent->SetHiddenInGame(false, true);
+
+	EffectActor->SetLifeSpan(FMath::Max(ExplosionEffectLifeTime, 0.05f));
+
+	UE_LOG(
+		LogTemp,
+		Warning,
+		TEXT("Gragas explosion effect spawned. Location=%s VisualRadius=%.1f MeshRadius=%.1f Scale=%.2f LifeTime=%.2f"),
+		*SpawnLocation.ToString(),
+		VisualRadius,
+		MeshRadius,
+		Scale,
+		ExplosionEffectLifeTime
+	);
 }
 
 FVector AChampion_Gragas::ClampTargetLocation(

@@ -11,13 +11,39 @@
 #include "Net/UnrealNetwork.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/ProjectileMovementComponent.h"
 
+#include "Animation/AnimMontage.h"
+#include "Components/SphereComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
 
 AChampion_Ezreal::AChampion_Ezreal()
 {
     ChampionName = TEXT("Ezreal");
     SetChampionData(ChampionName);
+
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> QProjectileMeshAsset(
+        TEXT("/Game/Level/ezreal/ezreal_tex/ezreal_q_missile.ezreal_q_missile"));
+    if (QProjectileMeshAsset.Succeeded())
+    {
+        QProjectileMesh = QProjectileMeshAsset.Object;
+    }
+
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> WProjectileMeshAsset(
+        TEXT("/Game/Level/ezreal/ezreal_tex/ezreal_w.ezreal_w"));
+    if (WProjectileMeshAsset.Succeeded())
+    {
+        WProjectileMesh = WProjectileMeshAsset.Object;
+    }
+
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> RProjectileMeshAsset(
+        TEXT("/Game/Level/ezreal/ezreal_tex/ezreal_r.ezreal_r"));
+    if (RProjectileMeshAsset.Succeeded())
+    {
+        RProjectileMesh = RProjectileMeshAsset.Object;
+    }
+
 }
 
 void AChampion_Ezreal::Skill_Q()
@@ -100,6 +126,31 @@ void AChampion_Ezreal::Server_Skill_Q_Implementation(FVector TargetLocation)
     FRotator LookRotation = Direction.Rotation();
     SetActorRotation(LookRotation);
 
+    const float Range = QData.Range.IsValidIndex(SkillLevelIdx)
+        ? QData.Range[SkillLevelIdx]
+        : 1200.0f;
+    const float BaseDamage = QData.BaseDamage.IsValidIndex(SkillLevelIdx)
+        ? QData.BaseDamage[SkillLevelIdx]
+        : 0.0f;
+    const float SkillDamage =
+        BaseDamage + StatComponent->GetStat().AttackDamage * 1.0f;
+    const FVector ProjectileStart =
+        GetActorLocation() + LookRotation.Vector() * 120.0f + FVector(0.0f, 0.0f, 80.0f);
+    const FVector ProjectileEnd =
+        ProjectileStart + LookRotation.Vector() * Range;
+    const float TravelTime =
+        Range / FMath::Max(QProjectileSpeed, KINDA_SMALL_NUMBER);
+    Multicast_SpawnEzrealProjectile(
+        0,
+        ProjectileStart,
+        ProjectileEnd,
+        TravelTime,
+        60.0f,
+        SkillDamage,
+        nullptr,
+        false
+    );
+
     if (ChampionResource.QMontage.IsValidIndex(AM_SKIll_Q_IDX) &&
         ChampionResource.QMontage[AM_SKIll_Q_IDX])
     {
@@ -110,15 +161,6 @@ void AChampion_Ezreal::Server_Skill_Q_Implementation(FVector TargetLocation)
         );
     }
 
-    ApplyEzrealLineSkill(
-        TargetLocation,
-        QData,
-        SkillLevelIdx,
-        60.0f,
-        nullptr,
-        1.0f,
-        false
-    );
 }
 
 void AChampion_Ezreal::Server_Skill_W_Implementation(FVector TargetLocation)
@@ -136,6 +178,29 @@ void AChampion_Ezreal::Server_Skill_W_Implementation(FVector TargetLocation)
     FRotator LookRotation = Direction.Rotation();
     SetActorRotation(LookRotation);
 
+    const float Range = WData.Range.IsValidIndex(SkillLevelIdx)
+        ? WData.Range[SkillLevelIdx]
+        : 1200.0f;
+    const float BaseDamage = WData.BaseDamage.IsValidIndex(SkillLevelIdx)
+        ? WData.BaseDamage[SkillLevelIdx]
+        : 0.0f;
+    const FVector ProjectileStart =
+        GetActorLocation() + LookRotation.Vector() * 120.0f + FVector(0.0f, 0.0f, 80.0f);
+    const FVector ProjectileEnd =
+        ProjectileStart + LookRotation.Vector() * Range;
+    const float TravelTime =
+        Range / FMath::Max(WProjectileSpeed, KINDA_SMALL_NUMBER);
+    Multicast_SpawnEzrealProjectile(
+        1,
+        ProjectileStart,
+        ProjectileEnd,
+        TravelTime,
+        70.0f,
+        BaseDamage,
+        ULOL_DamageMagic::StaticClass(),
+        false
+    );
+
     if (ChampionResource.WMontage.IsValidIndex(AM_SKIll_W_IDX) &&
         ChampionResource.WMontage[AM_SKIll_W_IDX])
     {
@@ -146,15 +211,6 @@ void AChampion_Ezreal::Server_Skill_W_Implementation(FVector TargetLocation)
         );
     }
 
-    ApplyEzrealLineSkill(
-        TargetLocation,
-        WData,
-        SkillLevelIdx,
-        70.0f,
-        ULOL_DamageMagic::StaticClass(),
-        0.0f,
-        false
-    );
 }
 
 void AChampion_Ezreal::Server_Skill_E_Implementation(FVector TargetLocation)
@@ -269,6 +325,31 @@ void AChampion_Ezreal::Server_Skill_R_Implementation(FVector TargetLocation)
     FRotator LookRotation = Direction.Rotation();
     SetActorRotation(LookRotation);
 
+    const float Range = RData.Range.IsValidIndex(SkillLevelIdx)
+        ? RData.Range[SkillLevelIdx]
+        : 2500.0f;
+    const float BaseDamage = RData.BaseDamage.IsValidIndex(SkillLevelIdx)
+        ? RData.BaseDamage[SkillLevelIdx]
+        : 0.0f;
+    const float SkillDamage =
+        BaseDamage + StatComponent->GetStat().AttackDamage * 0.9f;
+    const FVector ProjectileStart =
+        GetActorLocation() + LookRotation.Vector() * 140.0f + FVector(0.0f, 0.0f, 90.0f);
+    const FVector ProjectileEnd =
+        ProjectileStart + LookRotation.Vector() * Range;
+    const float TravelTime =
+        Range / FMath::Max(RProjectileSpeed, KINDA_SMALL_NUMBER);
+    Multicast_SpawnEzrealProjectile(
+        2,
+        ProjectileStart,
+        ProjectileEnd,
+        TravelTime,
+        140.0f,
+        SkillDamage,
+        ULOL_DamageMagic::StaticClass(),
+        true
+    );
+
     if (ChampionResource.RMontage.IsValidIndex(AM_SKIll_R_IDX) &&
         ChampionResource.RMontage[AM_SKIll_R_IDX])
     {
@@ -279,15 +360,6 @@ void AChampion_Ezreal::Server_Skill_R_Implementation(FVector TargetLocation)
         );
     }
 
-    ApplyEzrealLineSkill(
-        TargetLocation,
-        RData,
-        SkillLevelIdx,
-        140.0f,
-        ULOL_DamageMagic::StaticClass(),
-        0.9f,
-        true
-    );
 }
 
 void AChampion_Ezreal::Multicast_PlayEzrealSkillMontage_Implementation(
@@ -302,6 +374,317 @@ void AChampion_Ezreal::Multicast_PlayEzrealSkillMontage_Implementation(
     {
         PlayAnimMontage(Montage, PlayRate);
     }
+}
+
+void AChampion_Ezreal::Multicast_SpawnEzrealProjectile_Implementation(
+    uint8 ProjectileType,
+    FVector StartLocation,
+    FVector EndLocation,
+    float TravelTime,
+    float CollisionRadius,
+    float Damage,
+    TSubclassOf<UDamageType> DamageType,
+    bool bHitMultiple)
+{
+    SpawnEzrealProjectileVisual(
+        ProjectileType,
+        StartLocation,
+        EndLocation,
+        TravelTime,
+        CollisionRadius,
+        Damage,
+        DamageType,
+        bHitMultiple
+    );
+}
+
+void AChampion_Ezreal::OnEzrealProjectileOverlap(
+    UPrimitiveComponent* OverlappedComponent,
+    AActor* OtherActor,
+    UPrimitiveComponent* OtherComp,
+    int32 OtherBodyIndex,
+    bool bFromSweep,
+    const FHitResult& SweepResult)
+{
+    if (!HasAuthority() || !OverlappedComponent || !OtherActor)
+    {
+        return;
+    }
+
+    AActor* ProjectileActor = OverlappedComponent->GetOwner();
+    if (!ProjectileActor || OtherActor == this || OtherActor == ProjectileActor)
+    {
+        return;
+    }
+
+    FEzrealProjectileDamageData* ProjectileData =
+        ActiveProjectiles.Find(ProjectileActor);
+    if (!ProjectileData)
+    {
+        return;
+    }
+
+    ULOL_StateComponent* TargetState = OtherActor->FindComponentByClass<ULOL_StateComponent>();
+    if (!TargetState || !IsEnemyActor(OtherActor))
+    {
+        return;
+    }
+
+    const TWeakObjectPtr<AActor> TargetKey(OtherActor);
+    if (ProjectileData->DamagedTargets.Contains(TargetKey))
+    {
+        return;
+    }
+
+    ProjectileData->DamagedTargets.Add(TargetKey);
+
+    UGameplayStatics::ApplyDamage(
+        OtherActor,
+        ProjectileData->Damage,
+        GetController(),
+        this,
+        ProjectileData->DamageType
+    );
+
+    UE_LOG(
+        LogTemp,
+        Warning,
+        TEXT("Ezreal projectile hit. Target=%s Damage=%f MultiHit=%d"),
+        *OtherActor->GetName(),
+        ProjectileData->Damage,
+        ProjectileData->bHitMultiple
+    );
+
+    ActiveProjectiles.Remove(ProjectileActor);
+    ProjectileActor->Destroy();
+}
+
+UStaticMesh* AChampion_Ezreal::GetEzrealProjectileMesh(uint8 ProjectileType)
+{
+    switch (ProjectileType)
+    {
+    case 0:
+        if (!QProjectileMesh)
+        {
+            QProjectileMesh = LoadObject<UStaticMesh>(
+                nullptr,
+                TEXT("/Game/Level/ezreal/ezreal_tex/ezreal_q_missile.ezreal_q_missile")
+            );
+        }
+        return QProjectileMesh.Get();
+    case 1:
+        if (!WProjectileMesh)
+        {
+            WProjectileMesh = LoadObject<UStaticMesh>(
+                nullptr,
+                TEXT("/Game/Level/ezreal/ezreal_tex/ezreal_w.ezreal_w")
+            );
+        }
+        return WProjectileMesh.Get();
+    case 2:
+        if (!RProjectileMesh)
+        {
+            RProjectileMesh = LoadObject<UStaticMesh>(
+                nullptr,
+                TEXT("/Game/Level/ezreal/ezreal_tex/ezreal_r.ezreal_r")
+            );
+        }
+        return RProjectileMesh.Get();
+    default:
+        return nullptr;
+    }
+}
+
+void AChampion_Ezreal::SpawnEzrealProjectileVisual(
+    uint8 ProjectileType,
+    FVector StartLocation,
+    FVector EndLocation,
+    float TravelTime,
+    float CollisionRadius,
+    float Damage,
+    TSubclassOf<UDamageType> DamageType,
+    bool bHitMultiple)
+{
+    if (!GetWorld())
+    {
+        return;
+    }
+
+    UStaticMesh* ProjectileMeshAsset = GetEzrealProjectileMesh(ProjectileType);
+    if (!ProjectileMeshAsset)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Ezreal projectile mesh missing. ProjectileType=%d"), ProjectileType);
+        return;
+    }
+
+    const FVector Direction = (EndLocation - StartLocation).GetSafeNormal();
+    if (Direction.IsNearlyZero())
+    {
+        return;
+    }
+
+    FActorSpawnParameters SpawnParameters;
+    SpawnParameters.Owner = this;
+    SpawnParameters.Instigator = this;
+    SpawnParameters.SpawnCollisionHandlingOverride =
+        ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+    AActor* ProjectileActor = GetWorld()->SpawnActor<AActor>(
+        AActor::StaticClass(),
+        StartLocation,
+        Direction.Rotation(),
+        SpawnParameters
+    );
+    if (!ProjectileActor)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Ezreal projectile actor spawn failed. ProjectileType=%d"), ProjectileType);
+        return;
+    }
+    ProjectileActor->SetActorHiddenInGame(false);
+
+    USphereComponent* CollisionComponent =
+        NewObject<USphereComponent>(
+            ProjectileActor,
+            TEXT("EzrealProjectileCollision")
+        );
+    if (!CollisionComponent)
+    {
+        ProjectileActor->Destroy();
+        return;
+    }
+
+    ProjectileActor->AddInstanceComponent(CollisionComponent);
+    ProjectileActor->SetRootComponent(CollisionComponent);
+    CollisionComponent->SetMobility(EComponentMobility::Movable);
+    CollisionComponent->InitSphereRadius(CollisionRadius);
+    CollisionComponent->SetCollisionEnabled(
+        HasAuthority()
+        ? ECollisionEnabled::QueryOnly
+        : ECollisionEnabled::NoCollision
+    );
+    CollisionComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
+    CollisionComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+    CollisionComponent->SetGenerateOverlapEvents(HasAuthority());
+    CollisionComponent->RegisterComponent();
+
+    if (HasAuthority())
+    {
+        CollisionComponent->OnComponentBeginOverlap.AddDynamic(
+            this,
+            &AChampion_Ezreal::OnEzrealProjectileOverlap
+        );
+    }
+
+    UStaticMeshComponent* MeshComponent =
+        NewObject<UStaticMeshComponent>(
+            ProjectileActor,
+            TEXT("EzrealProjectileMesh")
+        );
+    if (!MeshComponent)
+    {
+        ProjectileActor->Destroy();
+        return;
+    }
+
+    ProjectileActor->AddInstanceComponent(MeshComponent);
+    MeshComponent->SetupAttachment(CollisionComponent);
+    MeshComponent->SetMobility(EComponentMobility::Movable);
+    MeshComponent->SetStaticMesh(ProjectileMeshAsset);
+    MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    MeshComponent->SetGenerateOverlapEvents(false);
+    MeshComponent->SetCastShadow(false);
+    MeshComponent->RegisterComponent();
+
+    ProjectileActor->SetActorLocationAndRotation(
+        StartLocation,
+        Direction.Rotation(),
+        false,
+        nullptr,
+        ETeleportType::TeleportPhysics
+    );
+    MeshComponent->SetRelativeRotation(ProjectileRotationOffset);
+
+    const float MeshRadius = ProjectileMeshAsset->GetBounds().SphereRadius;
+    float VisualRadius = QProjectileVisualRadius;
+    if (ProjectileType == 1)
+    {
+        VisualRadius = WProjectileVisualRadius;
+    }
+    else if (ProjectileType == 2)
+    {
+        VisualRadius = RProjectileVisualRadius;
+    }
+
+    const float Scale = MeshRadius > KINDA_SMALL_NUMBER
+        ? VisualRadius / MeshRadius
+        : 1.0f;
+    MeshComponent->SetWorldScale3D(
+        FVector(Scale * ProjectileVisualScale) * ProjectileVisualScale3D
+    );
+    MeshComponent->SetVisibility(true, true);
+    MeshComponent->SetHiddenInGame(false, true);
+
+    UProjectileMovementComponent* ProjectileMovement =
+        NewObject<UProjectileMovementComponent>(
+            ProjectileActor,
+            TEXT("EzrealProjectileMovement")
+        );
+    if (!ProjectileMovement)
+    {
+        ProjectileActor->Destroy();
+        return;
+    }
+
+    const float VisualSpeed =
+        FVector::Distance(StartLocation, EndLocation) /
+        FMath::Max(TravelTime, KINDA_SMALL_NUMBER);
+
+    ProjectileActor->AddInstanceComponent(ProjectileMovement);
+    ProjectileMovement->SetUpdatedComponent(CollisionComponent);
+    ProjectileMovement->bInitialVelocityInLocalSpace = false;
+    ProjectileMovement->InitialSpeed = VisualSpeed;
+    ProjectileMovement->MaxSpeed = VisualSpeed;
+    ProjectileMovement->Velocity = Direction * VisualSpeed;
+    ProjectileMovement->ProjectileGravityScale = 0.0f;
+    ProjectileMovement->bRotationFollowsVelocity = false;
+    ProjectileMovement->RegisterComponent();
+    ProjectileMovement->Activate(true);
+
+    ProjectileActor->SetLifeSpan(FMath::Max(TravelTime + 0.1f, 0.2f));
+
+    if (HasAuthority())
+    {
+        FEzrealProjectileDamageData ProjectileDamageData;
+        ProjectileDamageData.Damage = Damage;
+        ProjectileDamageData.DamageType = DamageType;
+        ProjectileDamageData.bHitMultiple = bHitMultiple;
+        ActiveProjectiles.Add(ProjectileActor, ProjectileDamageData);
+
+        FTimerHandle CleanupTimerHandle;
+        GetWorldTimerManager().SetTimer(
+            CleanupTimerHandle,
+            FTimerDelegate::CreateLambda(
+                [this, ProjectileActor]()
+                {
+                    ActiveProjectiles.Remove(ProjectileActor);
+                }
+            ),
+            FMath::Max(TravelTime + 0.2f, 0.3f),
+            false
+        );
+    }
+
+    UE_LOG(
+        LogTemp,
+        Warning,
+        TEXT("Ezreal projectile spawned. Type=%d Mesh=%s Start=%s End=%s Scale=%f TravelTime=%f"),
+        ProjectileType,
+        *ProjectileMeshAsset->GetName(),
+        *StartLocation.ToString(),
+        *EndLocation.ToString(),
+        Scale,
+        TravelTime
+    );
 }
 
 void AChampion_Ezreal::ApplyEzrealLineSkill(

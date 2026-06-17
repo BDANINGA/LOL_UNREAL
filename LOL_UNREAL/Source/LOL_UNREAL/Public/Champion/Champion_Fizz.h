@@ -62,6 +62,7 @@ protected:
 	void EndWEmpower();
 	void StartWPassiveBleed(ACharacter* Target);
 	void BeginEDescent();
+	void UpdateEDescent(float DeltaTime);
 	void FinishPlayfulTrickster();
 	void ExplodeChumTheWaters();
 	FVector ClampTargetLocation(FVector TargetLocation, float MaxRange) const;
@@ -97,9 +98,11 @@ protected:
 	bool bEDescending = false;
 
 	FVector QDashStart = FVector::ZeroVector;
+	FVector EDescentStartLocation = FVector::ZeroVector;
 	FVector ETargetLocation = FVector::ZeroVector;
 	FVector RExplosionLocation = FVector::ZeroVector;
 	float QDashElapsed = 0.0f;
+	float EDescentElapsed = 0.0f;
 
 	TMap<TWeakObjectPtr<ACharacter>, FTimerHandle> WBleedTimers;
 	TMap<TWeakObjectPtr<ACharacter>, int32> WBleedTicks;
@@ -110,7 +113,7 @@ protected:
 	FTimerHandle RExplosionTimerHandle;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fizz | Q")
-	float QDashDuration = 0.25f;
+	float QDashDuration = 0.5f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fizz | Q")
 	float QBehindTargetDistance = 35.0f;
@@ -134,7 +137,7 @@ protected:
 	float EDamageRadius = 330.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fizz | E")
-	float EDescentDuration = 0.35f;
+	float EDescentDuration = 0.65f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fizz | R")
 	float RAbilityPowerRatio = 0.8f;
@@ -143,7 +146,7 @@ protected:
 	float RProjectileRadius = 70.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fizz | R")
-	float RProjectileSpeed = 1200.0f;
+	float RProjectileSpeed = 650.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fizz | R")
 	float RProjectileVisualRadius = 70.0f;

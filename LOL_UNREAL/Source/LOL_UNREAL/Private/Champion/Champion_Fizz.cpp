@@ -4,6 +4,7 @@
 #include "Component/LOL_AttackComponent.h"
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_StatComponent.h"
+#include "Component/LOL_StateComponent.h"
 #include "Animation/AnimMontage.h"
 #include "Animation/AnimSequence.h"
 #include "Components/CapsuleComponent.h"
@@ -329,6 +330,11 @@ void AChampion_Fizz::Tick(float DeltaTime)
 	{
 		UpdateQDash(DeltaTime);
 	}
+
+	if (HasAuthority() && bEDescending)
+	{
+		UpdateEDescent(DeltaTime);
+	}
 }
 
 void AChampion_Fizz::UpdateQChaseToCast()
@@ -547,6 +553,8 @@ void AChampion_Fizz::BeginEDescent()
 	if (!HasAuthority() || !bEActive || bEDescending) return;
 
 	bEDescending = true;
+	EDescentStartLocation = GetActorLocation();
+	EDescentElapsed = 0.0f;
 	GetWorldTimerManager().ClearTimer(EAscentTimerHandle);
 
 	FVector Direction = ETargetLocation - GetActorLocation();
@@ -557,7 +565,6 @@ void AChampion_Fizz::BeginEDescent()
 
 	// Second E animation: EMontage[1] (Trickster/descent).
 	Multicast_PlayFizzSkillAnimation(2, 1, 1.0f, FacingRotation);
-	SetActorLocation(ETargetLocation, true);
 
 	GetWorldTimerManager().ClearTimer(EDescentTimerHandle);
 	GetWorldTimerManager().SetTimer(
@@ -569,9 +576,34 @@ void AChampion_Fizz::BeginEDescent()
 	);
 }
 
+void AChampion_Fizz::UpdateEDescent(float DeltaTime)
+{
+	if (!bEActive || !bEDescending) return;
+
+	EDescentElapsed += DeltaTime;
+	const float Alpha = FMath::Clamp(
+		EDescentElapsed / FMath::Max(EDescentDuration, KINDA_SMALL_NUMBER),
+		0.0f,
+		1.0f
+	);
+
+	SetActorLocation(
+		FMath::Lerp(EDescentStartLocation, ETargetLocation, Alpha),
+		true
+	);
+
+	if (Alpha >= 1.0f)
+	{
+		FinishPlayfulTrickster();
+	}
+}
+
 void AChampion_Fizz::FinishPlayfulTrickster()
 {
 	if (!HasAuthority() || !bEActive || !SkillComponent || !StatComponent) return;
+
+	GetWorldTimerManager().ClearTimer(EDescentTimerHandle);
+	SetActorLocation(ETargetLocation, true);
 
 	const FSkillData& EData = SkillComponent->GetE_Data();
 	const float BaseDamage = GetSkillValue(EData.BaseDamage, 0, 70.0f);
@@ -594,11 +626,12 @@ void AChampion_Fizz::FinishPlayfulTrickster()
 
 	if (bHit)
 	{
-		TSet<TWeakObjectPtr<ABaseChampion>> DamagedTargets;
+		TSet<TWeakObjectPtr<AActor>> DamagedTargets;
 		for (const FHitResult& Hit : Hits)
 		{
-			ABaseChampion* Target = Cast<ABaseChampion>(Hit.GetActor());
+			AActor* Target = Hit.GetActor();
 			if (!IsValid(Target) || Target == this || DamagedTargets.Contains(Target)) continue;
+			if (!Target->FindComponentByClass<ULOL_StateComponent>() || !IsEnemyActor(Target)) continue;
 
 			DamagedTargets.Add(Target);
 			UGameplayStatics::ApplyDamage(
@@ -656,11 +689,12 @@ void AChampion_Fizz::ExplodeChumTheWaters()
 
 	if (!bHit) return;
 
-	TSet<TWeakObjectPtr<ABaseChampion>> DamagedTargets;
+	TSet<TWeakObjectPtr<AActor>> DamagedTargets;
 	for (const FHitResult& Hit : Hits)
 	{
-		ABaseChampion* Target = Cast<ABaseChampion>(Hit.GetActor());
+		AActor* Target = Hit.GetActor();
 		if (!IsValid(Target) || Target == this || DamagedTargets.Contains(Target)) continue;
+		if (!Target->FindComponentByClass<ULOL_StateComponent>() || !IsEnemyActor(Target)) continue;
 
 		DamagedTargets.Add(Target);
 		UGameplayStatics::ApplyDamage(
@@ -670,7 +704,10 @@ void AChampion_Fizz::ExplodeChumTheWaters()
 			this,
 			ULOL_DamageMagic::StaticClass()
 		);
-		Target->Multicast_ApplyStun(RStunDuration);
+		if (ABaseChampion* TargetChampion = Cast<ABaseChampion>(Target))
+		{
+			TargetChampion->Multicast_ApplyStun(RStunDuration);
+		}
 	}
 }
 

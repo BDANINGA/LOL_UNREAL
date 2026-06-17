@@ -84,7 +84,7 @@ void AChampion_Alistar::Server_Skill_Q_Implementation()
     for (auto& Hit : Hits)
     {
         ACharacter* Target = Cast<ACharacter>(Hit.GetActor());
-        if (!Target || Target == this) continue;
+        if (!Target || !IsEnemyActor(Target)) continue;
 
         // 적 모션·이동 정리
         Target->StopAnimMontage();
@@ -148,7 +148,7 @@ void AChampion_Alistar::Skill_W()
     if (!PC->GetHitResultUnderCursor(ECC_Pawn, false, HitResult)) return;
 
     ACharacter* Target = Cast<ACharacter>(HitResult.GetActor());
-    if (!IsValid(Target) || Target == this) return;
+    if (!IsValid(Target) || !IsEnemyActor(Target)) return;
 
     const float Distance = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
 
@@ -180,7 +180,7 @@ bool AChampion_Alistar::Server_Skill_W_Validate(ACharacter* Target)
 void AChampion_Alistar::Server_Skill_W_Implementation(ACharacter* Target)
 {
     if (!SkillComponent) return;
-    if (!IsValid(Target) || Target == this) return;
+    if (!IsValid(Target) || !IsEnemyActor(Target)) return;
 
     const float Distance = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
     if (Distance > W_CastRange + 50.0f) return;
@@ -249,6 +249,13 @@ void AChampion_Alistar::UpdateWChaseToCast()
         return;
     }
 
+    if (!IsEnemyActor(ReservedWTarget))
+    {
+        bIsChasingForW = false;
+        ReservedWTarget = nullptr;
+        return;
+    }
+
     ULOL_StateComponent* StateComp = FindComponentByClass<ULOL_StateComponent>();
     ULOL_MoveComponent* MoveComp = FindComponentByClass<ULOL_MoveComponent>();
 
@@ -285,7 +292,7 @@ void AChampion_Alistar::UpdateWChaseToCast()
 
 void AChampion_Alistar::ApplyWKnockback(ACharacter* Target)
 {
-    if (!Target) return;
+    if (!Target || !IsEnemyActor(Target)) return;
 
     // 1. 공통 부모 클래스인 ABaseChampion으로 캐스팅
     ABaseChampion* Enemy = Cast<ABaseChampion>(Target);
@@ -416,7 +423,7 @@ void AChampion_Alistar::ApplyEDamageTick()
         for (auto& Hit : Hits)
         {
             ACharacter* Target = Cast<ACharacter>(Hit.GetActor());
-            if (Target && Target != this)
+            if (Target && IsEnemyActor(Target))
             {
                 UGameplayStatics::ApplyDamage(
                     Target,
@@ -465,7 +472,7 @@ void AChampion_Alistar::EndStunBuff()
 void AChampion_Alistar::OnBasicAttackHit(ACharacter* Target)
 {
     if (!HasAuthority()) return;
-    if (!IsValid(Target) || Target == this) return;
+    if (!IsValid(Target) || !IsEnemyActor(Target)) return;
 
     // 강화 평타 플래그가 켜져 있으면 스턴
     if (bNextAttackStun)

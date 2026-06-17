@@ -17,6 +17,7 @@
 
 #include "Engine/DamageEvents.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/Controller.h"
 
 #include "UObject/ConstructorHelpers.h"
 
@@ -90,6 +91,17 @@ void ABaseMinion::Tick(float DeltaTime)
 
 float ABaseMinion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
+	ULOL_StateComponent* SourceState = DamageCauser ? DamageCauser->FindComponentByClass<ULOL_StateComponent>() : nullptr;
+	if (!SourceState && EventInstigator && EventInstigator->GetPawn())
+	{
+		SourceState = EventInstigator->GetPawn()->FindComponentByClass<ULOL_StateComponent>();
+	}
+
+	if (StateComponent && SourceState && !SourceState->IsEnemy(StateComponent))
+	{
+		return 0.0f;
+	}
+
 	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
 	if (StatComponent)

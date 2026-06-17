@@ -5,6 +5,7 @@
 #include "Component/LOL_AttackComponent.h"
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_StatComponent.h"
+#include "Component/LOL_StateComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -19,11 +20,13 @@ AChampion_LeeSin::AChampion_LeeSin()
 	SetChampionData(ChampionName);
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> ProjectileMeshAsset(
-		TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+		TEXT("/Game/Level/leesin/leesin_tex/leesin_q.leesin_q"));
 	if (ProjectileMeshAsset.Succeeded())
 	{
 		DefaultQProjectileMesh = ProjectileMeshAsset.Object;
 	}
+
+	GetMesh()->SetRelativeScale3D(FVector(0.8f, 0.8f, 0.8f));
 }
 
 void AChampion_LeeSin::Skill_Q()
@@ -41,6 +44,13 @@ void AChampion_LeeSin::Skill_Q()
 		TargetLocation = Hit.ImpactPoint;
 	}
 
+	FVector Direction = TargetLocation - GetActorLocation();
+	Direction.Z = 0.0f;
+	if (!Direction.IsNearlyZero())
+	{
+		SetActorRotation(Direction.Rotation());
+	}
+
 	Server_Skill_Q(TargetLocation);
 }
 
@@ -54,6 +64,13 @@ void AChampion_LeeSin::Skill_W()
 	FHitResult Hit;
 	if (PlayerController->GetHitResultUnderCursor(ECC_Visibility, false, Hit))
 	{
+		FVector Direction = Hit.ImpactPoint - GetActorLocation();
+		Direction.Z = 0.0f;
+		if (!Direction.IsNearlyZero())
+		{
+			SetActorRotation(Direction.Rotation());
+		}
+
 		Server_Skill_W(Hit.ImpactPoint);
 	}
 }
@@ -88,7 +105,7 @@ bool AChampion_LeeSin::Server_Skill_Q_Validate(FVector TargetLocation)
 
 void AChampion_LeeSin::Server_Skill_Q_Implementation(FVector TargetLocation)
 {
-	if (!SkillComponent || !StatComponent || bIsQDashing) return;
+	if (!SkillComponent || !StatComponent || bIsQDashing || bIsWDashing) return;
 
 	if (bQMarkActive && IsValid(QMarkedTarget))
 	{
@@ -147,10 +164,12 @@ void AChampion_LeeSin::Server_Skill_Q_Implementation(FVector TargetLocation)
 		ProjectileDistance / FMath::Max(QProjectileSpeed, 1.0f);
 	Multicast_SpawnQProjectile(Start, ProjectileEnd, TravelTime);
 
-	ABaseChampion* Target = bHit
-		? Cast<ABaseChampion>(Hit.GetActor())
-		: nullptr;
-	if (!IsValid(Target) || Target == this) return;
+	AActor* Target = bHit ? Hit.GetActor() : nullptr;
+	if (!IsValid(Target) || Target == this ||
+		!Target->FindComponentByClass<ULOL_StateComponent>() || !IsEnemyActor(Target))
+	{
+		return;
+	}
 
 	const float BaseDamage = GetSkillValue(QData.BaseDamage, 0, 55.0f);
 	const float SkillDamage =
@@ -164,7 +183,10 @@ void AChampion_LeeSin::Server_Skill_Q_Implementation(FVector TargetLocation)
 		this,
 		ULOL_DamagePhysical::StaticClass()
 	);
-	MarkQTarget(Target);
+	if (ABaseChampion* TargetChampion = Cast<ABaseChampion>(Target))
+	{
+		MarkQTarget(TargetChampion);
+	}
 }
 
 bool AChampion_LeeSin::Server_Skill_W_Validate(FVector TargetLocation)
@@ -174,7 +196,7 @@ bool AChampion_LeeSin::Server_Skill_W_Validate(FVector TargetLocation)
 
 void AChampion_LeeSin::Server_Skill_W_Implementation(FVector TargetLocation)
 {
-	if (!SkillComponent || !StatComponent || bIsQDashing) return;
+	if (!SkillComponent || !StatComponent || bIsQDashing || bIsWDashing) return;
 	const FSkillData& WData = SkillComponent->GetW_Data();
 	if (!HasCastData(WData)) return;
 	if (!SkillComponent->TryCastSkill("W", 1)) return;
@@ -189,32 +211,7 @@ void AChampion_LeeSin::Server_Skill_W_Implementation(FVector TargetLocation)
 		: Direction.Rotation();
 
 	Multicast_PlayLeeSinSkillAnimation(1, 0, 1.0f, FacingRotation);
-
-	TArray<AActor*> Champions;
-	UGameplayStatics::GetAllActorsOfClass(
-		GetWorld(),
-		ABaseChampion::StaticClass(),
-		Champions
-	);
-	for (AActor* Actor : Champions)
-	{
-		ABaseChampion* Champion = Cast<ABaseChampion>(Actor);
-		if (!IsValid(Champion) || Champion == this) continue;
-
-		GetCapsuleComponent()->IgnoreActorWhenMoving(Champion, true);
-		Champion->GetCapsuleComponent()->IgnoreActorWhenMoving(this, true);
-	}
-
-	SetActorLocation(Destination, true);
-
-	for (AActor* Actor : Champions)
-	{
-		ABaseChampion* Champion = Cast<ABaseChampion>(Actor);
-		if (!IsValid(Champion) || Champion == this) continue;
-
-		GetCapsuleComponent()->IgnoreActorWhenMoving(Champion, false);
-		Champion->GetCapsuleComponent()->IgnoreActorWhenMoving(this, false);
-	}
+	StartWDash(Destination);
 
 	const float BaseShield = GetSkillValue(WData.BaseDamage, 0, 60.0f);
 	const float ShieldAmount =
@@ -244,7 +241,7 @@ bool AChampion_LeeSin::Server_Skill_E_Validate()
 
 void AChampion_LeeSin::Server_Skill_E_Implementation()
 {
-	if (!SkillComponent || !StatComponent || bIsQDashing) return;
+	if (!SkillComponent || !StatComponent || bIsQDashing || bIsWDashing) return;
 	const FSkillData& EData = SkillComponent->GetE_Data();
 	if (!HasCastData(EData)) return;
 	if (!SkillComponent->TryCastSkill("E", 1)) return;
@@ -275,11 +272,12 @@ void AChampion_LeeSin::Server_Skill_E_Implementation()
 	);
 	if (!bHit) return;
 
-	TSet<TWeakObjectPtr<ABaseChampion>> DamagedTargets;
+	TSet<TWeakObjectPtr<AActor>> DamagedTargets;
 	for (const FHitResult& Hit : Hits)
 	{
-		ABaseChampion* Target = Cast<ABaseChampion>(Hit.GetActor());
+		AActor* Target = Hit.GetActor();
 		if (!IsValid(Target) || Target == this || DamagedTargets.Contains(Target)) continue;
+		if (!Target->FindComponentByClass<ULOL_StateComponent>() || !IsEnemyActor(Target)) continue;
 		DamagedTargets.Add(Target);
 
 		UGameplayStatics::ApplyDamage(
@@ -290,20 +288,23 @@ void AChampion_LeeSin::Server_Skill_E_Implementation()
 			ULOL_DamageMagic::StaticClass()
 		);
 
+		ABaseChampion* TargetChampion = Cast<ABaseChampion>(Target);
+		if (!TargetChampion) continue;
+
 		UCharacterMovementComponent* TargetMovement =
-			Target->GetCharacterMovement();
+			TargetChampion->GetCharacterMovement();
 		if (!TargetMovement) continue;
 
-		const TWeakObjectPtr<ABaseChampion> TargetKey(Target);
+		const TWeakObjectPtr<ABaseChampion> TargetKey(TargetChampion);
 		if (FTimerHandle* ExistingTimer = ESlowTimerHandles.Find(TargetKey))
 		{
 			GetWorldTimerManager().ClearTimer(*ExistingTimer);
 		}
 
 		const float BaseMoveSpeed =
-			Target->StatComponent &&
-			Target->StatComponent->GetStat().MoveSpeed > 0.0f
-				? Target->StatComponent->GetStat().MoveSpeed
+			TargetChampion->StatComponent &&
+			TargetChampion->StatComponent->GetStat().MoveSpeed > 0.0f
+				? TargetChampion->StatComponent->GetStat().MoveSpeed
 				: TargetMovement->MaxWalkSpeed;
 		TargetMovement->MaxWalkSpeed =
 			BaseMoveSpeed * (1.0f - FMath::Clamp(ESlowRatio, 0.0f, 0.9f));
@@ -331,7 +332,7 @@ bool AChampion_LeeSin::Server_Skill_R_Validate(ABaseChampion* Target)
 
 void AChampion_LeeSin::Server_Skill_R_Implementation(ABaseChampion* Target)
 {
-	if (!SkillComponent || !StatComponent || !IsValid(Target) || Target == this) return;
+	if (!SkillComponent || !StatComponent || bIsQDashing || bIsWDashing || !IsValid(Target) || Target == this) return;
 
 	const FSkillData& RData = SkillComponent->GetR_Data();
 	if (!HasCastData(RData)) return;
@@ -406,6 +407,11 @@ void AChampion_LeeSin::Tick(float DeltaTime)
 		UpdateQDash(DeltaTime);
 	}
 
+	if (HasAuthority() && bIsWDashing)
+	{
+		UpdateWDash(DeltaTime);
+	}
+
 	if (HasAuthority() && bRKnockbackActive)
 	{
 		UpdateRKnockback(DeltaTime);
@@ -414,7 +420,7 @@ void AChampion_LeeSin::Tick(float DeltaTime)
 
 bool AChampion_LeeSin::IsMoveInputBlocked() const
 {
-	return bSkillMovementLocked || bIsQDashing;
+	return bSkillMovementLocked || bIsQDashing || bIsWDashing;
 }
 
 void AChampion_LeeSin::MarkQTarget(ABaseChampion* Target)
@@ -516,7 +522,7 @@ void AChampion_LeeSin::EndSkillMovementLock()
 {
 	bSkillMovementLocked = false;
 
-	if (!bIsQDashing && GetCharacterMovement())
+	if (!bIsQDashing && !bIsWDashing && GetCharacterMovement())
 	{
 		GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 	}
@@ -621,6 +627,95 @@ void AChampion_LeeSin::FinishQDash()
 		this,
 		ULOL_DamagePhysical::StaticClass()
 	);
+}
+
+void AChampion_LeeSin::StartWDash(FVector Destination)
+{
+	WDashStart = GetActorLocation();
+	WDashEnd = Destination;
+	WDashEnd.Z = WDashStart.Z;
+	WDashElapsed = 0.0f;
+	bIsWDashing = true;
+
+	if (MoveComponent)
+	{
+		MoveComponent->StopMovement();
+	}
+
+	if (AttackComponent)
+	{
+		AttackComponent->CancelAttack();
+		AttackComponent->CombatTarget = nullptr;
+		AttackComponent->HitTarget = nullptr;
+	}
+
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->StopMovementImmediately();
+		GetCharacterMovement()->DisableMovement();
+	}
+
+	TArray<AActor*> Champions;
+	UGameplayStatics::GetAllActorsOfClass(
+		GetWorld(),
+		ABaseChampion::StaticClass(),
+		Champions
+	);
+	for (AActor* Actor : Champions)
+	{
+		ABaseChampion* Champion = Cast<ABaseChampion>(Actor);
+		if (!IsValid(Champion) || Champion == this) continue;
+
+		GetCapsuleComponent()->IgnoreActorWhenMoving(Champion, true);
+		Champion->GetCapsuleComponent()->IgnoreActorWhenMoving(this, true);
+	}
+}
+
+void AChampion_LeeSin::UpdateWDash(float DeltaTime)
+{
+	WDashElapsed += DeltaTime;
+	const float Alpha = FMath::Clamp(
+		WDashElapsed / FMath::Max(WDashDuration, KINDA_SMALL_NUMBER),
+		0.0f,
+		1.0f
+	);
+
+	SetActorLocation(
+		FMath::Lerp(WDashStart, WDashEnd, Alpha),
+		true
+	);
+
+	if (Alpha >= 1.0f)
+	{
+		FinishWDash();
+	}
+}
+
+void AChampion_LeeSin::FinishWDash()
+{
+	if (!bIsWDashing) return;
+
+	bIsWDashing = false;
+
+	TArray<AActor*> Champions;
+	UGameplayStatics::GetAllActorsOfClass(
+		GetWorld(),
+		ABaseChampion::StaticClass(),
+		Champions
+	);
+	for (AActor* Actor : Champions)
+	{
+		ABaseChampion* Champion = Cast<ABaseChampion>(Actor);
+		if (!IsValid(Champion) || Champion == this) continue;
+
+		GetCapsuleComponent()->IgnoreActorWhenMoving(Champion, false);
+		Champion->GetCapsuleComponent()->IgnoreActorWhenMoving(this, false);
+	}
+
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+	}
 }
 
 void AChampion_LeeSin::EndWShield()
@@ -825,10 +920,7 @@ void AChampion_LeeSin::Multicast_SpawnQProjectile_Implementation(
 {
 	if (!GetWorld()) return;
 
-	UStaticMesh* ProjectileMeshAsset =
-		ChampionResource.ProjectileMesh.IsValidIndex(0)
-			? ChampionResource.ProjectileMesh[0]
-			: DefaultQProjectileMesh.Get();
+	UStaticMesh* ProjectileMeshAsset = DefaultQProjectileMesh.Get();
 	if (!ProjectileMeshAsset) return;
 
 	const FVector Direction =
@@ -865,14 +957,24 @@ void AChampion_LeeSin::Multicast_SpawnQProjectile_Implementation(
 	ProjectileMesh->SetStaticMesh(ProjectileMeshAsset);
 	ProjectileMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	ProjectileMesh->SetGenerateOverlapEvents(false);
+	ProjectileMesh->SetCastShadow(false);
 	ProjectileMesh->RegisterComponent();
+
+	ProjectileActor->SetActorLocationAndRotation(
+		StartLocation,
+		Direction.Rotation(),
+		false,
+		nullptr,
+		ETeleportType::TeleportPhysics
+	);
+	ProjectileMesh->SetRelativeRotation(QProjectileRotationOffset);
 
 	const float MeshRadius =
 		ProjectileMeshAsset->GetBounds().SphereRadius;
 	const float ProjectileScale = MeshRadius > KINDA_SMALL_NUMBER
 		? QProjectileVisualRadius / MeshRadius
 		: 1.0f;
-	ProjectileMesh->SetWorldScale3D(FVector(ProjectileScale));
+	ProjectileMesh->SetWorldScale3D(FVector(ProjectileScale * QProjectileVisualScale));
 	ProjectileMesh->SetVisibility(true, true);
 	ProjectileMesh->SetHiddenInGame(false, true);
 
@@ -898,7 +1000,7 @@ void AChampion_LeeSin::Multicast_SpawnQProjectile_Implementation(
 	ProjectileMovement->MaxSpeed = VisualSpeed;
 	ProjectileMovement->Velocity = Direction * VisualSpeed;
 	ProjectileMovement->ProjectileGravityScale = 0.0f;
-	ProjectileMovement->bRotationFollowsVelocity = true;
+	ProjectileMovement->bRotationFollowsVelocity = false;
 	ProjectileMovement->RegisterComponent();
 	ProjectileMovement->Activate(true);
 

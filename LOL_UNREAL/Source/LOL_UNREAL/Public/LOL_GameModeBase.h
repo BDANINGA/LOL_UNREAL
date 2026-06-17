@@ -16,6 +16,7 @@ public:
     virtual APawn* SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot) override;
 
     void RequestRespawn(class ABaseChampion* DeadChampion);
+    void RequestJungleMonsterRespawn(FName MonsterRowName, FVector SpawnLocation, FRotator SpawnRotation, float RespawnDelay);
 
     virtual void BeginPlay() override;
 protected:
@@ -27,6 +28,9 @@ protected:
 
     void StartMinionWave();
     void SpawnNextMinion();
+    void SpawnJungleMonsters();
+    void SpawnJungleMonsterAtTag(FName TargetTag, FName MonsterRowName);
+    void SpawnJungleMonsterAtTransform(FName MonsterRowName, FVector SpawnLocation, FRotator SpawnRotation);
 
 private:
     FTimerHandle MinionSpawnTimerHandle;

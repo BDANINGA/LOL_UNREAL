@@ -17,7 +17,6 @@
 #include "Champion/Champion_Leesin.h"
 #include "Champion/Champion_Gragas.h"
 #include "Champion/Champion_Tryndamere.h"
-#include "VisionManager/VisionManager.h"
 
 #include "Minion/Minion_Melee.h"
 #include "Minion/Minion_Caster.h"
@@ -25,6 +24,7 @@
 #include "Minion/Minion_Super.h"
 
 #include "Building/Building_Inhibitor.h"
+#include "JungleMonster/BaseJungleMonster.h"
 
 #include "EngineUtils.h"
 #include "TimerManager.h"
@@ -46,8 +46,8 @@ UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(ACont
     // 리슨 서버 모드에서 0번 플레이어(방장)는 IsLocalController()가 true이며, 서버 권한을 가집니다.
     if (InController && InController->IsLocalController())
     {
-        // 첫 번째 플레이어(방장)는 알리스타
-        return AChampion_Alistar::StaticClass();
+        // 첫 번째 플레이어
+        return AChampion_LeeSin::StaticClass();
     }
 
     // 2. 그 외에 접속하는 클라이언트 플레이어들
@@ -62,12 +62,20 @@ APawn* ALOL_GameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewPla
     {
         if (Champion->StateComponent)
         {
-            if (NewPlayer && NewPlayer->IsLocalController())
+            const bool bForceRedForTryndamere = Champion->IsA(AChampion_Tryndamere::StaticClass());
+            const bool bIsBlueTeam = !bForceRedForTryndamere && NewPlayer && NewPlayer->IsLocalController();
+
+            Champion->StateComponent->RemoveStatusTag(LOLTags::Team_Blue);
+            Champion->StateComponent->RemoveStatusTag(LOLTags::Team_Red);
+
+            if (bIsBlueTeam)
             {
+                Champion->TeamId = 0;
                 Champion->StateComponent->AddStatusTag(LOLTags::Team_Blue);
             }
             else
             {
+                Champion->TeamId = 1;
                 Champion->StateComponent->AddStatusTag(LOLTags::Team_Red);
             }
         }
@@ -105,24 +113,7 @@ void ALOL_GameModeBase::BeginPlay()
     RedBotLanePoints.Sort([](const AActor& A, const AActor& B) {
         return A.GetActorLabel() > B.GetActorLabel();
         });
-    if (HasAuthority())
-    {
-        bool bHasVisionManager = false;
-        for (TActorIterator<AVisionManager> It(GetWorld()); It; ++It)
-        {
-            bHasVisionManager = true;
-            break;
-        }
-
-        if (!bHasVisionManager)
-        {
-            GetWorld()->SpawnActor<AVisionManager>(
-                AVisionManager::StaticClass(),
-                FVector::ZeroVector,
-                FRotator::ZeroRotator
-            );
-        }
-    }
+    SpawnJungleMonsters();
 
     GetWorld()->GetTimerManager().SetTimer(MinionSpawnTimerHandle, this, &ALOL_GameModeBase::StartMinionWave, 3.0f, false);
 }
@@ -150,6 +141,154 @@ void ALOL_GameModeBase::RequestRespawn(ABaseChampion* DeadChampion)
         RespawnDelegate.BindUObject(LifeCycleComp, &ULOL_LifeCycleComponent::Respawn);
 
         GetWorldTimerManager().SetTimer(RespawnTimer, RespawnDelegate, RespawnDelay, false);
+    }
+}
+
+void ALOL_GameModeBase::RequestJungleMonsterRespawn(FName MonsterRowName, FVector SpawnLocation, FRotator SpawnRotation, float RespawnDelay)
+{
+    if (!HasAuthority() || MonsterRowName.IsNone()) return;
+
+    FTimerHandle RespawnTimerHandle;
+    FTimerDelegate RespawnDelegate;
+    RespawnDelegate.BindUObject(
+        this,
+        &ALOL_GameModeBase::SpawnJungleMonsterAtTransform,
+        MonsterRowName,
+        SpawnLocation,
+        SpawnRotation
+    );
+
+    GetWorldTimerManager().SetTimer(
+        RespawnTimerHandle,
+        RespawnDelegate,
+        FMath::Max(0.1f, RespawnDelay),
+        false
+    );
+}
+
+void ALOL_GameModeBase::SpawnJungleMonsters()
+{
+    if (!HasAuthority()) return;
+
+    SpawnJungleMonsterAtTag(FName("gromp_target"), FName("Gromp"));
+    SpawnJungleMonsterAtTag(FName("wolf_target"), FName("Wolf"));
+    SpawnJungleMonsterAtTag(FName("Razorbeak_target"), FName("Razorbeak"));
+    SpawnJungleMonsterAtTag(FName("red_target"), FName("Red"));
+    SpawnJungleMonsterAtTag(FName("blue_target"), FName("Blue"));
+    SpawnJungleMonsterAtTag(FName("krug_target"), FName("Krug"));
+}
+
+void ALOL_GameModeBase::SpawnJungleMonsterAtTag(FName TargetTag, FName MonsterRowName)
+{
+    if (!GetWorld() || TargetTag.IsNone() || MonsterRowName.IsNone()) return;
+
+    TArray<AActor*> SpawnTargets;
+    UGameplayStatics::GetAllActorsWithTag(GetWorld(), TargetTag, SpawnTargets);
+
+    if (SpawnTargets.Num() == 0)
+    {
+        TArray<AActor*> AllActors;
+        UGameplayStatics::GetAllActorsOfClass(GetWorld(), AActor::StaticClass(), AllActors);
+
+        TArray<FString> TargetNames;
+        TargetNames.Add(TargetTag.ToString());
+
+        for (AActor* Actor : AllActors)
+        {
+            if (!Actor) continue;
+
+            for (const FString& TargetName : TargetNames)
+            {
+                if (Actor->GetName().Contains(TargetName) ||
+                    Actor->GetActorLabel().Contains(TargetName))
+                {
+                    SpawnTargets.AddUnique(Actor);
+                    break;
+                }
+            }
+        }
+    }
+
+    if (SpawnTargets.Num() == 0)
+    {
+        UE_LOG(
+            LogTemp,
+            Warning,
+            TEXT("Jungle monster spawn target not found. Tag=%s Monster=%s"),
+            *TargetTag.ToString(),
+            *MonsterRowName.ToString()
+        );
+        if (GEngine)
+        {
+            GEngine->AddOnScreenDebugMessage(
+                -1,
+                5.0f,
+                FColor::Red,
+                FString::Printf(
+                    TEXT("Jungle spawn target not found: %s"),
+                    *TargetTag.ToString()
+                )
+            );
+        }
+        return;
+    }
+
+    for (AActor* SpawnTarget : SpawnTargets)
+    {
+        if (!SpawnTarget) continue;
+
+        SpawnJungleMonsterAtTransform(
+            MonsterRowName,
+            SpawnTarget->GetActorLocation(),
+            SpawnTarget->GetActorRotation()
+        );
+
+        UE_LOG(
+            LogTemp,
+            Warning,
+            TEXT("Jungle monster spawned. Monster=%s Target=%s Location=%s"),
+            *MonsterRowName.ToString(),
+            *SpawnTarget->GetName(),
+            *SpawnTarget->GetActorLocation().ToString()
+        );
+        if (GEngine)
+        {
+            GEngine->AddOnScreenDebugMessage(
+                -1,
+                5.0f,
+                FColor::Green,
+                FString::Printf(
+                    TEXT("Spawned jungle monster: %s"),
+                    *MonsterRowName.ToString()
+                )
+            );
+        }
+    }
+}
+
+void ALOL_GameModeBase::SpawnJungleMonsterAtTransform(FName MonsterRowName, FVector SpawnLocation, FRotator SpawnRotation)
+{
+    if (!GetWorld() || MonsterRowName.IsNone()) return;
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.SpawnCollisionHandlingOverride =
+        ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+    ABaseJungleMonster* SpawnedMonster =
+        GetWorld()->SpawnActor<ABaseJungleMonster>(
+            ABaseJungleMonster::StaticClass(),
+            SpawnLocation,
+            SpawnRotation,
+            SpawnParams
+        );
+
+    if (!SpawnedMonster) return;
+
+    SpawnedMonster->InitializeJungleMonster(MonsterRowName);
+
+    if (SpawnedMonster->StateComponent)
+    {
+        SpawnedMonster->StateComponent->AddStatusTag(LOLTags::Team_Jungle);
     }
 }
 

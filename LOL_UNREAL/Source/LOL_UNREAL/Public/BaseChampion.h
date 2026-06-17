@@ -102,7 +102,7 @@ public:
 	int32 TeamId = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision")
-	float SightRadius = 1200.0f;
+	float SightRadius = 2000.0f;
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Transient, Category = "Vision")
 	bool bVisibleByVision = true;
@@ -127,6 +127,7 @@ public:
 	void Server_ExecuteAttackHit();
 
 	void ProcessMoveInput(FVector ClickLocation, AActor* TargetActor);
+	bool IsEnemyActor(AActor* TargetActor) const;
 	virtual bool IsMoveInputBlocked() const { return false; }
 
 	UFUNCTION(Server, Reliable, WithValidation)

@@ -68,7 +68,7 @@ protected:
 	float EElapsed = 0.0f;
 	float Fury = 0.0f;
 
-	TSet<TWeakObjectPtr<ABaseChampion>> EHitTargets;
+	TSet<TWeakObjectPtr<AActor>> EHitTargets;
 	TMap<TWeakObjectPtr<ABaseChampion>, FTimerHandle> WDebuffTimers;
 	TMap<TWeakObjectPtr<ABaseChampion>, float> WAttackDamageReductions;
 	TMap<TWeakObjectPtr<ABaseChampion>, float> WOriginalMoveSpeeds;
