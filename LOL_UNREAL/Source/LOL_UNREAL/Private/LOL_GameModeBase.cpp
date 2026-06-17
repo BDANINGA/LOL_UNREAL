@@ -23,6 +23,9 @@
 #include "Minion/Minion_Caster.h"
 #include "Minion/Minion_Siege.h"
 #include "Minion/Minion_Super.h"
+
+#include "Building/Building_Inhibitor.h"
+
 #include "EngineUtils.h"
 #include "TimerManager.h"
 
@@ -152,6 +155,25 @@ void ALOL_GameModeBase::RequestRespawn(ABaseChampion* DeadChampion)
 
 void ALOL_GameModeBase::StartMinionWave()
 {
+    /*TArray<AActor*> FoundBuilding;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABuilding_Inhibitor::StaticClass(), FoundBuilding);
+
+    AActor* TargetLine = nullptr;
+
+    FName TeamTag = "BlueTeam";
+    FName LineTag = "Top";
+
+
+
+    for (AActor* Actor : FoundBuilding)
+    {
+        if (Actor->ActorHasTag(TeamTag))
+        {
+            TargetLine = Actor;
+            break;
+        }
+    }*/
+
     ALOL_GameState* GS = Cast<ALOL_GameState>(GetWorld()->GetGameState());
     int32 TimeWave = 0;
     if (GS->CurrentMatchTime < 15.0f * 60.0f) {

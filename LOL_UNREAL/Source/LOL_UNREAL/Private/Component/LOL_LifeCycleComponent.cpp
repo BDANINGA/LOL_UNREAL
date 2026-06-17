@@ -122,6 +122,12 @@ void ULOL_LifeCycleComponent::Respawn()
 	AActor* TargetStart = nullptr;
 
 	FName TeamTag = "BlueTeam";
+	if (ABaseChampion* OwnerChampion = Cast<ABaseChampion>(OwnerPawn))
+	{
+		if(OwnerChampion->StateComponent->HasStatusTag(LOLTags::Team_Blue)) TeamTag = "BlueTeam";
+		else FName TeamTag = "RedTeam";
+	}
+	
 
 	for (AActor* Actor : FoundActors)
 	{
