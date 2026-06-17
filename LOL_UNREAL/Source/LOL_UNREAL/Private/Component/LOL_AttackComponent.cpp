@@ -5,6 +5,7 @@
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_StateComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/CapsuleComponent.h"
 
 #include "BaseChampion.h"
 #include "JungleMonster/BaseJungleMonster.h"
@@ -60,8 +61,13 @@ void ULOL_AttackComponent::UpdateAttackLogic()
             return;
         }
     }
+    float TargetRadius = 0.f;
+    if (UCapsuleComponent* TargetCap = CombatTarget->FindComponentByClass<UCapsuleComponent>())
+    {
+        TargetRadius = TargetCap->GetScaledCapsuleRadius();
+    }
 
-    float Distance = OwnerPawn->GetDistanceTo(CombatTarget);
+    float Distance = FMath::Max(0.f, OwnerPawn->GetDistanceTo(CombatTarget) - TargetRadius);
     // 사거리 안이면 공격
     if (Distance <= StatComp->GetStat().AttackRange)
     {
@@ -134,7 +140,6 @@ void ULOL_AttackComponent::StartAttack()
             else if (ABuilding_Turret* Turret = Cast<ABuilding_Turret>(OwnerPawn))
             {
                 ExecuteRangeAttackHit();
-                if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("포탑 공격"));
             }
         }
     }
@@ -251,7 +256,7 @@ void ULOL_AttackComponent::ExecuteRangeAttackHit()
     else if (ABuilding_Turret* Turret = Cast<ABuilding_Turret>(OwnerPawn))
     {
         UNiagaraSystem* TargetNiagara = nullptr;
-
+        Turret->CurrentDebugTarget = HitTarget;
         APlayerController* PC = Turret->GetWorld()->GetFirstPlayerController();
         if (PC && PC->GetPawn())
         {
@@ -269,7 +274,19 @@ void ULOL_AttackComponent::ExecuteRangeAttackHit()
             Arrow->SetNiagara(TargetNiagara);
         }
 
-        FVector SpawnLocation = Turret->GetActorLocation() + (Turret->GetActorForwardVector() * 50.f);
+        FVector SpawnLocation = Turret->GetActorLocation() + (Turret->GetActorForwardVector() * 150.f) + FVector(0.f, 0.f, 250.f);
+        TArray<USceneComponent*> Components;
+        Turret->GetComponents<USceneComponent>(Components);
+        for (USceneComponent* Comp : Components)
+        {
+            if (Comp && Comp->GetName() == TEXT("FirePoint"))
+            {
+                SpawnLocation = Comp->GetComponentLocation();
+                break;
+            }
+        }
+        FVector TargetLocation = HitTarget->GetActorLocation();
+
         Arrow->Activate(SpawnLocation, HitTarget);
     }
 }

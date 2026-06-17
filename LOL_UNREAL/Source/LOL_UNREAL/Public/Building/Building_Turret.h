@@ -14,23 +14,18 @@ public:
 	class UNiagaraSystem* GetAllyProjectileNiagara() { return  AllyProjectileNiagara; };
 	class UNiagaraSystem* GetEnemyProjectileNiagara() { return  EnemyProjectileNiagara; };
 
+	UPROPERTY()
+	AActor* CurrentDebugTarget;
+
+	virtual void Tick(float DeltaTime) override;
+
 private:
+	UPROPERTY(EditAnywhere, Category = "Mesh")
+	TObjectPtr<class UStaticMeshComponent> BuildingMesh;
+
 	UPROPERTY(EditAnywhere, Category = "Projectile")
 	class UNiagaraSystem* AllyProjectileNiagara;
 
 	UPROPERTY(EditAnywhere, Category = "Projectile")
 	class UNiagaraSystem* EnemyProjectileNiagara;
-
-	UPROPERTY(EditAnywhere, Category = "Material")
-	UTexture2D* AllyTexture;
-
-	UPROPERTY(EditAnywhere, Category = "Material")
-	UTexture2D* EnemyTexture;
-
-	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* AllyHPBarImage;
-
-	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* EnemyHPBarImage;
-
 };

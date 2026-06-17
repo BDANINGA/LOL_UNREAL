@@ -62,6 +62,11 @@ void ALOL_TurretAIController::DecisionLoop()
 		{
 			AttackComp->CombatTarget = nullptr;
 			CurrentTarget = nullptr;
+
+			if (ABuilding_Turret* Turret = Cast<ABuilding_Turret>(ControlledPawn))
+			{
+				Turret->CurrentDebugTarget = nullptr;
+			}
 		}
 	}
 
@@ -78,10 +83,8 @@ void ALOL_TurretAIController::DecisionLoop()
 	if (IsValid(CurrentTarget) && AttackComp->bCanAttack)
 	{
 		AttackComp->StartAttack();
-		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("포탑 공격 시작"));
 	}
 	float Range = StatComp->GetStat().AttackRange;
-	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 0.2f, FColor::Yellow, FString::Printf(TEXT("포탑 사거리: %f"), Range));
 }
 
 AActor* ALOL_TurretAIController::ScanForClosestEnemy(float SearchRadius)
@@ -107,7 +110,6 @@ AActor* ALOL_TurretAIController::ScanForClosestEnemy(float SearchRadius)
 
 	if (bHit)
 	{
-		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("BestTarget"));
 		for (const FOverlapResult& Hit : Overlaps)
 		{
 			AActor* HitActor = Hit.GetActor();
@@ -127,7 +129,5 @@ AActor* ALOL_TurretAIController::ScanForClosestEnemy(float SearchRadius)
 			}
 		}
 	}
-
-	
 	return BestTarget;
 }

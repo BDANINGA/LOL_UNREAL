@@ -4,25 +4,6 @@
 #include "GameFramework/Pawn.h"
 #include "BaseBuilding.generated.h"
 
-USTRUCT(BlueprintType)
-struct FBuildingResourceData : public FTableRowBase
-{
-	GENERATED_BODY()
-
-public:
-	UPROPERTY(EditAnywhere, Category = "Material")
-	UTexture2D* AllyTexture;
-
-	UPROPERTY(EditAnywhere, Category = "Material")
-	UTexture2D* EnemyTexture;
-
-	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* AllyHPBarImage;
-
-	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* EnemyHPBarImage;
-};
-
 UCLASS()
 class LOL_UNREAL_API ABaseBuilding : public APawn
 {
@@ -31,12 +12,10 @@ class LOL_UNREAL_API ABaseBuilding : public APawn
 public:
 	ABaseBuilding();
 
-	UDataTable* DataTable;
-
-	UPROPERTY()
-	FBuildingResourceData BuildingResource;
-
 	virtual FName GetBuildingName() const { return BuildingName; };
+
+	UFUNCTION()
+	void UpdateTeamVisual();
 
 protected:
 	virtual void BeginPlay() override;
@@ -44,9 +23,6 @@ protected:
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UCapsuleComponent> CapsuleComponent;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Visual", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<class UStaticMeshComponent> BuildingMesh;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class ULOL_StatComponent> StatComponent;
@@ -62,6 +38,18 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class ULOL_UIComponent> UIComponent;
+
+	UPROPERTY(EditAnywhere, Category = "Material")
+	UTexture2D* AllyTexture;
+
+	UPROPERTY(EditAnywhere, Category = "Material")
+	UTexture2D* EnemyTexture;
+
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* AllyHPBarImage;
+
+	UPROPERTY(EditAnywhere, Category = "UI")
+	UTexture2D* EnemyHPBarImage;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Building|Data")
 	FName BuildingName;
