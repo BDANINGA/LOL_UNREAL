@@ -7,6 +7,7 @@
 #include "LOL_PlayerController.h"
 #include "BaseChampion.h"
 #include "Minion/BaseMinion.h"
+#include "JungleMonster/BaseJungleMonster.h"
 #include "Camera.h"
 
 #include "Widget/LOL_CursorWidget.h"
@@ -146,7 +147,7 @@ void ALOL_PlayerController::SetupInputComponent()
 void ALOL_PlayerController::OnRightClick()
 {
 	FHitResult HitResult;
-	if (GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
+	if (GetTargetAwareHitUnderCursor(HitResult))
 	{
 		AActor* HitActor = HitResult.GetActor();
 		if (MyChampion && MyChampion->IsLocallyControlled())
@@ -156,7 +157,7 @@ void ALOL_PlayerController::OnRightClick()
 			MyChampion->UIComponent->HideRangeIndicator();
 			MyChampion->ProcessMoveInput(HitResult.Location, HitActor);
 
-			if (Cast<ABaseChampion>(HitActor) == nullptr && Cast<ABaseMinion>(HitActor) == nullptr) 
+			if (!IsClickableAttackTarget(HitActor))
 			{
 				UNiagaraFunctionLibrary::SpawnSystemAtLocation(
 					GetWorld(),
@@ -176,7 +177,7 @@ void ALOL_PlayerController::OnLeftClick()
 		{
 			FHitResult HitResult;
 			
-			if (GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
+			if (GetTargetAwareHitUnderCursor(HitResult))
 			{
 				AActor* HitActor = HitResult.GetActor();
 				MyChampion->ProcessMoveInput(HitResult.Location, HitActor);
@@ -184,7 +185,7 @@ void ALOL_PlayerController::OnLeftClick()
 				MyChampion->MoveComponent->bIsSearchAttack = true;
 				MyChampion->UIComponent->HideRangeIndicator();
 
-				if (Cast<ABaseChampion>(HitActor) == nullptr && Cast<ABaseMinion>(HitActor) == nullptr)
+				if (!IsClickableAttackTarget(HitActor))
 				{
 					UNiagaraFunctionLibrary::SpawnSystemAtLocation(
 						GetWorld(),
@@ -326,7 +327,7 @@ void ALOL_PlayerController::UpdateCursorSelection()
 	if (!MyChampion) return;
 
 	FHitResult Hit;
-	if (GetHitResultUnderCursor(ECC_Visibility, false, Hit))
+	if (GetTargetAwareHitUnderCursor(Hit))
 	{
 		AActor* TargetActor = Hit.GetActor();
 		bool bIsEnemyTarget = false;
@@ -353,6 +354,98 @@ void ALOL_PlayerController::UpdateCursorSelection()
 
 	ChangeCursorType(TEXT("Normal")); 
 }
+
+bool ALOL_PlayerController::GetTargetAwareHitUnderCursor(FHitResult& OutHit) const
+{
+	FHitResult VisibilityHit;
+	const bool bHasVisibilityHit =
+		GetHitResultUnderCursor(ECC_Visibility, false, VisibilityHit);
+
+	if (bHasVisibilityHit)
+	{
+		OutHit = VisibilityHit;
+		if (IsClickableAttackTarget(VisibilityHit.GetActor()))
+		{
+			return true;
+		}
+	}
+
+	if (!MyChampion)
+	{
+		return bHasVisibilityHit;
+	}
+
+	FVector WorldOrigin;
+	FVector WorldDirection;
+	if (!DeprojectMousePositionToWorld(WorldOrigin, WorldDirection))
+	{
+		return bHasVisibilityHit;
+	}
+
+	TArray<FHitResult> Hits;
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(CursorExpandedTargetTrace), false);
+	QueryParams.AddIgnoredActor(MyChampion);
+
+	const FVector TraceEnd =
+		WorldOrigin + WorldDirection.GetSafeNormal() * ExpandedTargetTraceDistance;
+
+	const bool bHit = GetWorld()->SweepMultiByChannel(
+		Hits,
+		WorldOrigin,
+		TraceEnd,
+		FQuat::Identity,
+		ECC_Pawn,
+		FCollisionShape::MakeSphere(ExpandedTargetTraceRadius),
+		QueryParams
+	);
+
+	if (!bHit)
+	{
+		return bHasVisibilityHit;
+	}
+
+	Hits.Sort([](const FHitResult& A, const FHitResult& B)
+	{
+		return A.Distance < B.Distance;
+	});
+
+	for (const FHitResult& Hit : Hits)
+	{
+		AActor* HitActor = Hit.GetActor();
+		if (!IsExpandedClickableAttackTarget(HitActor))
+		{
+			continue;
+		}
+
+		OutHit = Hit;
+		OutHit.Location = HitActor->GetActorLocation();
+		OutHit.ImpactPoint = HitActor->GetActorLocation();
+		return true;
+	}
+
+	return bHasVisibilityHit;
+}
+
+bool ALOL_PlayerController::IsClickableAttackTarget(AActor* TargetActor) const
+{
+	return
+		MyChampion &&
+		TargetActor &&
+		TargetActor != MyChampion &&
+		TargetActor->FindComponentByClass<ULOL_StateComponent>() &&
+		MyChampion->IsEnemyActor(TargetActor);
+}
+
+bool ALOL_PlayerController::IsExpandedClickableAttackTarget(AActor* TargetActor) const
+{
+	if (!IsClickableAttackTarget(TargetActor))
+	{
+		return false;
+	}
+
+	return Cast<ABaseMinion>(TargetActor) || Cast<ABaseJungleMonster>(TargetActor);
+}
+
 void ALOL_PlayerController::ChangeCursorType(FString NewStateName)
 {
 	if (MyCursorWidget && LastCursorState != NewStateName)

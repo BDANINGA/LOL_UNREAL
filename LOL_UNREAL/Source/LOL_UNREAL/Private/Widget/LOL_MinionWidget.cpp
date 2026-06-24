@@ -24,3 +24,10 @@ void ULOL_MinionWidget::SetHPBarImage(UTexture2D* FillTexture)
     }
 }
 
+void ULOL_MinionWidget::SetHPBarColor(const FLinearColor& FillColor)
+{
+    if (HPbar)
+    {
+        HPbar->SetFillColorAndOpacity(FillColor);
+    }
+}

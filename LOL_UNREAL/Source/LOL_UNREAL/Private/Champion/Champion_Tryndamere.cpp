@@ -311,7 +311,12 @@ void AChampion_Tryndamere::UpdateESpin(float DeltaTime)
 		}
 	}
 
-	SetActorLocation(DesiredLocation, true);
+	SetActorLocation(
+		DesiredLocation,
+		false,
+		nullptr,
+		ETeleportType::TeleportPhysics
+	);
 
 	if (Alpha >= 1.0f)
 	{

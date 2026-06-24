@@ -50,6 +50,8 @@ protected:
 	class UMaterialInstanceDynamic* DecalMID;
 
 private:
+	void ApplyJungleMonsterWidgetLayout(class ABaseJungleMonster* JungleMonster);
+
 	TSubclassOf<class UUserWidget> ChampionWidgetClass;
 	TSubclassOf<class UUserWidget> MinionWidgetClass;
 	TSubclassOf<class UUserWidget> JungleMonsterWidgetClass;

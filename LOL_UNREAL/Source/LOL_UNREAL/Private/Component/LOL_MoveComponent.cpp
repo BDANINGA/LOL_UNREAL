@@ -165,7 +165,12 @@ void ULOL_MoveComponent::StopMovement()
 
     if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
     {
+        TargetLocation = Champion->GetActorLocation();
         if (AController* PC = Champion->GetController()) PC->StopMovement();
+        if (UCharacterMovementComponent* Movement = Champion->GetCharacterMovement())
+        {
+            Movement->StopMovementImmediately();
+        }
     }
     else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
     {

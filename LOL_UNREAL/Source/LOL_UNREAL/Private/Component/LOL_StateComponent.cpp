@@ -26,6 +26,7 @@ void ULOL_StateComponent::RemoveStatusTag(FGameplayTag Tag)
 	if (GetOwnerRole() == ROLE_Authority && Tag.IsValid())
 	{
 		StatusTags.RemoveTag(Tag);
+		OnStateTagsChanged.Broadcast();
 	}
 }
 

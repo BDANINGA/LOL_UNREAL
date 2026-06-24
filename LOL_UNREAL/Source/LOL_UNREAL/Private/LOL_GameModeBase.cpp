@@ -47,11 +47,11 @@ UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(ACont
     if (InController && InController->IsLocalController())
     {
         // 첫 번째 플레이어
-        return AChampion_LeeSin::StaticClass();
+        return AChampion_Jax::StaticClass();
     }
 
     // 2. 그 외에 접속하는 클라이언트 플레이어들
-    return AChampion_Ezreal::StaticClass();
+    return AChampion_Tryndamere::StaticClass();
 }
 
 APawn* ALOL_GameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot)
@@ -176,6 +176,8 @@ void ALOL_GameModeBase::SpawnJungleMonsters()
     SpawnJungleMonsterAtTag(FName("red_target"), FName("Red"));
     SpawnJungleMonsterAtTag(FName("blue_target"), FName("Blue"));
     SpawnJungleMonsterAtTag(FName("krug_target"), FName("Krug"));
+    SpawnJungleMonsterAtTag(FName("dragon_target"), FName("Atakhan"));
+    SpawnJungleMonsterAtTag(FName("baron_target"), FName("Baron"));
 }
 
 void ALOL_GameModeBase::SpawnJungleMonsterAtTag(FName TargetTag, FName MonsterRowName)
@@ -191,7 +193,44 @@ void ALOL_GameModeBase::SpawnJungleMonsterAtTag(FName TargetTag, FName MonsterRo
         UGameplayStatics::GetAllActorsOfClass(GetWorld(), AActor::StaticClass(), AllActors);
 
         TArray<FString> TargetNames;
-        TargetNames.Add(TargetTag.ToString());
+        const FString TargetTagString = TargetTag.ToString();
+        FString BaseTargetName = TargetTagString;
+        BaseTargetName.RemoveFromEnd(TEXT("_target"), ESearchCase::IgnoreCase);
+
+        TargetNames.Add(TargetTagString);
+
+        if (BaseTargetName.Equals(TEXT("atakhan"), ESearchCase::IgnoreCase) ||
+            BaseTargetName.Equals(TEXT("dragon"), ESearchCase::IgnoreCase))
+        {
+            TargetNames.Add(TEXT("dragon"));
+            TargetNames.Add(TEXT("dragon_target"));
+            TargetNames.Add(TEXT("dragon_spawn"));
+            TargetNames.Add(TEXT("dragonTarget"));
+            TargetNames.Add(TEXT("dragonSpawn"));
+            TargetNames.Add(TEXT("atakhan"));
+            TargetNames.Add(TEXT("atakhan_target"));
+            TargetNames.Add(TEXT("atakhan_spawn"));
+            TargetNames.Add(TEXT("atakhanTarget"));
+            TargetNames.Add(TEXT("atakhanSpawn"));
+            TargetNames.Add(TEXT("atakan"));
+            TargetNames.Add(TEXT("atakan_target"));
+            TargetNames.Add(TEXT("atakan_spawn"));
+        }
+
+        if (BaseTargetName.Equals(TEXT("baron"), ESearchCase::IgnoreCase))
+        {
+            TargetNames.Add(TEXT("baron"));
+            TargetNames.Add(TEXT("baron_target"));
+            TargetNames.Add(TEXT("baron_spawn"));
+            TargetNames.Add(TEXT("baronTarget"));
+            TargetNames.Add(TEXT("baronSpawn"));
+            TargetNames.Add(TEXT("nashor"));
+            TargetNames.Add(TEXT("nashor_target"));
+            TargetNames.Add(TEXT("nashor_spawn"));
+            TargetNames.Add(TEXT("baron_nashor"));
+            TargetNames.Add(TEXT("baron_nashor_target"));
+            TargetNames.Add(TEXT("baron_nashor_spawn"));
+        }
 
         for (AActor* Actor : AllActors)
         {
@@ -199,8 +238,8 @@ void ALOL_GameModeBase::SpawnJungleMonsterAtTag(FName TargetTag, FName MonsterRo
 
             for (const FString& TargetName : TargetNames)
             {
-                if (Actor->GetName().Contains(TargetName) ||
-                    Actor->GetActorLabel().Contains(TargetName))
+                if (Actor->GetName().Contains(TargetName, ESearchCase::IgnoreCase) ||
+                    Actor->GetActorLabel().Contains(TargetName, ESearchCase::IgnoreCase))
                 {
                     SpawnTargets.AddUnique(Actor);
                     break;

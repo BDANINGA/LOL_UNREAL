@@ -53,9 +53,15 @@ protected:
 		float TravelTime
 	);
 
-	void MarkQTarget(ABaseChampion* Target);
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_DestroyQProjectile();
+
+	void MarkQTarget(AActor* Target);
 	void ClearQMark();
-	void StartQDash(ABaseChampion* Target);
+	void UpdateQProjectile(float DeltaTime);
+	void FinishQProjectile(bool bDestroyVisual);
+	void ApplyQFirstHitDamage(AActor* Target);
+	void StartQDash(AActor* Target);
 	void UpdateQDash(float DeltaTime);
 	void FinishQDash();
 	void StartWDash(FVector Destination);
@@ -79,10 +85,13 @@ protected:
 	UAnimMontage* GetLeeSinMontage(uint8 SkillIndex, int32 MontageIndex) const;
 
 	UPROPERTY()
-	TObjectPtr<ABaseChampion> QMarkedTarget;
+	TObjectPtr<AActor> QMarkedTarget;
 
 	UPROPERTY()
-	TObjectPtr<ABaseChampion> QDashTarget;
+	TObjectPtr<AActor> QDashTarget;
+
+	UPROPERTY()
+	TObjectPtr<AActor> QProjectileVisualActor;
 
 	UPROPERTY()
 	TObjectPtr<class UStaticMesh> DefaultQProjectileMesh;
@@ -91,17 +100,30 @@ protected:
 	TObjectPtr<ABaseChampion> RKnockbackTarget;
 
 	bool bQMarkActive = false;
+	bool bQProjectileActive = false;
 	bool bIsQDashing = false;
 	bool bIsWDashing = false;
 	bool bRKnockbackActive = false;
 	bool bSkillMovementLocked = false;
+	ECollisionEnabled::Type QDashPreviousCollisionEnabled =
+		ECollisionEnabled::QueryAndPhysics;
+	ECollisionResponse QDashPreviousPawnResponse = ECR_Block;
+	ECollisionEnabled::Type WDashPreviousCollisionEnabled =
+		ECollisionEnabled::QueryAndPhysics;
+	ECollisionResponse WDashPreviousPawnResponse = ECR_Block;
 	FVector QDashStart = FVector::ZeroVector;
+	FVector QProjectileStart = FVector::ZeroVector;
+	FVector QProjectileEnd = FVector::ZeroVector;
+	FVector QProjectileLastLocation = FVector::ZeroVector;
+	FVector QProjectileDirection = FVector::ZeroVector;
 	FVector WDashStart = FVector::ZeroVector;
 	FVector WDashEnd = FVector::ZeroVector;
 	FVector RKnockbackStart = FVector::ZeroVector;
 	FVector RKnockbackEnd = FVector::ZeroVector;
 	FVector RKnockbackLastLocation = FVector::ZeroVector;
 	float QDashElapsed = 0.0f;
+	float QProjectileElapsed = 0.0f;
+	float QProjectileTravelTime = 0.0f;
 	float WDashElapsed = 0.0f;
 	float RKnockbackElapsed = 0.0f;
 	float WShieldRemaining = 0.0f;
@@ -115,13 +137,13 @@ protected:
 	TSet<TWeakObjectPtr<ABaseChampion>> RAirborneTargets;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | Q")
-	float QProjectileRadius = 55.0f;
+	float QProjectileRadius = 65.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | Q")
-	float QProjectileSpeed = 850.0f;
+	float QProjectileSpeed = 1000.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | Q")
-	float QProjectileVisualRadius = 45.0f;
+	float QProjectileVisualRadius = 55.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | Q")
 	float QProjectileVisualScale = 1.0f;

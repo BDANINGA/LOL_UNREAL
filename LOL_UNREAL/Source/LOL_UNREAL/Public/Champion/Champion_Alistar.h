@@ -40,7 +40,7 @@ protected:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_Skill_W(ACharacter* Target);
 
-	// --- W 스킬 ---
+	// --- W ?�킬 ---
 	UPROPERTY()
 	ACharacter* ReservedWTarget = nullptr;
 
@@ -50,50 +50,68 @@ protected:
 	float W_CastRange = 550.0f;
 	
 	void ApplyWKnockback(ACharacter* Target);
-	// --- E 스킬: 분쇄 ---
+	void RestoreWCollision();
+
+	ECollisionEnabled::Type WDashPreviousCollisionEnabled =
+		ECollisionEnabled::QueryAndPhysics;
+	ECollisionResponse WDashPreviousPawnResponse = ECR_Block;
+	// --- E ?�킬: 분쇄 ---
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|E")
-	float E_Radius = 400.0f;  // 효과 반경
+	float E_Radius = 400.0f;  // ?�과 반경
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|E")
-	float E_TickInterval = 1.0f;  // 데미지 간격 (초)
+	float E_TickInterval = 1.0f;  // ?��?지 간격 (�?
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|E")
-	int32 E_MaxTicks = 3;  // 총 데미지 횟수
+	int32 E_MaxTicks = 5;  // �??��?지 ?�수
 
-	int32 E_CurrentTick = 0;  // 현재까지 몇 번 데미지 줬는지
+	int32 E_CurrentTick = 0;  // ?�재까�? �?�??��?지 줬는지
 
 	FTimerHandle E_TickTimerHandle;
 
-	// 다음 평타에 스턴 부여 플래그
+	// ?�음 ?��????�턴 부???�래�?
 	UPROPERTY(Replicated)
 	bool bNextAttackStun = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|E")
-	float E_StunDuration = 1.5f;  // 강화 평타 스턴 시간
+	float E_StunDuration = 1.5f;  // 강화 ?��? ?�턴 ?�간
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|E")
-	float E_StunBuffDuration = 5.0f;  // 강화 평타 사용 가능 시간 (안 쓰면 만료)
+	float E_StunBuffDuration = 5.0f;  // 강화 ?��? ?�용 가???�간 (???�면 만료)
 
 	FTimerHandle E_StunBuffTimerHandle;
 
-	void EndStunBuff();  // 강화 평타 만료 처리
+	void EndStunBuff();  // 강화 ?��? 만료 처리
 
-	// 평타 적중 콜백 오버라이드
+	// ?��? ?�중 콜백 ?�버?�이??
 	virtual void OnBasicAttackHit(ACharacter* Target) override;
 
-	// ★ 매개변수 제거 (Target 안 받음)
+	// ??매개변???�거 (Target ??받음)
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_Skill_E();
 
-	void ApplyEDamageTick();  // 매 틱마다 호출되는 함수
+	void ApplyEDamageTick();
 	
-	// --- R 스킬: 불굴의 의지 ---
+	// --- R ?�킬: 불굴???��? ---
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|R")
-	float UltDuration = 7.0f;  // 지속시간
+	float UltDuration = 7.0f;  // 지?�시�?
 
 	UPROPERTY(Replicated)
 	bool bIsUltActive = false;
+
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Skill|R|Visual")
+	TObjectPtr<class UStaticMeshComponent> RShieldComponent;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|R|Visual")
+	FVector RShieldRelativeLocation = FVector::ZeroVector;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|R|Visual")
+	FRotator RShieldRelativeRotation = FRotator::ZeroRotator;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|R|Visual")
+	FVector RShieldRelativeScale = FVector(0.03f, 0.03f, 0.03f);
 
 	FTimerHandle UltTimerHandle;
 
@@ -103,12 +121,16 @@ protected:
 	UFUNCTION(NetMulticast, Unreliable)
 	void Multicast_PlayRMontage();
 
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_SetRShieldVisible(bool bVisible);
+
 	void StartUlt();
 	void EndUlt();
 
 	void ClearCCExceptKnockup();
 
-	// Q 시전 시간 (이동 잠금 기간) --- 2026 05 07
+	// Q ?�전 ?�간 (?�동 ?�금 기간) --- 2026 05 07
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|Q")
 	float Q_CastTime = 0.5f;
 

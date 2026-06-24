@@ -63,7 +63,17 @@ protected:
 	class UNiagaraSystem* ClickFX;
 	UPROPERTY()
 	class UNiagaraSystem* AClickFX;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input|Targeting")
+	float ExpandedTargetTraceRadius = 60.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input|Targeting")
+	float ExpandedTargetTraceDistance = 100000.0f;
 private:
+	bool GetTargetAwareHitUnderCursor(FHitResult& OutHit) const;
+	bool IsClickableAttackTarget(AActor* TargetActor) const;
+	bool IsExpandedClickableAttackTarget(AActor* TargetActor) const;
+
 	UPROPERTY()
 	class ACamera* CameraAnchor;
 

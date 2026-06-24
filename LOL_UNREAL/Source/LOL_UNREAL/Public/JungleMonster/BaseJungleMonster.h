@@ -70,6 +70,7 @@ public:
 	virtual FName GetJungleMonsterName() const { return JungleMonsterName; }
 	FVector GetSpawnLocation() const { return SpawnLocation; }
 	FRotator GetSpawnRotation() const { return SpawnRotation; }
+	bool IsStationaryMonster() const { return bStationaryMonster; }
 	void InitializeJungleMonster(FName RowName);
 	void SetJungleMonsterData(FName RowName);
 
@@ -99,6 +100,9 @@ protected:
 
 	UPROPERTY()
 	FRotator SpawnRotation = FRotator::ZeroRotator;
+
+	UPROPERTY()
+	bool bStationaryMonster = false;
 
 	bool bReturningToSpawn = false;
 

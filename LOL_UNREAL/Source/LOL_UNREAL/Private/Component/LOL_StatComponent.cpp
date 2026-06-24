@@ -119,6 +119,57 @@ void ULOL_StatComponent::InitializeStat()
 	if (TableToUse && !RowName.IsNone())
 	{
 		FChampionStat* FoundRow = TableToUse->FindRow<FChampionStat>(RowName, TEXT(""));
+		if (!FoundRow && RowName == FName("Atakhan"))
+		{
+			const TArray<FName> AtakhanAliases = {
+				FName("atakhan"),
+				FName("Atakan"),
+				FName("atakan")
+			};
+
+			for (const FName& AtakhanAlias : AtakhanAliases)
+			{
+				FoundRow = TableToUse->FindRow<FChampionStat>(AtakhanAlias, TEXT(""));
+				if (FoundRow)
+				{
+					break;
+				}
+			}
+		}
+		else if (!FoundRow && RowName == FName("atakhan"))
+		{
+			FoundRow = TableToUse->FindRow<FChampionStat>(FName("Atakhan"), TEXT(""));
+		}
+		else if (!FoundRow && (RowName == FName("Atakan") || RowName == FName("atakan")))
+		{
+			FoundRow = TableToUse->FindRow<FChampionStat>(FName("Atakhan"), TEXT(""));
+			if (!FoundRow)
+			{
+				FoundRow = TableToUse->FindRow<FChampionStat>(FName("atakhan"), TEXT(""));
+			}
+		}
+		else if (!FoundRow && RowName == FName("Baron"))
+		{
+			const TArray<FName> BaronAliases = {
+				FName("baron"),
+				FName("BaronNashor"),
+				FName("Baron_Nashor"),
+				FName("baron_nashor")
+			};
+
+			for (const FName& BaronAlias : BaronAliases)
+			{
+				FoundRow = TableToUse->FindRow<FChampionStat>(BaronAlias, TEXT(""));
+				if (FoundRow)
+				{
+					break;
+				}
+			}
+		}
+		else if (!FoundRow && RowName == FName("baron"))
+		{
+			FoundRow = TableToUse->FindRow<FChampionStat>(FName("Baron"), TEXT(""));
+		}
 		if (FoundRow)
 		{
 			SetStat(*FoundRow);

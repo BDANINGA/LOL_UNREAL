@@ -344,7 +344,7 @@ void AChampion_Ezreal::Server_Skill_R_Implementation(FVector TargetLocation)
         ProjectileStart,
         ProjectileEnd,
         TravelTime,
-        140.0f,
+        280.0f,
         SkillDamage,
         ULOL_DamageMagic::StaticClass(),
         true
@@ -406,7 +406,7 @@ void AChampion_Ezreal::OnEzrealProjectileOverlap(
     bool bFromSweep,
     const FHitResult& SweepResult)
 {
-    if (!HasAuthority() || !OverlappedComponent || !OtherActor)
+    if (!OverlappedComponent || !OtherActor)
     {
         return;
     }
@@ -438,25 +438,34 @@ void AChampion_Ezreal::OnEzrealProjectileOverlap(
 
     ProjectileData->DamagedTargets.Add(TargetKey);
 
-    UGameplayStatics::ApplyDamage(
-        OtherActor,
-        ProjectileData->Damage,
-        GetController(),
-        this,
-        ProjectileData->DamageType
-    );
+    const bool bDestroyOnHit = !ProjectileData->bHitMultiple;
 
-    UE_LOG(
-        LogTemp,
-        Warning,
-        TEXT("Ezreal projectile hit. Target=%s Damage=%f MultiHit=%d"),
-        *OtherActor->GetName(),
-        ProjectileData->Damage,
-        ProjectileData->bHitMultiple
-    );
+    if (HasAuthority())
+    {
+        UGameplayStatics::ApplyDamage(
+            OtherActor,
+            ProjectileData->Damage,
+            GetController(),
+            this,
+            ProjectileData->DamageType
+        );
 
-    ActiveProjectiles.Remove(ProjectileActor);
-    ProjectileActor->Destroy();
+        UE_LOG(
+            LogTemp,
+            Warning,
+            TEXT("Ezreal projectile hit. Target=%s Damage=%f MultiHit=%d DestroyOnHit=%d"),
+            *OtherActor->GetName(),
+            ProjectileData->Damage,
+            ProjectileData->bHitMultiple,
+            bDestroyOnHit
+        );
+    }
+
+    if (bDestroyOnHit)
+    {
+        ActiveProjectiles.Remove(ProjectileActor);
+        ProjectileActor->Destroy();
+    }
 }
 
 UStaticMesh* AChampion_Ezreal::GetEzrealProjectileMesh(uint8 ProjectileType)
@@ -557,23 +566,16 @@ void AChampion_Ezreal::SpawnEzrealProjectileVisual(
     ProjectileActor->SetRootComponent(CollisionComponent);
     CollisionComponent->SetMobility(EComponentMobility::Movable);
     CollisionComponent->InitSphereRadius(CollisionRadius);
-    CollisionComponent->SetCollisionEnabled(
-        HasAuthority()
-        ? ECollisionEnabled::QueryOnly
-        : ECollisionEnabled::NoCollision
-    );
+    CollisionComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     CollisionComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
     CollisionComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-    CollisionComponent->SetGenerateOverlapEvents(HasAuthority());
+    CollisionComponent->SetGenerateOverlapEvents(true);
     CollisionComponent->RegisterComponent();
 
-    if (HasAuthority())
-    {
-        CollisionComponent->OnComponentBeginOverlap.AddDynamic(
-            this,
-            &AChampion_Ezreal::OnEzrealProjectileOverlap
-        );
-    }
+    CollisionComponent->OnComponentBeginOverlap.AddDynamic(
+        this,
+        &AChampion_Ezreal::OnEzrealProjectileOverlap
+    );
 
     UStaticMeshComponent* MeshComponent =
         NewObject<UStaticMeshComponent>(
@@ -602,24 +604,29 @@ void AChampion_Ezreal::SpawnEzrealProjectileVisual(
         nullptr,
         ETeleportType::TeleportPhysics
     );
-    MeshComponent->SetRelativeRotation(ProjectileRotationOffset);
-
     const float MeshRadius = ProjectileMeshAsset->GetBounds().SphereRadius;
     float VisualRadius = QProjectileVisualRadius;
+    FVector VisualScale3D = QProjectileVisualScale3D;
+    FRotator RotationOffset = QProjectileRotationOffset;
     if (ProjectileType == 1)
     {
         VisualRadius = WProjectileVisualRadius;
+        VisualScale3D = WProjectileVisualScale3D;
+        RotationOffset = WProjectileRotationOffset;
     }
     else if (ProjectileType == 2)
     {
         VisualRadius = RProjectileVisualRadius;
+        VisualScale3D = RProjectileVisualScale3D;
+        RotationOffset = RProjectileRotationOffset;
     }
+    MeshComponent->SetRelativeRotation(RotationOffset);
 
     const float Scale = MeshRadius > KINDA_SMALL_NUMBER
         ? VisualRadius / MeshRadius
         : 1.0f;
     MeshComponent->SetWorldScale3D(
-        FVector(Scale * ProjectileVisualScale) * ProjectileVisualScale3D
+        FVector(Scale * ProjectileVisualScale) * VisualScale3D
     );
     MeshComponent->SetVisibility(true, true);
     MeshComponent->SetHiddenInGame(false, true);
@@ -652,27 +659,24 @@ void AChampion_Ezreal::SpawnEzrealProjectileVisual(
 
     ProjectileActor->SetLifeSpan(FMath::Max(TravelTime + 0.1f, 0.2f));
 
-    if (HasAuthority())
-    {
-        FEzrealProjectileDamageData ProjectileDamageData;
-        ProjectileDamageData.Damage = Damage;
-        ProjectileDamageData.DamageType = DamageType;
-        ProjectileDamageData.bHitMultiple = bHitMultiple;
-        ActiveProjectiles.Add(ProjectileActor, ProjectileDamageData);
+    FEzrealProjectileDamageData ProjectileDamageData;
+    ProjectileDamageData.Damage = Damage;
+    ProjectileDamageData.DamageType = DamageType;
+    ProjectileDamageData.bHitMultiple = bHitMultiple;
+    ActiveProjectiles.Add(ProjectileActor, ProjectileDamageData);
 
-        FTimerHandle CleanupTimerHandle;
-        GetWorldTimerManager().SetTimer(
-            CleanupTimerHandle,
-            FTimerDelegate::CreateLambda(
-                [this, ProjectileActor]()
-                {
-                    ActiveProjectiles.Remove(ProjectileActor);
-                }
-            ),
-            FMath::Max(TravelTime + 0.2f, 0.3f),
-            false
-        );
-    }
+    FTimerHandle CleanupTimerHandle;
+    GetWorldTimerManager().SetTimer(
+        CleanupTimerHandle,
+        FTimerDelegate::CreateLambda(
+            [this, ProjectileActor]()
+            {
+                ActiveProjectiles.Remove(ProjectileActor);
+            }
+        ),
+        FMath::Max(TravelTime + 0.2f, 0.3f),
+        false
+    );
 
     UE_LOG(
         LogTemp,

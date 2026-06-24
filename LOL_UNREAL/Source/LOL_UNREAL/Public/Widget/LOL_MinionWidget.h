@@ -17,4 +17,5 @@ protected:
 public:
 	void UpdateHP(float Percent);
 	void SetHPBarImage(class UTexture2D* FillTexture);
+	void SetHPBarColor(const FLinearColor& FillColor);
 };

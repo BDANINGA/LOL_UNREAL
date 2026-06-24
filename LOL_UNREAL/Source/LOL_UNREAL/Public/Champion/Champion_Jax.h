@@ -23,7 +23,7 @@ public:
 
 protected:
 	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_Skill_Q(ABaseChampion* Target);
+	void Server_Skill_Q(ACharacter* Target);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_Skill_W();
@@ -50,6 +50,7 @@ protected:
 	void ApplyEmpowerDamage(ACharacter* Target);
 	void ApplyGrandmastersMightActiveDamage();
 	void ApplyGrandmastersMightPassive(ACharacter* Target);
+	bool IsValidLeapStrikeTarget(AActor* Target) const;
 	float GetQSkillRange() const;
 	UAnimMontage* GetSkillMontage(uint8 SkillIndex) const;
 
@@ -60,10 +61,10 @@ protected:
 	TObjectPtr<UAnimMontage> GrandmastersMightIdleMontage;
 
 	UPROPERTY()
-	TObjectPtr<ABaseChampion> ReservedQTarget;
+	TObjectPtr<ACharacter> ReservedQTarget;
 
 	UPROPERTY()
-	TObjectPtr<ABaseChampion> LeapTarget;
+	TObjectPtr<ACharacter> LeapTarget;
 
 	bool bIsChasingForQ = false;
 	bool bIsLeaping = false;

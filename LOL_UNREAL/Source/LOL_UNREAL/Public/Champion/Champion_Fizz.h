@@ -27,7 +27,7 @@ public:
 
 protected:
 	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_Skill_Q(ABaseChampion* Target);
+	void Server_Skill_Q(AActor* Target);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_Skill_W();
@@ -71,10 +71,10 @@ protected:
 	UAnimMontage* GetFizzMontage(uint8 SkillIndex, int32 MontageIndex) const;
 
 	UPROPERTY()
-	TObjectPtr<ABaseChampion> ReservedQTarget;
+	TObjectPtr<AActor> ReservedQTarget;
 
 	UPROPERTY()
-	TObjectPtr<ABaseChampion> QDashTarget;
+	TObjectPtr<AActor> QDashTarget;
 
 	UPROPERTY()
 	TObjectPtr<ABaseChampion> RAttachedTarget;

@@ -61,8 +61,13 @@ void AChampion_Fizz::Skill_Q()
 	FHitResult Hit;
 	if (!PlayerController->GetHitResultUnderCursor(ECC_Pawn, false, Hit)) return;
 
-	ABaseChampion* Target = Cast<ABaseChampion>(Hit.GetActor());
+	AActor* Target = Hit.GetActor();
 	if (!IsValid(Target) || Target == this) return;
+	if (!Target->FindComponentByClass<ULOL_StateComponent>() ||
+		!IsEnemyActor(Target))
+	{
+		return;
+	}
 
 	if (GetDistanceTo(Target) <= GetQSkillRange())
 	{
@@ -110,14 +115,19 @@ void AChampion_Fizz::Skill_R()
 	}
 }
 
-bool AChampion_Fizz::Server_Skill_Q_Validate(ABaseChampion* Target)
+bool AChampion_Fizz::Server_Skill_Q_Validate(AActor* Target)
 {
 	return true;
 }
 
-void AChampion_Fizz::Server_Skill_Q_Implementation(ABaseChampion* Target)
+void AChampion_Fizz::Server_Skill_Q_Implementation(AActor* Target)
 {
 	if (!SkillComponent || !StatComponent || !IsValid(Target) || Target == this) return;
+	if (!Target->FindComponentByClass<ULOL_StateComponent>() ||
+		!IsEnemyActor(Target))
+	{
+		return;
+	}
 	if (bIsQDashing || bEActive || GetDistanceTo(Target) > GetQSkillRange() + 50.0f) return;
 	if (!SkillComponent->TryCastSkill("Q", 1)) return;
 
@@ -149,7 +159,11 @@ void AChampion_Fizz::Server_Skill_Q_Implementation(ABaseChampion* Target)
 
 	// Q must pass through the target capsule to finish on its far side.
 	GetCapsuleComponent()->IgnoreActorWhenMoving(Target, true);
-	Target->GetCapsuleComponent()->IgnoreActorWhenMoving(this, true);
+	if (UCapsuleComponent* TargetCapsule =
+		Target->FindComponentByClass<UCapsuleComponent>())
+	{
+		TargetCapsule->IgnoreActorWhenMoving(this, true);
+	}
 }
 
 bool AChampion_Fizz::Server_Skill_W_Validate()
@@ -270,12 +284,14 @@ void AChampion_Fizz::Server_Skill_R_Implementation(FVector TargetLocation)
 	const FVector Start = GetActorLocation() + FVector(0.0f, 0.0f, 50.0f);
 	const FVector End = Start + Direction * Range;
 
-	FHitResult Hit;
+	RAttachedTarget = nullptr;
+
+	TArray<FHitResult> Hits;
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
 
-	const bool bHit = GetWorld()->SweepSingleByChannel(
-		Hit,
+	const bool bHit = GetWorld()->SweepMultiByChannel(
+		Hits,
 		Start,
 		End,
 		FQuat::Identity,
@@ -284,16 +300,36 @@ void AChampion_Fizz::Server_Skill_R_Implementation(FVector TargetLocation)
 		QueryParams
 	);
 
-	RAttachedTarget = bHit ? Cast<ABaseChampion>(Hit.GetActor()) : nullptr;
-	if (RAttachedTarget == this)
+	FHitResult TargetHit;
+	bool bFoundValidTarget = false;
+	if (bHit)
 	{
-		RAttachedTarget = nullptr;
+		Hits.Sort([](const FHitResult& A, const FHitResult& B)
+		{
+			return A.Distance < B.Distance;
+		});
+
+		for (const FHitResult& Hit : Hits)
+		{
+			AActor* HitActor = Hit.GetActor();
+			if (!IsValid(HitActor) || HitActor == this) continue;
+			if (!HitActor->FindComponentByClass<ULOL_StateComponent>() ||
+				!IsEnemyActor(HitActor))
+			{
+				continue;
+			}
+
+			TargetHit = Hit;
+			RAttachedTarget = Cast<ABaseChampion>(HitActor);
+			bFoundValidTarget = true;
+			break;
+		}
 	}
 
 	// Keep the visual projectile on the cursor ray. Using the target actor's
 	// center here can bend the projectile toward an enemy caught by the sweep.
-	const float ProjectileDistance = bHit
-		? FMath::Clamp(Hit.Distance, 0.0f, Range)
+	const float ProjectileDistance = bFoundValidTarget
+		? FMath::Clamp(TargetHit.Distance, 0.0f, Range)
 		: Range;
 	const FVector ProjectileEnd = Start + Direction * ProjectileDistance;
 
@@ -348,7 +384,7 @@ void AChampion_Fizz::UpdateQChaseToCast()
 
 	if (GetDistanceTo(ReservedQTarget) <= GetQSkillRange())
 	{
-		ABaseChampion* Target = ReservedQTarget;
+		AActor* Target = ReservedQTarget;
 		bIsChasingForQ = false;
 		ReservedQTarget = nullptr;
 
@@ -391,9 +427,15 @@ void AChampion_Fizz::UpdateQDash(float DeltaTime)
 	FVector Direction = QDashTarget->GetActorLocation() - QDashStart;
 	Direction.Z = 0.0f;
 
+	float TargetRadius = 0.0f;
+	if (UCapsuleComponent* TargetCapsule =
+		QDashTarget->FindComponentByClass<UCapsuleComponent>())
+	{
+		TargetRadius = TargetCapsule->GetScaledCapsuleRadius();
+	}
 	const float TargetOffset =
 		GetCapsuleComponent()->GetScaledCapsuleRadius() +
-		QDashTarget->GetCapsuleComponent()->GetScaledCapsuleRadius() +
+		TargetRadius +
 		QBehindTargetDistance;
 	FVector DashEnd = QDashTarget->GetActorLocation() +
 		Direction.GetSafeNormal() * TargetOffset;
@@ -411,14 +453,18 @@ void AChampion_Fizz::FinishQDash()
 {
 	if (!bIsQDashing) return;
 
-	ABaseChampion* Target = QDashTarget;
+	AActor* Target = QDashTarget;
 	bIsQDashing = false;
 	QDashTarget = nullptr;
 
 	if (IsValid(Target))
 	{
 		GetCapsuleComponent()->IgnoreActorWhenMoving(Target, false);
-		Target->GetCapsuleComponent()->IgnoreActorWhenMoving(this, false);
+		if (UCapsuleComponent* TargetCapsule =
+			Target->FindComponentByClass<UCapsuleComponent>())
+		{
+			TargetCapsule->IgnoreActorWhenMoving(this, false);
+		}
 	}
 
 	if (GetCharacterMovement())
@@ -449,7 +495,10 @@ void AChampion_Fizz::FinishQDash()
 		ULOL_DamageMagic::StaticClass()
 	);
 
-	OnBasicAttackHit(Target);
+	if (ACharacter* CharacterTarget = Cast<ACharacter>(Target))
+	{
+		OnBasicAttackHit(CharacterTarget);
+	}
 }
 
 void AChampion_Fizz::OnBasicAttackHit(ACharacter* Target)

@@ -23,6 +23,7 @@
 #include "Component/LOL_StateComponent.h"
 #include "GamePlayTag/LOL_GamePlayTags.h"
 #include "Component/Champion_SkillComponent.h"
+#include "Building/BaseBuilding.h"
 #include "DrawDebugHelpers.h"
 
 #include "UObject/ConstructorHelpers.h"
@@ -509,39 +510,54 @@ void ABaseChampion::CheckKnockbackWall()
 	const float HalfHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 
 	const FVector Start = GetActorLocation();
-	const FVector End = Start + KnockbackDirection * (Radius + 30.f); // 거리 살짝 늘림
+	const FVector End = Start + KnockbackDirection * (Radius + 30.f);
 
-	FHitResult Hit;
+	TArray<FHitResult> Hits;
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(this);
 
-	// ★ 트레이스 채널 대신 '오브젝트 타입(WorldStatic)' 질의 → 벽/지형 확실히 감지
 	FCollisionObjectQueryParams ObjParams;
 	ObjParams.AddObjectTypesToQuery(ECC_WorldStatic);
+	ObjParams.AddObjectTypesToQuery(ECC_Pawn);
 
-	const bool bHit = GetWorld()->SweepSingleByObjectType(
-		Hit, Start, End, GetActorQuat(),
+	const bool bHit = GetWorld()->SweepMultiByObjectType(
+		Hits, Start, End, GetActorQuat(),
 		ObjParams,
 		FCollisionShape::MakeCapsule(Radius * 0.9f, HalfHeight * 0.9f),
 		Params);
 
-	// 디버그: 초록=벽 감지, 빨강=못 잡음
 	DrawDebugCapsule(GetWorld(), End, HalfHeight * 0.9f, Radius * 0.9f,
 		GetActorQuat(), bHit ? FColor::Green : FColor::Red, false, 0.1f);
 
-	if (bHit)
+	if (!bHit)
 	{
-		// 바닥/경사면 제외(수평 노멀만 벽으로 인정), 단 벽에 파고든 경우도 허용
-		const bool bIsWall = Hit.bStartPenetrating || FMath::Abs(Hit.ImpactNormal.Z) < 0.5f;
-		if (bIsWall)
+		return;
+	}
+
+	for (const FHitResult& Hit : Hits)
+	{
+		AActor* HitActor = Hit.GetActor();
+		if (!IsValid(HitActor) || HitActor == this)
 		{
-			GetCharacterMovement()->StopMovementImmediately();
-			EndKnockback();
-			Multicast_ApplyStun(PendingWallStunDuration);
+			continue;
 		}
+
+		const UPrimitiveComponent* HitComponent = Hit.GetComponent();
+		const bool bIsWorldStatic = HitComponent && HitComponent->GetCollisionObjectType() == ECC_WorldStatic;
+		const bool bIsBuilding = Cast<ABaseBuilding>(HitActor) != nullptr;
+		const bool bIsWall = bIsBuilding || (bIsWorldStatic && (Hit.bStartPenetrating || FMath::Abs(Hit.ImpactNormal.Z) < 0.5f));
+
+		if (!bIsWall)
+		{
+			continue;
+		}
+
+		GetCharacterMovement()->StopMovementImmediately();
+		EndKnockback();
+		Multicast_ApplyStun(PendingWallStunDuration);
+		return;
 	}
 }
-
 void ABaseChampion::EndKnockback()
 {
 	GetWorldTimerManager().ClearTimer(KnockbackCheckHandle);

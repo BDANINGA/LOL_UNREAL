@@ -30,7 +30,11 @@ protected:
     void Server_Skill_Q(FVector TargetLocation);
 
     UPROPERTY()
-    class ABaseChampion* GrabbedTarget;
+    class ACharacter* GrabbedTarget;
+
+    ECollisionEnabled::Type GrabbedTargetPreviousCollisionEnabled =
+        ECollisionEnabled::QueryAndPhysics;
+    ECollisionResponse GrabbedTargetPreviousPawnResponse = ECR_Block;
 
     // 숫자가 낮을수록 더 천천히 끌려옵니다 (테스트 후 조절 가능)
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Skills")
@@ -49,7 +53,29 @@ protected:
 
     FVector PullDestination;
 
+    UPROPERTY()
+    TObjectPtr<class UStaticMesh> QProjectileMesh;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Projectile")
+    float QProjectileSpeed = 800.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Projectile")
+    float QProjectileVisualRadius = 30.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Projectile")
+    float QProjectileVisualScale = 1.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Projectile")
+    FRotator QProjectileRotationOffset = FRotator::ZeroRotator;
+
+    UFUNCTION(NetMulticast, Unreliable)
+    void Multicast_SpawnQProjectileVisual(FVector StartLocation, FVector EndLocation, float TravelTime);
+
+    void SpawnQProjectileVisual(FVector StartLocation, FVector EndLocation, float TravelTime);
+    void BeginPullTarget(ACharacter* Target, FVector SkillDirection);
     void FinishPullTarget();
+    void RestoreGrabbedTargetCollision();
+    bool IsValidBlitzSkillTarget(AActor* TargetActor) const;
 
     // --- W 스킬 (서버 실행) ---
     FTimerHandle W_BuffTimerHandle;
@@ -79,7 +105,7 @@ protected:
     UFUNCTION()
     void ResetE();
 
-    void OnAttackHitWithE(ABaseChampion* Target);
+    void OnAttackHitWithE(ACharacter* Target);
 
     // --- R 스킬 (서버 실행) ---
     UFUNCTION(Server, Reliable, WithValidation)

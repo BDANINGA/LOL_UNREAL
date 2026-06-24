@@ -116,6 +116,16 @@ void ULOL_AttackComponent::UpdateAttackLogic()
     // 사거리 밖이면 추격
     else
     {
+        if (ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(OwnerPawn))
+        {
+            if (JungleMonster->IsStationaryMonster())
+            {
+                MoveComp->StopMovement();
+                StateComp->RemoveStatusTag(LOLTags::State_Moving);
+                return;
+            }
+        }
+
         StateComp->AddStatusTag(LOLTags::State_Moving);
         MoveComp->TargetLocation = CombatTarget->GetActorLocation();
 

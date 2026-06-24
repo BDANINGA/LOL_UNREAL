@@ -121,8 +121,20 @@ protected:
     float ProjectileVisualScale = 1.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
-    FVector ProjectileVisualScale3D = FVector(1.0f, 1.5f, 1.0f);
+    FVector QProjectileVisualScale3D = FVector(1.0f, 0.8f, 1.0f);
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
-    FRotator ProjectileRotationOffset = FRotator(90.0f, 0.0f, 0.0f);
+    FVector WProjectileVisualScale3D = FVector(0.5f, 0.5f, 0.5f);
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
+    FVector RProjectileVisualScale3D = FVector(1.5f, 2.0f, 1.0f);
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
+    FRotator QProjectileRotationOffset = FRotator(0.0f, 90.0f, 0.0f);
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
+    FRotator WProjectileRotationOffset = FRotator(-110.0f, 90.0f, 270.0f);
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
+    FRotator RProjectileRotationOffset = FRotator(180.0f, 270.0f, 180.0f);
 };

@@ -3,11 +3,18 @@
 #include "Component/Champion_SkillComponent.h"
 #include "Component/LOL_StateComponent.h"
 #include "Component/LOL_MoveComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 
 #include "Component/LOL_AttackComponent.h"
+#include "Engine/StaticMesh.h"
+#include "JungleMonster/BaseJungleMonster.h"
 #include "Kismet/GameplayStatics.h"
+#include "Minion/BaseMinion.h"
 #include "Net/UnrealNetwork.h"
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
 
@@ -17,8 +24,67 @@ AChampion_Garen::AChampion_Garen()
 {
     ChampionName = TEXT("Garen");
     SetChampionData(ChampionName);
+    static ConstructorHelpers::FObjectFinder<UNiagaraSystem> REffectAsset(
+        TEXT("/Game/Level/garen/garen_tex/ns_garen_r.ns_garen_r"));
+    if (REffectAsset.Succeeded())
+    {
+        REffectSystem = REffectAsset.Object;
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Garen R Niagara effect failed to load."));
+    }
+
+    WShieldComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("GarenWShield"));
+    WShieldComponent->SetupAttachment(RootComponent);
+    WShieldComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    WShieldComponent->SetGenerateOverlapEvents(false);
+    WShieldComponent->SetCastShadow(false);
+    WShieldComponent->SetHiddenInGame(true);
+    WShieldComponent->SetVisibility(false, true);
+    WShieldComponent->SetRelativeLocation(WShieldRelativeLocation);
+    WShieldComponent->SetRelativeRotation(WShieldRelativeRotation);
+    WShieldComponent->SetRelativeScale3D(WShieldRelativeScale);
+
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> WShieldMeshAsset(
+        TEXT("/Game/Level/garen/garen_tex/garen_w_shield.garen_w_shield"));
+    if (WShieldMeshAsset.Succeeded())
+    {
+        WShieldComponent->SetStaticMesh(WShieldMeshAsset.Object);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Garen W shield mesh failed to load."));
+    }
 }
 
+void AChampion_Garen::Multicast_SetWShieldVisible_Implementation(bool bVisible)
+{
+    if (!WShieldComponent) return;
+
+    const FVector ShieldLocation = WShieldRelativeLocation.IsNearlyZero()
+        ? FVector(0.0f, 0.0f, 80.0f)
+        : WShieldRelativeLocation;
+    const FVector ShieldScale = WShieldRelativeScale.GetMin() < 0.5f
+        ? FVector(2.5f, 2.5f, 2.5f)
+        : WShieldRelativeScale;
+
+    WShieldComponent->SetRelativeLocation(ShieldLocation);
+    WShieldComponent->SetRelativeRotation(WShieldRelativeRotation);
+    WShieldComponent->SetRelativeScale3D(ShieldScale);
+    WShieldComponent->SetVisibility(bVisible, true);
+    WShieldComponent->SetHiddenInGame(!bVisible, true);
+
+    UE_LOG(
+        LogTemp,
+        Warning,
+        TEXT("Garen W shield visible=%d Mesh=%s Location=%s Scale=%s"),
+        bVisible ? 1 : 0,
+        WShieldComponent->GetStaticMesh() ? *WShieldComponent->GetStaticMesh()->GetName() : TEXT("None"),
+        *ShieldLocation.ToString(),
+        *ShieldScale.ToString()
+    );
+}
 void AChampion_Garen::Skill_Q()
 {
     if (!IsLocallyControlled()) return;
@@ -161,6 +227,7 @@ void AChampion_Garen::Server_Skill_W_Implementation()
 
     bWActive = true;
     StatComponent->SetStat(BuffedStat);
+    Multicast_SetWShieldVisible(true);
 
     GetWorldTimerManager().ClearTimer(W_BuffTimerHandle);
     GetWorldTimerManager().SetTimer(W_BuffTimerHandle, this, &AChampion_Garen::EndWBuff, Duration, false);
@@ -172,6 +239,7 @@ void AChampion_Garen::EndWBuff()
 
     bWActive = false;
     StatComponent->SetStat(W_OriginalStat);
+    Multicast_SetWShieldVisible(false);
 }
 
 void AChampion_Garen::Skill_E()
@@ -210,11 +278,11 @@ void AChampion_Garen::Server_Skill_E_Implementation()
     }
 
     E_CurrentTick = 0;
-    E_MaxTicks = 7;
+    E_MaxTicks = FMath::Max(E_TotalHits, 1);
     E_HitCounts.Empty();
     E_ArmorReducedTargets.Empty();
 
-    const float TickInterval = 3.0f / static_cast<float>(E_MaxTicks);
+    const float TickInterval = FMath::Max(E_DefaultDuration, 0.1f) / static_cast<float>(E_MaxTicks);
 
     GetWorldTimerManager().SetTimer(
         E_TickTimerHandle,
@@ -249,36 +317,40 @@ void AChampion_Garen::ApplyEDamageTick()
     }
     FSkillData& EData = SkillComponent->GetE_Data();
 
-    const float Radius = 200.f;
+    const float Radius = FMath::Max(E_DefaultRadius, 1.0f);
+    const float RadiusSq = FMath::Square(Radius);
 
-    TArray<FHitResult> Hits;
-    const FCollisionShape Sphere = FCollisionShape::MakeSphere(Radius);
-    const bool bHit = GetWorld()->SweepMultiByChannel(
-        Hits,
-        GetActorLocation(),
-        GetActorLocation(),
-        FQuat::Identity,
-        ECC_Pawn,
-        Sphere
-    );
+    TArray<AActor*> Targets;
+    TSet<AActor*> UniqueTargets;
 
-    TArray<ABaseChampion*> Targets;
-    TSet<ABaseChampion*> UniqueTargets;
-    if (bHit)
+    auto AddTargetsInRange = [&](TSubclassOf<AActor> TargetClass)
     {
-        for (const FHitResult& Hit : Hits)
-        {
-            ABaseChampion* TargetChampion = Cast<ABaseChampion>(Hit.GetActor());
-            if (!TargetChampion || TargetChampion == this) continue;
-            if (UniqueTargets.Contains(TargetChampion)) continue;
-            UniqueTargets.Add(TargetChampion);
-            Targets.Add(TargetChampion);
-        }
-    }
+        TArray<AActor*> CandidateActors;
+        UGameplayStatics::GetAllActorsOfClass(GetWorld(), TargetClass, CandidateActors);
 
-    ABaseChampion* NearestTarget = nullptr;
+        for (AActor* TargetActor : CandidateActors)
+        {
+            if (!IsValid(TargetActor) || TargetActor == this) continue;
+
+            ULOL_StateComponent* TargetState = TargetActor->FindComponentByClass<ULOL_StateComponent>();
+            if (!TargetState || TargetState->HasStatusTag(LOLTags::State_Dead)) continue;
+            if (!IsEnemyActor(TargetActor)) continue;
+
+            const float DistSq = FVector::DistSquared2D(GetActorLocation(), TargetActor->GetActorLocation());
+            if (DistSq > RadiusSq) continue;
+            if (UniqueTargets.Contains(TargetActor)) continue;
+
+            UniqueTargets.Add(TargetActor);
+            Targets.Add(TargetActor);
+        }
+    };
+
+    AddTargetsInRange(ABaseChampion::StaticClass());
+    AddTargetsInRange(ABaseMinion::StaticClass());
+    AddTargetsInRange(ABaseJungleMonster::StaticClass());
+    AActor* NearestTarget = nullptr;
     float NearestDistSq = TNumericLimits<float>::Max();
-    for (ABaseChampion* Target : Targets)
+    for (AActor* Target : Targets)
     {
         const float DistSq = FVector::DistSquared(GetActorLocation(), Target->GetActorLocation());
         if (DistSq < NearestDistSq)
@@ -288,46 +360,54 @@ void AChampion_Garen::ApplyEDamageTick()
         }
     }
 
-    const float DamagePerTick = SkillComponent->GetQ_Data().BaseDamage[0] +
-        StatComponent->GetStat().AttackDamage * 0.04f;
+    const float DamagePerTick = (EData.BaseDamage.IsValidIndex(0) ? EData.BaseDamage[0] : 0.0f) +
+        StatComponent->GetStat().AttackDamage * E_ADRatio;
 
-    for (ABaseChampion* TargetChampion : Targets)
+    for (AActor* TargetActor : Targets)
     {
         float FinalDamage = DamagePerTick;
-        if (TargetChampion == NearestTarget)
+        if (TargetActor == NearestTarget)
         {
             FinalDamage *= 1.25f;
         }
 
         UGameplayStatics::ApplyDamage(
-            TargetChampion,
+            TargetActor,
             FinalDamage,
             GetController(),
             this,
             ULOL_DamageMagic::StaticClass()
         );
 
-        int32& HitCount = E_HitCounts.FindOrAdd(TargetChampion);
+        const TWeakObjectPtr<AActor> TargetKey(TargetActor);
+        int32& HitCount = E_HitCounts.FindOrAdd(TargetKey);
         HitCount++;
-        if (HitCount >= 6 && !E_ArmorReducedTargets.Contains(TargetChampion) && TargetChampion->StatComponent)
+
+        ULOL_StatComponent* TargetStat =
+            TargetActor->FindComponentByClass<ULOL_StatComponent>();
+        if (HitCount >= E_ArmorReductionHitCount && !E_ArmorReducedTargets.Contains(TargetKey) && TargetStat)
         {
-            E_ArmorReducedTargets.Add(TargetChampion);
-            const FChampionStat OriginalStat = TargetChampion->StatComponent->GetStat();
+            E_ArmorReducedTargets.Add(TargetKey);
+            const FChampionStat OriginalStat = TargetStat->GetStat();
             FChampionStat ReducedStat = OriginalStat;
-            ReducedStat.Armor *= 0.75f;
-            TargetChampion->StatComponent->SetStat(ReducedStat);
-            TWeakObjectPtr<ABaseChampion> TargetKey(TargetChampion);
+            ReducedStat.Armor *= (1.0f - FMath::Clamp(E_ArmorReductionRatio, 0.0f, 1.0f));
+            TargetStat->SetStat(ReducedStat);
+
             FTimerHandle ArmorReductionTimerHandle;
             GetWorldTimerManager().SetTimer(
                 ArmorReductionTimerHandle,
                 FTimerDelegate::CreateLambda([TargetKey, OriginalStat]()
                     {
-                        if (TargetKey.IsValid() && TargetKey->StatComponent)
+                        if (TargetKey.IsValid())
                         {
-                            TargetKey->StatComponent->SetStat(OriginalStat);
+                            if (ULOL_StatComponent* RestoreStat =
+                                TargetKey->FindComponentByClass<ULOL_StatComponent>())
+                            {
+                                RestoreStat->SetStat(OriginalStat);
+                            }
                         }
                     }),
-                6.0f,
+                E_ArmorReductionDuration,
                 false
             );
         }
@@ -339,7 +419,6 @@ void AChampion_Garen::ApplyEDamageTick()
         EndESpin();
     }
 }
-
 void AChampion_Garen::Skill_R()
 {
     if (!IsLocallyControlled()) return;
@@ -441,6 +520,8 @@ void AChampion_Garen::Server_Skill_R_Implementation(AActor* TargetActor)
 
     if (SkillDamage <= 0.0f) return;
 
+    Multicast_SpawnREffect(TargetChampion->GetActorLocation());
+
     UGameplayStatics::ApplyDamage(
         TargetChampion,
         SkillDamage,
@@ -450,6 +531,72 @@ void AChampion_Garen::Server_Skill_R_Implementation(AActor* TargetActor)
     );
 }
 
+void AChampion_Garen::Multicast_SpawnREffect_Implementation(FVector SpawnLocation)
+{
+    SpawnREffect(SpawnLocation);
+}
+
+void AChampion_Garen::SpawnREffect(FVector SpawnLocation)
+{
+    if (!GetWorld()) return;
+
+    if (!REffectSystem)
+    {
+        REffectSystem = LoadObject<UNiagaraSystem>(
+            nullptr,
+            TEXT("/Game/Level/garen/garen_tex/ns_garen_r.ns_garen_r")
+        );
+    }
+
+    if (!REffectSystem)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Garen R Niagara effect skipped: REffectSystem is null."));
+        return;
+    }
+
+    const FVector FinalLocation = SpawnLocation + REffectLocationOffset;
+    UNiagaraComponent* EffectComponent = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+        GetWorld(),
+        REffectSystem,
+        FinalLocation,
+        REffectRotation,
+        REffectScale,
+        true,
+        true,
+        ENCPoolMethod::None,
+        true
+    );
+
+    if (!EffectComponent)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Garen R Niagara effect spawn failed."));
+        return;
+    }
+
+    const TWeakObjectPtr<UNiagaraComponent> EffectWeak(EffectComponent);
+    FTimerHandle DestroyEffectTimerHandle;
+    GetWorldTimerManager().SetTimer(
+        DestroyEffectTimerHandle,
+        FTimerDelegate::CreateLambda([EffectWeak]()
+        {
+            if (EffectWeak.IsValid())
+            {
+                EffectWeak->DestroyComponent();
+            }
+        }),
+        FMath::Max(REffectLifeTime, 0.05f),
+        false
+    );
+
+    UE_LOG(
+        LogTemp,
+        Warning,
+        TEXT("Garen R Niagara effect spawned. Location=%s Scale=%s LifeTime=%.2f"),
+        *FinalLocation.ToString(),
+        *REffectScale.ToString(),
+        REffectLifeTime
+    );
+}
 void AChampion_Garen::UpdateRChaseToCast()
 {
     if (bIsStunned || bIsKnockedBack || !IsValid(ReservedRTarget))
@@ -503,9 +650,23 @@ float AChampion_Garen::GetRSkillRange()
         : R_DefaultRange;
 }
 
+bool AChampion_Garen::IsMoveInputBlocked() const
+{
+    return bIsCastingR;
+}
 void AChampion_Garen::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
+
+    if (bIsSpinning && ChampionResource.EMontage.IsValidIndex(AM_SKIll_E_IDX))
+    {
+        UAnimMontage* EMontage = ChampionResource.EMontage[AM_SKIll_E_IDX];
+        UAnimInstance* AnimInst = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+        if (EMontage && AnimInst && !AnimInst->Montage_IsPlaying(EMontage))
+        {
+            AnimInst->Montage_Play(EMontage, 1.0f);
+        }
+    }
 
     if (IsLocallyControlled() && bIsChasingForR)
     {
@@ -513,6 +674,11 @@ void AChampion_Garen::Tick(float DeltaTime)
     }
 }
 
+void AChampion_Garen::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(AChampion_Garen, bIsSpinning);
+}
 void AChampion_Garen::EndRCastLock()
 {
     bIsCastingR = false;

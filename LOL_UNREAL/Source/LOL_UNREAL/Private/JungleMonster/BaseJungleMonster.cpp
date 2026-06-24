@@ -85,6 +85,13 @@ void ABaseJungleMonster::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (bStationaryMonster && bReturningToSpawn)
+	{
+		bReturningToSpawn = false;
+		SetActorLocation(SpawnLocation);
+		SetActorRotation(SpawnRotation);
+	}
+
 	if (bReturningToSpawn)
 	{
 		UpdateReturnToSpawn(DeltaTime);
@@ -104,7 +111,10 @@ void ABaseJungleMonster::Tick(float DeltaTime)
 
 	if (MoveComponent)
 	{
-		MoveComponent->UpdateMovement(DeltaTime);
+		if (!bStationaryMonster)
+		{
+			MoveComponent->UpdateMovement(DeltaTime);
+		}
 	}
 }
 
@@ -177,6 +187,81 @@ void ABaseJungleMonster::SetJungleMonsterData(FName RowName)
 
 	FName ResourceRowName = RowName;
 	FJungleMonsterResourceData* Data = DataTable->FindRow<FJungleMonsterResourceData>(ResourceRowName, TEXT(""));
+	if ((!Data || !Data->Mesh) && RowName == FName("Atakhan"))
+	{
+		const TArray<FName> AtakhanAliases = {
+			FName("atakhan"),
+			FName("Atakan"),
+			FName("atakan")
+		};
+
+		for (const FName& AtakhanAlias : AtakhanAliases)
+		{
+			if (FJungleMonsterResourceData* AtakhanData =
+				DataTable->FindRow<FJungleMonsterResourceData>(AtakhanAlias, TEXT("")))
+			{
+				Data = AtakhanData;
+				ResourceRowName = AtakhanAlias;
+				break;
+			}
+		}
+	}
+	else if ((!Data || !Data->Mesh) && RowName == FName("atakhan"))
+	{
+		if (FJungleMonsterResourceData* AtakhanData =
+			DataTable->FindRow<FJungleMonsterResourceData>(FName("Atakhan"), TEXT("")))
+		{
+			Data = AtakhanData;
+			ResourceRowName = FName("Atakhan");
+		}
+	}
+	else if ((!Data || !Data->Mesh) && (RowName == FName("Atakan") || RowName == FName("atakan")))
+	{
+		const TArray<FName> AtakhanAliases = {
+			FName("Atakhan"),
+			FName("atakhan")
+		};
+
+		for (const FName& AtakhanAlias : AtakhanAliases)
+		{
+			if (FJungleMonsterResourceData* AtakhanData =
+				DataTable->FindRow<FJungleMonsterResourceData>(AtakhanAlias, TEXT("")))
+			{
+				Data = AtakhanData;
+				ResourceRowName = AtakhanAlias;
+				break;
+			}
+		}
+	}
+	else if ((!Data || !Data->Mesh) && RowName == FName("Baron"))
+	{
+		const TArray<FName> BaronAliases = {
+			FName("baron"),
+			FName("BaronNashor"),
+			FName("Baron_Nashor"),
+			FName("baron_nashor")
+		};
+
+		for (const FName& BaronAlias : BaronAliases)
+		{
+			if (FJungleMonsterResourceData* BaronData =
+				DataTable->FindRow<FJungleMonsterResourceData>(BaronAlias, TEXT("")))
+			{
+				Data = BaronData;
+				ResourceRowName = BaronAlias;
+				break;
+			}
+		}
+	}
+	else if ((!Data || !Data->Mesh) && RowName == FName("baron"))
+	{
+		if (FJungleMonsterResourceData* BaronData =
+			DataTable->FindRow<FJungleMonsterResourceData>(FName("Baron"), TEXT("")))
+		{
+			Data = BaronData;
+			ResourceRowName = FName("Baron");
+		}
+	}
 	if ((!Data || !Data->Mesh) && RowName == FName("Raptor"))
 	{
 		if (FJungleMonsterResourceData* RazorbeakData =
@@ -248,6 +333,16 @@ void ABaseJungleMonster::InitializeJungleMonster(FName RowName)
 	if (RowName.IsNone()) return;
 
 	JungleMonsterName = RowName;
+	bStationaryMonster =
+		RowName == FName("Atakhan") ||
+		RowName == FName("atakhan") ||
+		RowName == FName("Atakan") ||
+		RowName == FName("atakan") ||
+		RowName == FName("Baron") ||
+		RowName == FName("baron") ||
+		RowName == FName("BaronNashor") ||
+		RowName == FName("Baron_Nashor") ||
+		RowName == FName("baron_nashor");
 	SetJungleMonsterData(RowName);
 
 	if (HasAuthority() && StatComponent)
@@ -276,6 +371,16 @@ void ABaseJungleMonster::OnRep_JungleMonsterName()
 		return;
 	}
 
+	bStationaryMonster =
+		JungleMonsterName == FName("Atakhan") ||
+		JungleMonsterName == FName("atakhan") ||
+		JungleMonsterName == FName("Atakan") ||
+		JungleMonsterName == FName("atakan") ||
+		JungleMonsterName == FName("Baron") ||
+		JungleMonsterName == FName("baron") ||
+		JungleMonsterName == FName("BaronNashor") ||
+		JungleMonsterName == FName("Baron_Nashor") ||
+		JungleMonsterName == FName("baron_nashor");
 	SetJungleMonsterData(JungleMonsterName);
 
 	if (StatComponent)
@@ -316,12 +421,22 @@ void ABaseJungleMonster::StartReturnToSpawn()
 	if (StateComponent)
 	{
 		StateComponent->RemoveStatusTag(LOLTags::State_Attacking);
-		StateComponent->AddStatusTag(LOLTags::State_Moving);
+		if (!bStationaryMonster)
+		{
+			StateComponent->AddStatusTag(LOLTags::State_Moving);
+		}
 	}
 
 	if (MoveComponent)
 	{
 		MoveComponent->TargetLocation = SpawnLocation;
+	}
+
+	if (bStationaryMonster)
+	{
+		bReturningToSpawn = false;
+		SetActorLocation(SpawnLocation);
+		SetActorRotation(SpawnRotation);
 	}
 }
 
