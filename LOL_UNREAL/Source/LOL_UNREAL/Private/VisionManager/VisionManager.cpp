@@ -40,7 +40,18 @@ void AVisionManager::RegisterVisionComponent(ULOL_VisionComponent* Component)
 		Component->GetOwner()->FindComponentByClass<ULOL_StateComponent>();
 
 	if (!State)
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				-1,
+				5.f,
+				FColor::Green,
+				Component->GetOwner()->GetName());
+		}
 		return;
+	}
+		
 
 	if (State->HasStatusTag(LOLTags::Team_Blue))
 	{
@@ -56,6 +67,32 @@ void AVisionManager::UnregisterVisionComponent(ULOL_VisionComponent* Component)
 {
 	BlueVisionComponents.Remove(Component);
 	RedVisionComponents.Remove(Component);
+}
+
+void AVisionManager::RegisterActor(AActor* Actor)
+{
+	if (!IsValid(Actor))
+		return;
+
+	ULOL_StateComponent* State =
+		Actor->FindComponentByClass<ULOL_StateComponent>();
+
+	if (!State)
+		return;
+
+	if (State->HasStatusTag(LOLTags::Team_Blue))
+	{
+		BlueActors.AddUnique(Actor);
+	}
+	else if (State->HasStatusTag(LOLTags::Team_Red))
+	{
+		RedActors.AddUnique(Actor);
+	}
+}
+void AVisionManager::UnregisterActor(AActor* Actor)
+{
+	BlueActors.Remove(Actor);
+	RedActors.Remove(Actor);
 }
 
 void AVisionManager::UpdateFoW()
@@ -76,27 +113,22 @@ void AVisionManager::UpdateFoW()
 	if (!LocalPlayerState) return;
 
 	const TArray<ULOL_VisionComponent*>* ActiveVisionComponents = nullptr;
+	const TArray<AActor*>* EnemyActors = nullptr;
 
 	if (LocalPlayerState->HasStatusTag(LOLTags::Team_Blue))
 	{
 		ActiveVisionComponents = &BlueVisionComponents;
+		EnemyActors = &RedActors;
 	}
 	else if (LocalPlayerState->HasStatusTag(LOLTags::Team_Red))
 	{
 		ActiveVisionComponents = &RedVisionComponents;
+		EnemyActors = &BlueActors;
 	}
 
 	for (ULOL_VisionComponent* VisionComp : *ActiveVisionComponents)
 	{
 		if (!IsValid(VisionComp)) continue;
-
-		AActor* OwnerActor = VisionComp->GetOwner();
-		if (!OwnerActor) continue;
-
-		ULOL_StateComponent* OwnerState = OwnerActor->FindComponentByClass<ULOL_StateComponent>();
-
-
-
 
 		FVector WorldLoc = VisionComp->GetOwner()->GetActorLocation();
 
@@ -109,5 +141,31 @@ void AVisionManager::UpdateFoW()
 		VisionBrushMID->SetScalarParameterValue(FName("VisionRadius"), RadiusUV);
 
 		UKismetRenderingLibrary::DrawMaterialToRenderTarget(this, FoWRenderTarget, VisionBrushMID);
+	}
+
+	for (AActor* Enemy : *EnemyActors)
+	{
+		if (!IsValid(Enemy))
+			continue;
+
+		bool bVisible = false;
+
+		for (ULOL_VisionComponent* VisionComp : *ActiveVisionComponents)
+		{
+			if (!IsValid(VisionComp))
+				continue;
+
+			float Dist = FVector::Dist(
+				VisionComp->GetOwner()->GetActorLocation(),
+				Enemy->GetActorLocation());
+
+			if (Dist <= VisionComp->VisionRadius)
+			{
+				bVisible = true;
+				break;
+			}
+		}
+
+		Enemy->SetActorHiddenInGame(!bVisible);
 	}
 }

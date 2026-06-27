@@ -3,6 +3,7 @@
 #include "Minion/LOL_MinionAIController.h"
 
 #include "BaseChampion.h"
+#include "VisionManager/VisionManager.h"
 
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -17,6 +18,7 @@
 #include "Component/LOL_VisionComponent.h"
 
 #include "Engine/DamageEvents.h"
+#include "Kismet/GameplayStatics.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
 
@@ -74,6 +76,17 @@ void ABaseMinion::BeginPlay()
 
 		UIComponent->SetMaxHp(StatComponent->GetStat().MaxHP);
 		UIComponent->UpdateHpFromStat(StatComponent->GetCurrentHP());
+	}
+
+	AVisionManager* Manager =
+		Cast<AVisionManager>(
+			UGameplayStatics::GetActorOfClass(
+				GetWorld(),
+				AVisionManager::StaticClass()));
+
+	if (Manager)
+	{
+		Manager->RegisterActor(this);
 	}
 	UpdateTeamVisual();
 }

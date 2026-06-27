@@ -10,11 +10,14 @@ ULOL_VisionComponent::ULOL_VisionComponent()
 void ULOL_VisionComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	AVisionManager* Manager = Cast<AVisionManager>(UGameplayStatics::GetActorOfClass(GetWorld(), AVisionManager::StaticClass()));
-	if (Manager)
-	{
-		Manager->RegisterVisionComponent(this);
-	}
+
+	GetWorld()->GetTimerManager().SetTimerForNextTick([this]()
+		{
+			if (AVisionManager* Manager = Cast<AVisionManager>(UGameplayStatics::GetActorOfClass(GetWorld(), AVisionManager::StaticClass())))
+			{
+				Manager->RegisterVisionComponent(this);
+			}
+		});
 }
 
 void ULOL_VisionComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)

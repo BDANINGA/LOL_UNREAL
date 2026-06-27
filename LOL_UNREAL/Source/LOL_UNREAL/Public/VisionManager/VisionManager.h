@@ -25,6 +25,8 @@ public:
 
 	void RegisterVisionComponent(ULOL_VisionComponent* Component);
 	void UnregisterVisionComponent(ULOL_VisionComponent* Component);
+	void RegisterActor(AActor* Actor);
+	void UnregisterActor(AActor* Actor);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|Render")
 	UTextureRenderTarget2D* FoWRenderTarget;
@@ -43,6 +45,11 @@ private:
 	TArray<ULOL_VisionComponent*> BlueVisionComponents;
 	UPROPERTY()
 	TArray<ULOL_VisionComponent*> RedVisionComponents;
+
+	UPROPERTY()
+	TArray<AActor*> BlueActors;
+	UPROPERTY()
+	TArray<AActor*> RedActors;
 
 	UPROPERTY()
 	UMaterialInstanceDynamic* VisionBrushMID;
