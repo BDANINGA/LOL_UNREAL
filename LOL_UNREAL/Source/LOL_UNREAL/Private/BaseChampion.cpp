@@ -9,9 +9,13 @@
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/DamageEvents.h"
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
+#include "GameFramework/PlayerStart.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/WidgetComponent.h"
@@ -59,6 +63,8 @@ ABaseChampion::ABaseChampion()
 
 	static ConstructorHelpers::FObjectFinder<UDataTable> ResourceDataAssetTable(TEXT("/Game/LOL_Data/Data_Champions/Data_ChampionResource.Data_ChampionResource"));
 	if (ResourceDataAssetTable.Succeeded()) DataTable = ResourceDataAssetTable.Object;
+	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> RecallEffectAsset(TEXT("/Game/UI/recall/StaticMeshes/ns_recall.ns_recall"));
+	if (RecallEffectAsset.Succeeded()) RecallEffectSystem = RecallEffectAsset.Object;
 
 	// 캡슐 컴포넌트의 콜리전 설정
 	GetCapsuleComponent()->InitCapsuleSize(60.f, 130.f);
@@ -108,6 +114,9 @@ ABaseChampion::ABaseChampion()
 void ABaseChampion::BeginPlay()
 {
 	Super::BeginPlay();
+
+	RecallHomeLocation = GetActorLocation();
+	RecallHomeRotation = GetActorRotation();
 
 	if (StatComponent) StatComponent->InitializeStat();
 	if (SkillComponent) SkillComponent->InitializeSkills();
@@ -302,6 +311,11 @@ float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 		ActualDamage = StatComponent->ApplyDamage(ActualDamage, Type, EventInstigator, DamageCauser);
 	}
 
+	if (HasAuthority() && ActualDamage > 0.0f && bIsRecalling)
+	{
+		CancelRecall();
+	}
+
 	return ActualDamage;
 }
 void ABaseChampion::OnEnemyEnterRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -329,6 +343,7 @@ void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(ABaseChampion, ServerCharacterRotation);
 	DOREPLIFETIME(ABaseChampion, TeamId);
 	DOREPLIFETIME(ABaseChampion, bIsSilenced);
+	DOREPLIFETIME(ABaseChampion, bIsRecalling);
 }
 
 void ABaseChampion::Server_ExecuteAttackHit_Implementation()
@@ -360,11 +375,23 @@ bool ABaseChampion::IsEnemyActor(AActor* TargetActor) const
 }
 void ABaseChampion::ProcessMoveInput(FVector ClickLocation, AActor* TargetActor)
 {
+	if (bIsRecalling)
+	{
+		Server_CancelRecall();
+		return;
+	}
+
 	if (IsMoveInputBlocked()) return;
 	Server_ProcessMoveInput(ClickLocation, TargetActor, bIsPressA);
 }
 void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation, AActor* TargetActor, bool bIsSearch)
 {
+	if (bIsRecalling)
+	{
+		CancelRecall();
+		return;
+	}
+
 	if (IsMoveInputBlocked()) return;
 	if (bIsKnockedBack) return;
 	if (StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
@@ -412,6 +439,12 @@ bool ABaseChampion::Server_ProcessMoveInput_Validate(FVector ClickLocation, AAct
 
 void ABaseChampion::PressSkill(const uint8 skilltype)
 {
+	if (bIsRecalling)
+	{
+		Server_CancelRecall();
+		return;
+	}
+
 	// 사망 상태 확인
 	if (StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
 
@@ -493,7 +526,130 @@ void ABaseChampion::Multicast_SetTargetAndPlayMontage_Implementation(UAnimMontag
 	if (AnimMontage) PlayAnimMontage(AnimMontage, InplayRate);
 }
 
+<<<<<<< HEAD
 void ABaseChampion::SetIsPressA(bool toggle)
+=======
+void ABaseChampion::StartRecall()
+{
+	if (StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
+	if (bIsStunned || bIsKnockedBack) return;
+
+	Server_StartRecall();
+}
+
+void ABaseChampion::Server_StartRecall_Implementation()
+{
+	if (bIsRecalling) return;
+	if (StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
+	if (bIsStunned || bIsKnockedBack) return;
+
+	if (AttackComponent)
+	{
+		AttackComponent->CancelAttack();
+		AttackComponent->CombatTarget = nullptr;
+		AttackComponent->HitTarget = nullptr;
+	}
+	if (MoveComponent)
+	{
+		MoveComponent->StopMovement();
+		MoveComponent->bIsSearchAttack = false;
+	}
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->StopMovementImmediately();
+		Movement->DisableMovement();
+	}
+
+	bIsRecalling = true;
+	Multicast_SetRecallEffectVisible(true);
+
+	GetWorldTimerManager().ClearTimer(RecallTimerHandle);
+	GetWorldTimerManager().SetTimer(
+		RecallTimerHandle,
+		this,
+		&ABaseChampion::CompleteRecall,
+		RecallDuration,
+		false
+	);
+}
+
+void ABaseChampion::CancelRecall()
+{
+	if (HasAuthority())
+	{
+		EndRecall(false);
+		return;
+	}
+
+	Server_CancelRecall();
+}
+
+void ABaseChampion::Server_CancelRecall_Implementation()
+{
+	EndRecall(false);
+}
+
+void ABaseChampion::CompleteRecall()
+{
+	if (!HasAuthority() || !bIsRecalling) return;
+
+	EndRecall(true);
+}
+
+void ABaseChampion::EndRecall(bool bTeleportHome)
+{
+	if (!HasAuthority() || !bIsRecalling) return;
+
+	bIsRecalling = false;
+	GetWorldTimerManager().ClearTimer(RecallTimerHandle);
+
+	if (MoveComponent)
+	{
+		MoveComponent->StopMovement();
+	}
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->StopMovementImmediately();
+		Movement->SetMovementMode(MOVE_Walking);
+	}
+
+	if (bTeleportHome)
+	{
+		TeleportTo(RecallHomeLocation, RecallHomeRotation);
+	}
+
+	Multicast_SetRecallEffectVisible(false);
+}
+
+void ABaseChampion::Multicast_SetRecallEffectVisible_Implementation(bool bVisible)
+{
+	if (bVisible)
+	{
+		if (!RecallEffectSystem || RecallEffectComponent) return;
+
+		RecallEffectComponent = UNiagaraFunctionLibrary::SpawnSystemAttached(
+			RecallEffectSystem,
+			GetRootComponent(),
+			NAME_None,
+			FVector::ZeroVector,
+			FRotator::ZeroRotator,
+			EAttachLocation::KeepRelativeOffset,
+			true,
+			true
+		);
+		return;
+	}
+
+	if (RecallEffectComponent)
+	{
+		RecallEffectComponent->Deactivate();
+		RecallEffectComponent->DestroyComponent();
+		RecallEffectComponent = nullptr;
+	}
+}
+
+inline void ABaseChampion::SetIsPressA(bool toggle)
+>>>>>>> origin/origin/hsh
 {
 	bIsPressA = toggle;
 }
@@ -524,39 +680,54 @@ void ABaseChampion::CheckKnockbackWall()
 	const float HalfHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 
 	const FVector Start = GetActorLocation();
-	const FVector End = Start + KnockbackDirection * (Radius + 30.f); // 거리 살짝 늘림
+	const FVector End = Start + KnockbackDirection * (Radius + 30.f);
 
-	FHitResult Hit;
+	TArray<FHitResult> Hits;
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(this);
 
-	// ★ 트레이스 채널 대신 '오브젝트 타입(WorldStatic)' 질의 → 벽/지형 확실히 감지
 	FCollisionObjectQueryParams ObjParams;
 	ObjParams.AddObjectTypesToQuery(ECC_WorldStatic);
+	ObjParams.AddObjectTypesToQuery(ECC_Pawn);
 
-	const bool bHit = GetWorld()->SweepSingleByObjectType(
-		Hit, Start, End, GetActorQuat(),
+	const bool bHit = GetWorld()->SweepMultiByObjectType(
+		Hits, Start, End, GetActorQuat(),
 		ObjParams,
 		FCollisionShape::MakeCapsule(Radius * 0.9f, HalfHeight * 0.9f),
 		Params);
 
-	// 디버그: 초록=벽 감지, 빨강=못 잡음
 	DrawDebugCapsule(GetWorld(), End, HalfHeight * 0.9f, Radius * 0.9f,
 		GetActorQuat(), bHit ? FColor::Green : FColor::Red, false, 0.1f);
 
-	if (bHit)
+	if (!bHit)
 	{
-		// 바닥/경사면 제외(수평 노멀만 벽으로 인정), 단 벽에 파고든 경우도 허용
-		const bool bIsWall = Hit.bStartPenetrating || FMath::Abs(Hit.ImpactNormal.Z) < 0.5f;
-		if (bIsWall)
+		return;
+	}
+
+	for (const FHitResult& Hit : Hits)
+	{
+		AActor* HitActor = Hit.GetActor();
+		if (!IsValid(HitActor) || HitActor == this)
 		{
-			GetCharacterMovement()->StopMovementImmediately();
-			EndKnockback();
-			Multicast_ApplyStun(PendingWallStunDuration);
+			continue;
 		}
+
+		const UPrimitiveComponent* HitComponent = Hit.GetComponent();
+		const bool bIsWorldStatic = HitComponent && HitComponent->GetCollisionObjectType() == ECC_WorldStatic;
+		const bool bIsBuilding = Cast<ABaseBuilding>(HitActor) != nullptr;
+		const bool bIsWall = bIsBuilding || (bIsWorldStatic && (Hit.bStartPenetrating || FMath::Abs(Hit.ImpactNormal.Z) < 0.5f));
+
+		if (!bIsWall)
+		{
+			continue;
+		}
+
+		GetCharacterMovement()->StopMovementImmediately();
+		EndKnockback();
+		Multicast_ApplyStun(PendingWallStunDuration);
+		return;
 	}
 }
-
 void ABaseChampion::EndKnockback()
 {
 	GetWorldTimerManager().ClearTimer(KnockbackCheckHandle);

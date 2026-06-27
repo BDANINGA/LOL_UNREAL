@@ -8,6 +8,7 @@
 
 class ULOL_HUDWidget;
 class ABaseChampion;
+class UTexture2D;
 
 UCLASS()
 class LOL_UNREAL_API ALOL_HUD : public AHUD
@@ -33,6 +34,8 @@ public:
     void UpdateEXP(float NewEXP);
 
     void UpdateSkillCoolDown(FName SkillName, float CoolLocalEndTime, float CoolEndTime);
+    void AddItemIcon(UTexture2D* IconTexture);
+    void SetItemIcons(const TArray<UTexture2D*>& IconTextures);
 
 protected:
     virtual void BeginPlay() override;

@@ -11,7 +11,9 @@
 #include "Engine/StaticMesh.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "JungleMonster/BaseJungleMonster.h"
 #include "Kismet/GameplayStatics.h"
+#include "Minion/BaseMinion.h"
 #include "UObject/ConstructorHelpers.h"
 
 AChampion_LeeSin::AChampion_LeeSin()
@@ -105,7 +107,11 @@ bool AChampion_LeeSin::Server_Skill_Q_Validate(FVector TargetLocation)
 
 void AChampion_LeeSin::Server_Skill_Q_Implementation(FVector TargetLocation)
 {
-	if (!SkillComponent || !StatComponent || bIsQDashing || bIsWDashing) return;
+	if (!SkillComponent || !StatComponent || bIsQDashing || bIsWDashing ||
+		bQProjectileActive)
+	{
+		return;
+	}
 
 	if (bQMarkActive && IsValid(QMarkedTarget))
 	{
@@ -141,52 +147,17 @@ void AChampion_LeeSin::Server_Skill_Q_Implementation(FVector TargetLocation)
 
 	const FVector Start = GetActorLocation() + FVector(0.0f, 0.0f, 55.0f);
 	const FVector End = Start + Direction * Range;
+	const float TravelTime = Range / FMath::Max(QProjectileSpeed, 1.0f);
 
-	FHitResult Hit;
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(this);
+	QProjectileStart = Start;
+	QProjectileEnd = End;
+	QProjectileLastLocation = Start;
+	QProjectileDirection = Direction;
+	QProjectileElapsed = 0.0f;
+	QProjectileTravelTime = TravelTime;
+	bQProjectileActive = true;
 
-	const bool bHit = GetWorld()->SweepSingleByChannel(
-		Hit,
-		Start,
-		End,
-		FQuat::Identity,
-		ECC_Pawn,
-		FCollisionShape::MakeSphere(QProjectileRadius),
-		QueryParams
-	);
-
-	const float ProjectileDistance = bHit
-		? FMath::Clamp(Hit.Distance, 0.0f, Range)
-		: Range;
-	const FVector ProjectileEnd = Start + Direction * ProjectileDistance;
-	const float TravelTime =
-		ProjectileDistance / FMath::Max(QProjectileSpeed, 1.0f);
-	Multicast_SpawnQProjectile(Start, ProjectileEnd, TravelTime);
-
-	AActor* Target = bHit ? Hit.GetActor() : nullptr;
-	if (!IsValid(Target) || Target == this ||
-		!Target->FindComponentByClass<ULOL_StateComponent>() || !IsEnemyActor(Target))
-	{
-		return;
-	}
-
-	const float BaseDamage = GetSkillValue(QData.BaseDamage, 0, 55.0f);
-	const float SkillDamage =
-		BaseDamage +
-		StatComponent->GetStat().BonusAttackDamage * QBonusADRatio;
-
-	UGameplayStatics::ApplyDamage(
-		Target,
-		SkillDamage,
-		GetController(),
-		this,
-		ULOL_DamagePhysical::StaticClass()
-	);
-	if (ABaseChampion* TargetChampion = Cast<ABaseChampion>(Target))
-	{
-		MarkQTarget(TargetChampion);
-	}
+	Multicast_SpawnQProjectile(Start, End, TravelTime);
 }
 
 bool AChampion_LeeSin::Server_Skill_W_Validate(FVector TargetLocation)
@@ -249,7 +220,7 @@ void AChampion_LeeSin::Server_Skill_E_Implementation()
 	BeginSkillMovementLock(
 		GetSkillMovementLockDuration(2, 0, 0.7f)
 	);
-	Multicast_PlayLeeSinSkillAnimation(2, 0, 1.0f, GetActorRotation());
+	Multicast_PlayLeeSinSkillAnimation(2, 0, 2.0f, GetActorRotation());
 
 	const float Radius = GetSkillValue(EData.Range, 0, 350.0f);
 	const float BaseDamage = GetSkillValue(EData.BaseDamage, 0, 35.0f);
@@ -407,6 +378,11 @@ void AChampion_LeeSin::Tick(float DeltaTime)
 		UpdateQDash(DeltaTime);
 	}
 
+	if (HasAuthority() && bQProjectileActive)
+	{
+		UpdateQProjectile(DeltaTime);
+	}
+
 	if (HasAuthority() && bIsWDashing)
 	{
 		UpdateWDash(DeltaTime);
@@ -420,10 +396,10 @@ void AChampion_LeeSin::Tick(float DeltaTime)
 
 bool AChampion_LeeSin::IsMoveInputBlocked() const
 {
-	return bSkillMovementLocked || bIsQDashing || bIsWDashing;
+	return Super::IsMoveInputBlocked() || bSkillMovementLocked || bIsQDashing || bIsWDashing;
 }
 
-void AChampion_LeeSin::MarkQTarget(ABaseChampion* Target)
+void AChampion_LeeSin::MarkQTarget(AActor* Target)
 {
 	QMarkedTarget = Target;
 	bQMarkActive = IsValid(Target);
@@ -447,7 +423,109 @@ void AChampion_LeeSin::ClearQMark()
 	QMarkedTarget = nullptr;
 }
 
-void AChampion_LeeSin::StartQDash(ABaseChampion* Target)
+void AChampion_LeeSin::UpdateQProjectile(float DeltaTime)
+{
+	if (!bQProjectileActive)
+	{
+		return;
+	}
+
+	QProjectileElapsed += DeltaTime;
+	const float Alpha = FMath::Clamp(
+		QProjectileElapsed / FMath::Max(QProjectileTravelTime, KINDA_SMALL_NUMBER),
+		0.0f,
+		1.0f
+	);
+	const FVector CurrentLocation =
+		FMath::Lerp(QProjectileStart, QProjectileEnd, Alpha);
+
+	TArray<FHitResult> Hits;
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+
+	const bool bHit = GetWorld()->SweepMultiByChannel(
+		Hits,
+		QProjectileLastLocation,
+		CurrentLocation,
+		FQuat::Identity,
+		ECC_Pawn,
+		FCollisionShape::MakeSphere(QProjectileRadius),
+		QueryParams
+	);
+	QProjectileLastLocation = CurrentLocation;
+
+	if (bHit)
+	{
+		Hits.Sort([](const FHitResult& A, const FHitResult& B)
+		{
+			return A.Distance < B.Distance;
+		});
+
+		for (const FHitResult& Hit : Hits)
+		{
+			AActor* HitActor = Hit.GetActor();
+			if (!IsValid(HitActor) || HitActor == this) continue;
+
+			const bool bCanHitWithQ =
+				Cast<ABaseChampion>(HitActor) ||
+				Cast<ABaseMinion>(HitActor) ||
+				Cast<ABaseJungleMonster>(HitActor);
+			if (!bCanHitWithQ) continue;
+			if (!HitActor->FindComponentByClass<ULOL_StateComponent>()) continue;
+			if (!IsEnemyActor(HitActor)) continue;
+
+			ApplyQFirstHitDamage(HitActor);
+			FinishQProjectile(true);
+			return;
+		}
+	}
+
+	if (Alpha >= 1.0f)
+	{
+		FinishQProjectile(true);
+	}
+}
+
+void AChampion_LeeSin::FinishQProjectile(bool bDestroyVisual)
+{
+	bQProjectileActive = false;
+	QProjectileElapsed = 0.0f;
+	QProjectileTravelTime = 0.0f;
+	QProjectileStart = FVector::ZeroVector;
+	QProjectileEnd = FVector::ZeroVector;
+	QProjectileLastLocation = FVector::ZeroVector;
+	QProjectileDirection = FVector::ZeroVector;
+
+	if (bDestroyVisual)
+	{
+		Multicast_DestroyQProjectile();
+	}
+}
+
+void AChampion_LeeSin::ApplyQFirstHitDamage(AActor* Target)
+{
+	if (!HasAuthority() || !IsValid(Target) || !SkillComponent || !StatComponent)
+	{
+		return;
+	}
+
+	const FSkillData& QData = SkillComponent->GetQ_Data();
+	const float BaseDamage = GetSkillValue(QData.BaseDamage, 0, 55.0f);
+	const float SkillDamage =
+		BaseDamage +
+		StatComponent->GetStat().BonusAttackDamage * QBonusADRatio;
+
+	UGameplayStatics::ApplyDamage(
+		Target,
+		SkillDamage,
+		GetController(),
+		this,
+		ULOL_DamagePhysical::StaticClass()
+	);
+	MarkQTarget(Target);
+}
+
+void AChampion_LeeSin::StartQDash(AActor* Target)
 {
 	if (!IsValid(Target)) return;
 
@@ -473,8 +551,21 @@ void AChampion_LeeSin::StartQDash(ABaseChampion* Target)
 		GetCharacterMovement()->DisableMovement();
 	}
 
+	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
+	{
+		QDashPreviousCollisionEnabled = Capsule->GetCollisionEnabled();
+		QDashPreviousPawnResponse =
+			Capsule->GetCollisionResponseToChannel(ECC_Pawn);
+		Capsule->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+		Capsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
 	GetCapsuleComponent()->IgnoreActorWhenMoving(Target, true);
-	Target->GetCapsuleComponent()->IgnoreActorWhenMoving(this, true);
+	if (UCapsuleComponent* TargetCapsule =
+		Target->FindComponentByClass<UCapsuleComponent>())
+	{
+		TargetCapsule->IgnoreActorWhenMoving(this, true);
+	}
 
 	FVector Direction = Target->GetActorLocation() - GetActorLocation();
 	Direction.Z = 0.0f;
@@ -550,6 +641,8 @@ void AChampion_LeeSin::UpdateQDash(float DeltaTime)
 		return;
 	}
 
+	AActor* Target = QDashTarget;
+
 	QDashElapsed += DeltaTime;
 	const float Alpha = FMath::Clamp(
 		QDashElapsed / FMath::Max(QDashDuration, KINDA_SMALL_NUMBER),
@@ -557,19 +650,24 @@ void AChampion_LeeSin::UpdateQDash(float DeltaTime)
 		1.0f
 	);
 
-	FVector Direction = QDashTarget->GetActorLocation() - QDashStart;
+	FVector Direction = Target->GetActorLocation() - QDashStart;
 	Direction.Z = 0.0f;
+	float TargetRadius = 0.0f;
+	if (UCapsuleComponent* TargetCapsule =
+		Target->FindComponentByClass<UCapsuleComponent>())
+	{
+		TargetRadius = TargetCapsule->GetScaledCapsuleRadius();
+	}
 	const float TargetOffset =
-		GetCapsuleComponent()->GetScaledCapsuleRadius() +
-		QDashTarget->GetCapsuleComponent()->GetScaledCapsuleRadius();
+		GetCapsuleComponent()->GetScaledCapsuleRadius() + TargetRadius;
 	FVector LandingLocation =
-		QDashTarget->GetActorLocation() -
+		Target->GetActorLocation() -
 		Direction.GetSafeNormal() * TargetOffset;
 	LandingLocation.Z = QDashStart.Z;
 
 	SetActorLocation(
 		FMath::Lerp(QDashStart, LandingLocation, Alpha),
-		true
+		false
 	);
 
 	if (Alpha >= 1.0f)
@@ -582,15 +680,28 @@ void AChampion_LeeSin::FinishQDash()
 {
 	if (!bIsQDashing) return;
 
-	ABaseChampion* Target = QDashTarget;
+	AActor* Target = QDashTarget;
 	bIsQDashing = false;
 	QDashTarget = nullptr;
 	QMarkedTarget = nullptr;
 
+	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
+	{
+		Capsule->SetCollisionResponseToChannel(
+			ECC_Pawn,
+			QDashPreviousPawnResponse
+		);
+		Capsule->SetCollisionEnabled(QDashPreviousCollisionEnabled);
+	}
+
 	if (IsValid(Target))
 	{
 		GetCapsuleComponent()->IgnoreActorWhenMoving(Target, false);
-		Target->GetCapsuleComponent()->IgnoreActorWhenMoving(this, false);
+		if (UCapsuleComponent* TargetCapsule =
+			Target->FindComponentByClass<UCapsuleComponent>())
+		{
+			TargetCapsule->IgnoreActorWhenMoving(this, false);
+		}
 	}
 
 	if (GetCharacterMovement())
@@ -598,7 +709,11 @@ void AChampion_LeeSin::FinishQDash()
 		GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 	}
 
-	if (!IsValid(Target) || !SkillComponent || !StatComponent || !Target->StatComponent) return;
+	ULOL_StatComponent* TargetStat =
+		IsValid(Target)
+			? Target->FindComponentByClass<ULOL_StatComponent>()
+			: nullptr;
+	if (!IsValid(Target) || !SkillComponent || !StatComponent || !TargetStat) return;
 
 	const FSkillData& QData = SkillComponent->GetQ_Data();
 	const float BaseDamage = GetSkillValue(QData.BaseDamage, 0, 55.0f);
@@ -607,11 +722,11 @@ void AChampion_LeeSin::FinishQDash()
 		StatComponent->GetStat().BonusAttackDamage * QBonusADRatio;
 
 	const float MaxHP = FMath::Max(
-		Target->StatComponent->GetStat().MaxHP,
+		TargetStat->GetStat().MaxHP,
 		1.0f
 	);
 	const float MissingHealthRatio = FMath::Clamp(
-		1.0f - Target->StatComponent->GetCurrentHP() / MaxHP,
+		1.0f - TargetStat->GetCurrentHP() / MaxHP,
 		0.0f,
 		1.0f
 	);
@@ -655,6 +770,15 @@ void AChampion_LeeSin::StartWDash(FVector Destination)
 		GetCharacterMovement()->DisableMovement();
 	}
 
+	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
+	{
+		WDashPreviousCollisionEnabled = Capsule->GetCollisionEnabled();
+		WDashPreviousPawnResponse =
+			Capsule->GetCollisionResponseToChannel(ECC_Pawn);
+		Capsule->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+		Capsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
 	TArray<AActor*> Champions;
 	UGameplayStatics::GetAllActorsOfClass(
 		GetWorld(),
@@ -682,7 +806,7 @@ void AChampion_LeeSin::UpdateWDash(float DeltaTime)
 
 	SetActorLocation(
 		FMath::Lerp(WDashStart, WDashEnd, Alpha),
-		true
+		false
 	);
 
 	if (Alpha >= 1.0f)
@@ -696,6 +820,15 @@ void AChampion_LeeSin::FinishWDash()
 	if (!bIsWDashing) return;
 
 	bIsWDashing = false;
+
+	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
+	{
+		Capsule->SetCollisionResponseToChannel(
+			ECC_Pawn,
+			WDashPreviousPawnResponse
+		);
+		Capsule->SetCollisionEnabled(WDashPreviousCollisionEnabled);
+	}
 
 	TArray<AActor*> Champions;
 	UGameplayStatics::GetAllActorsOfClass(
@@ -920,6 +1053,12 @@ void AChampion_LeeSin::Multicast_SpawnQProjectile_Implementation(
 {
 	if (!GetWorld()) return;
 
+	if (IsValid(QProjectileVisualActor))
+	{
+		QProjectileVisualActor->Destroy();
+		QProjectileVisualActor = nullptr;
+	}
+
 	UStaticMesh* ProjectileMeshAsset = DefaultQProjectileMesh.Get();
 	if (!ProjectileMeshAsset) return;
 
@@ -940,6 +1079,7 @@ void AChampion_LeeSin::Multicast_SpawnQProjectile_Implementation(
 		SpawnParameters
 	);
 	if (!ProjectileActor) return;
+	QProjectileVisualActor = ProjectileActor;
 
 	UStaticMeshComponent* ProjectileMesh =
 		NewObject<UStaticMeshComponent>(
@@ -1005,8 +1145,17 @@ void AChampion_LeeSin::Multicast_SpawnQProjectile_Implementation(
 	ProjectileMovement->Activate(true);
 
 	ProjectileActor->SetLifeSpan(
-		FMath::Max(TravelTime + 0.1f, 0.2f)
+		FMath::Max(TravelTime, 0.05f)
 	);
+}
+
+void AChampion_LeeSin::Multicast_DestroyQProjectile_Implementation()
+{
+	if (IsValid(QProjectileVisualActor))
+	{
+		QProjectileVisualActor->Destroy();
+		QProjectileVisualActor = nullptr;
+	}
 }
 
 void AChampion_LeeSin::Multicast_PlayLeeSinSkillAnimation_Implementation(
@@ -1023,6 +1172,16 @@ void AChampion_LeeSin::Multicast_PlayLeeSinSkillAnimation_Implementation(
 		GetLeeSinMontage(SkillIndex, MontageIndex))
 	{
 		PlayAnimMontage(Montage, PlayRate);
+	}
+	else
+	{
+		UE_LOG(
+			LogTemp,
+			Warning,
+			TEXT("LeeSin montage missing. SkillIndex=%d MontageIndex=%d"),
+			SkillIndex,
+			MontageIndex
+		);
 	}
 }
 

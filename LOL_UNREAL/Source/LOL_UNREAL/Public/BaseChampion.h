@@ -132,7 +132,16 @@ public:
 
 	void ProcessMoveInput(FVector ClickLocation, AActor* TargetActor);
 	bool IsEnemyActor(AActor* TargetActor) const;
-	virtual bool IsMoveInputBlocked() const { return false; }
+	virtual bool IsMoveInputBlocked() const { return bIsRecalling; }
+
+	void StartRecall();
+	void CancelRecall();
+
+	UFUNCTION(Server, Reliable)
+	void Server_StartRecall();
+
+	UFUNCTION(Server, Reliable)
+	void Server_CancelRecall();
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_ProcessMoveInput(FVector ClickLocation, AActor* TargetActor, bool bIsSearch);
@@ -205,6 +214,33 @@ protected:
 	bool bIsSilenced = false;
 
 	FTimerHandle SilenceHandle;
+
+	UPROPERTY(Replicated)
+	bool bIsRecalling = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Recall")
+	float RecallDuration = 8.0f;
+
+	UPROPERTY()
+	FVector RecallHomeLocation = FVector::ZeroVector;
+
+	UPROPERTY()
+	FRotator RecallHomeRotation = FRotator::ZeroRotator;
+
+	UPROPERTY()
+	FTimerHandle RecallTimerHandle;
+
+	UPROPERTY()
+	class UNiagaraSystem* RecallEffectSystem = nullptr;
+
+	UPROPERTY()
+	class UNiagaraComponent* RecallEffectComponent = nullptr;
+
+	void CompleteRecall();
+	void EndRecall(bool bTeleportHome);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_SetRecallEffectVisible(bool bVisible);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	FName ChampionName;

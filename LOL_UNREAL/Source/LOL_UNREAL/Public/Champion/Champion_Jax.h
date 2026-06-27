@@ -21,9 +21,13 @@ public:
 	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent,
 		AController* EventInstigator, AActor* DamageCauser) override;
 
+	bool IsWEmpowered() const { return bWEmpowered; }
+	UAnimMontage* GetWEmpoweredAttackMontage() const;
+	float GetWEmpoweredAttackPlayRate() const { return WEmpoweredAttackPlayRate; }
+
 protected:
 	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_Skill_Q(ABaseChampion* Target);
+	void Server_Skill_Q(ACharacter* Target);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_Skill_W();
@@ -50,6 +54,7 @@ protected:
 	void ApplyEmpowerDamage(ACharacter* Target);
 	void ApplyGrandmastersMightActiveDamage();
 	void ApplyGrandmastersMightPassive(ACharacter* Target);
+	bool IsValidLeapStrikeTarget(AActor* Target) const;
 	float GetQSkillRange() const;
 	UAnimMontage* GetSkillMontage(uint8 SkillIndex) const;
 
@@ -60,10 +65,10 @@ protected:
 	TObjectPtr<UAnimMontage> GrandmastersMightIdleMontage;
 
 	UPROPERTY()
-	TObjectPtr<ABaseChampion> ReservedQTarget;
+	TObjectPtr<ACharacter> ReservedQTarget;
 
 	UPROPERTY()
-	TObjectPtr<ABaseChampion> LeapTarget;
+	TObjectPtr<ACharacter> LeapTarget;
 
 	bool bIsChasingForQ = false;
 	bool bIsLeaping = false;
@@ -92,6 +97,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Jax | W")
 	float WEmpowerDuration = 5.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Jax | W")
+	float WEmpoweredAttackPlayRate = 1.15f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Jax | E")
 	float EAbilityPowerRatio = 0.7f;

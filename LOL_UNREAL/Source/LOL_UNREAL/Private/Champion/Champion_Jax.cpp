@@ -15,6 +15,8 @@
 #include "Engine/DamageEvents.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/DamageType.h"
+#include "JungleMonster/BaseJungleMonster.h"
+#include "Minion/BaseMinion.h"
 #include "UObject/ConstructorHelpers.h"
 
 
@@ -62,8 +64,8 @@ void AChampion_Jax::Skill_Q()
     FHitResult Hit;
     if (!PlayerController->GetHitResultUnderCursor(ECC_Pawn, false, Hit)) return;
 
-    ABaseChampion* Target = Cast<ABaseChampion>(Hit.GetActor());
-    if (!IsValid(Target) || Target == this) return;
+    ACharacter* Target = Cast<ACharacter>(Hit.GetActor());
+    if (!IsValidLeapStrikeTarget(Target)) return;
 
     if (GetDistanceTo(Target) <= GetQSkillRange())
     {
@@ -95,14 +97,14 @@ void AChampion_Jax::Skill_R()
     Server_Skill_R();
 }
 
-bool AChampion_Jax::Server_Skill_Q_Validate(ABaseChampion* Target)
+bool AChampion_Jax::Server_Skill_Q_Validate(ACharacter* Target)
 {
-    return IsValid(Target) && Target != this;
+    return IsValidLeapStrikeTarget(Target);
 }
 
-void AChampion_Jax::Server_Skill_Q_Implementation(ABaseChampion* Target)
+void AChampion_Jax::Server_Skill_Q_Implementation(ACharacter* Target)
 {
-    if (!SkillComponent || !StatComponent || !IsValid(Target) || Target == this) return;
+    if (!SkillComponent || !StatComponent || !IsValidLeapStrikeTarget(Target)) return;
     if (bIsLeaping || GetDistanceTo(Target) > GetQSkillRange() + 50.0f) return;
     if (!SkillComponent->TryCastSkill("Q", 1)) return;
 
@@ -144,7 +146,6 @@ void AChampion_Jax::Server_Skill_W_Implementation()
     if (!SkillComponent->TryCastSkill("W", 1)) return;
 
     bWEmpowered = true;
-    Multicast_PlayJaxSkillAnimation(1, 1.15f, GetActorRotation());
 
     // Empower resets Jax's basic attack timer.
     GetWorldTimerManager().ClearTimer(AttackComponent->AttackTimerHandle);
@@ -169,11 +170,7 @@ void AChampion_Jax::Server_Skill_E_Implementation()
 {
     if (!SkillComponent) return;
 
-    if (bCounterStrikeActive)
-    {
-        FinishCounterStrike();
-        return;
-    }
+    if (bCounterStrikeActive) return;
 
     if (!SkillComponent->TryCastSkill("E", 1)) return;
 
@@ -313,7 +310,7 @@ void AChampion_Jax::UpdateQChaseToCast()
 
     if (GetDistanceTo(ReservedQTarget) <= GetQSkillRange())
     {
-        ABaseChampion* Target = ReservedQTarget;
+        ACharacter* Target = ReservedQTarget;
         bIsChasingForQ = false;
         ReservedQTarget = nullptr;
 
@@ -359,8 +356,12 @@ void AChampion_Jax::UpdateLeap(float DeltaTime)
         Direction.GetSafeNormal() * TargetOffset;
     LandingLocation.Z = LeapStart.Z;
 
-    FHitResult SweepHit;
-    SetActorLocation(FMath::Lerp(LeapStart, LandingLocation, Alpha), true, &SweepHit);
+    SetActorLocation(
+        FMath::Lerp(LeapStart, LandingLocation, Alpha),
+        false,
+        nullptr,
+        ETeleportType::TeleportPhysics
+    );
 
     if (Alpha >= 1.0f)
     {
@@ -372,7 +373,7 @@ void AChampion_Jax::FinishLeap()
 {
     if (!bIsLeaping) return;
 
-    ABaseChampion* Target = LeapTarget;
+    ACharacter* Target = LeapTarget;
     bIsLeaping = false;
     LeapTarget = nullptr;
 
@@ -382,6 +383,7 @@ void AChampion_Jax::FinishLeap()
     }
 
     if (!IsValid(Target) || !SkillComponent || !StatComponent) return;
+    if (!IsEnemyActor(Target)) return;
 
     const FSkillData& QData = SkillComponent->GetQ_Data();
     const float BaseDamage = GetSkillValue(QData.BaseDamage, JaxSkillLevelIndex, 65.0f);
@@ -493,11 +495,12 @@ void AChampion_Jax::ApplyGrandmastersMightActiveDamage()
 
     if (!bHit) return;
 
-    TSet<TWeakObjectPtr<ABaseChampion>> DamagedTargets;
+    TSet<TWeakObjectPtr<AActor>> DamagedTargets;
     for (const FHitResult& Hit : Hits)
     {
-        ABaseChampion* Target = Cast<ABaseChampion>(Hit.GetActor());
+        AActor* Target = Hit.GetActor();
         if (!IsValid(Target) || Target == this || DamagedTargets.Contains(Target)) continue;
+        if (!Target->FindComponentByClass<ULOL_StateComponent>() || !IsEnemyActor(Target)) continue;
 
         DamagedTargets.Add(Target);
         UGameplayStatics::ApplyDamage(
@@ -635,6 +638,26 @@ float AChampion_Jax::GetQSkillRange() const
     return GetSkillValue(SkillComponent->GetQ_Data().Range, JaxSkillLevelIndex, 600.0f);
 }
 
+bool AChampion_Jax::IsValidLeapStrikeTarget(AActor* Target) const
+{
+    if (!IsValid(Target) || Target == this)
+    {
+        return false;
+    }
+
+    if (Cast<ABaseMinion>(Target) || Cast<ABaseJungleMonster>(Target))
+    {
+        return true;
+    }
+
+    if (Cast<ABaseChampion>(Target))
+    {
+        return IsEnemyActor(Target);
+    }
+
+    return false;
+}
+
 UAnimMontage* AChampion_Jax::GetSkillMontage(uint8 SkillIndex) const
 {
     const TArray<UAnimMontage*>* Montages = nullptr;
@@ -663,6 +686,11 @@ UAnimMontage* AChampion_Jax::GetSkillMontage(uint8 SkillIndex) const
     return Montages && Montages->IsValidIndex(MontageIndex)
         ? (*Montages)[MontageIndex]
         : nullptr;
+}
+
+UAnimMontage* AChampion_Jax::GetWEmpoweredAttackMontage() const
+{
+    return GetSkillMontage(1);
 }
 
 void AChampion_Jax::Multicast_PlayJaxSkillAnimation_Implementation(

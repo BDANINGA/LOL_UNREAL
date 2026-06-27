@@ -13,6 +13,9 @@
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInterface.h"
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 #include "UObject/ConstructorHelpers.h"
 
 AChampion_Gragas::AChampion_Gragas()
@@ -34,15 +37,26 @@ AChampion_Gragas::AChampion_Gragas()
 		RProjectileMesh = RMeshAsset.Object;
 	}
 
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> FloatEffectMeshAsset(
-		TEXT("/Game/Level/gragas/tex_gragas/gragas_float.gragas_float"));
-	if (FloatEffectMeshAsset.Succeeded())
+	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> FloatEffectAsset(
+		TEXT("/Game/Level/gragas/tex_gragas/ns_gragas_float.ns_gragas_float"));
+	if (FloatEffectAsset.Succeeded())
 	{
-		FloatEffectMesh = FloatEffectMeshAsset.Object;
+		FloatEffectSystem = FloatEffectAsset.Object;
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Gragas float effect mesh failed to load."));
+		UE_LOG(LogTemp, Warning, TEXT("Gragas float Niagara effect failed to load."));
+	}
+
+	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> QFloatEffectAsset(
+		TEXT("/Game/Level/gragas/tex_gragas/ns_gragas_float_q.ns_gragas_float_q"));
+	if (QFloatEffectAsset.Succeeded())
+	{
+		QFloatEffectSystem = QFloatEffectAsset.Object;
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Gragas Q float Niagara effect failed to load."));
 	}
 
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> MaterialAsset(
@@ -52,16 +66,6 @@ AChampion_Gragas::AChampion_Gragas()
 		ProjectileMaterial = MaterialAsset.Object;
 	}
 
-	static ConstructorHelpers::FObjectFinder<UMaterialInterface> FloatMaterialAsset(
-		TEXT("/Game/Level/gragas/tex_gragas/m_gragas_float.m_gragas_float"));
-	if (FloatMaterialAsset.Succeeded())
-	{
-		FloatEffectMaterial = FloatMaterialAsset.Object;
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Gragas float effect material failed to load."));
-	}
 }
 
 void AChampion_Gragas::Skill_Q()
@@ -341,11 +345,13 @@ void AChampion_Gragas::ExplodeQ()
 	Multicast_DestroyQProjectile();
 	SpawnGragasExplosionEffect(
 		QExplosionLocation,
-		QExplosionEffectVisualRadius
+		QExplosionEffectVisualRadius,
+		true
 	);
 	Multicast_SpawnGragasExplosionEffect(
 		QExplosionLocation,
-		QExplosionEffectVisualRadius
+		QExplosionEffectVisualRadius,
+		true
 	);
 
 	const FSkillData& QData = SkillComponent->GetQ_Data();
@@ -396,22 +402,25 @@ void AChampion_Gragas::ExplodeQ()
 			ULOL_DamageMagic::StaticClass()
 		);
 
-		ABaseChampion* TargetChampion = Cast<ABaseChampion>(Target);
-		if (!TargetChampion) continue;
+		ACharacter* TargetCharacter = Cast<ACharacter>(Target);
+		if (!TargetCharacter) continue;
 
-		UCharacterMovementComponent* TargetMovement = TargetChampion->GetCharacterMovement();
+		UCharacterMovementComponent* TargetMovement =
+			TargetCharacter->GetCharacterMovement();
 		if (!TargetMovement) continue;
 
-		const TWeakObjectPtr<ABaseChampion> TargetKey(TargetChampion);
+		const TWeakObjectPtr<ACharacter> TargetKey(TargetCharacter);
 		if (FTimerHandle* ExistingTimer = QSlowTimerHandles.Find(TargetKey))
 		{
 			GetWorldTimerManager().ClearTimer(*ExistingTimer);
 		}
 
+		ULOL_StatComponent* TargetStat =
+			TargetCharacter->FindComponentByClass<ULOL_StatComponent>();
 		const float BaseMoveSpeed =
-			TargetChampion->StatComponent &&
-			TargetChampion->StatComponent->GetStat().MoveSpeed > 0.0f
-				? TargetChampion->StatComponent->GetStat().MoveSpeed
+			TargetStat &&
+			TargetStat->GetStat().MoveSpeed > 0.0f
+				? TargetStat->GetStat().MoveSpeed
 				: TargetMovement->MaxWalkSpeed;
 		TargetMovement->MaxWalkSpeed =
 			BaseMoveSpeed * (1.0f - FMath::Clamp(QSlowRatio, 0.0f, 0.9f));
@@ -491,11 +500,11 @@ void AChampion_Gragas::UpdateEDash(float DeltaTime)
 	const FVector DesiredLocation =
 		FMath::Lerp(EStartLocation, ETargetLocation, Alpha);
 
-	FHitResult ChampionHit;
+	TArray<FHitResult> ChampionHits;
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
-	const bool bHitChampion = GetWorld()->SweepSingleByChannel(
-		ChampionHit,
+	const bool bHitChampion = GetWorld()->SweepMultiByChannel(
+		ChampionHits,
 		CurrentLocation,
 		DesiredLocation,
 		FQuat::Identity,
@@ -504,17 +513,34 @@ void AChampion_Gragas::UpdateEDash(float DeltaTime)
 		QueryParams
 	);
 
-	AActor* HitTarget = bHitChampion ? ChampionHit.GetActor() : nullptr;
-	if (IsValid(HitTarget) && HitTarget != this &&
-		HitTarget->FindComponentByClass<ULOL_StateComponent>() && IsEnemyActor(HitTarget))
+	AActor* HitTarget = nullptr;
+	if (bHitChampion)
+	{
+		ChampionHits.Sort([](const FHitResult& A, const FHitResult& B)
+		{
+			return A.Distance < B.Distance;
+		});
+
+		for (const FHitResult& Hit : ChampionHits)
+		{
+			AActor* HitActor = Hit.GetActor();
+			if (!IsValid(HitActor) || HitActor == this) continue;
+			if (!HitActor->FindComponentByClass<ULOL_StateComponent>()) continue;
+			if (!IsEnemyActor(HitActor)) continue;
+
+			HitTarget = HitActor;
+			break;
+		}
+	}
+
+	if (IsValid(HitTarget))
 	{
 		FinishEDash(HitTarget);
 		return;
 	}
 
-	FHitResult WorldHit;
-	SetActorLocation(DesiredLocation, true, &WorldHit);
-	if (WorldHit.bBlockingHit || Alpha >= 1.0f)
+	SetActorLocation(DesiredLocation, false, nullptr, ETeleportType::TeleportPhysics);
+	if (Alpha >= 1.0f)
 	{
 		FinishEDash(nullptr);
 	}
@@ -550,6 +576,13 @@ void AChampion_Gragas::FinishEDash(AActor* HitTarget)
 			EKnockbackDuration,
 			0.0f
 		);
+	}
+	else if (ACharacter* HitCharacter = Cast<ACharacter>(HitTarget))
+	{
+		FVector LaunchVelocity =
+			EPushDirection.GetSafeNormal() * EKnockbackSpeed;
+		LaunchVelocity.Z = 80.0f;
+		HitCharacter->LaunchCharacter(LaunchVelocity, true, true);
 	}
 
 	const FSkillData& EData = SkillComponent->GetE_Data();
@@ -601,11 +634,13 @@ void AChampion_Gragas::ExplodeR()
 
 	SpawnGragasExplosionEffect(
 		RExplosionLocation,
-		RExplosionEffectVisualRadius
+		RExplosionEffectVisualRadius,
+		false
 	);
 	Multicast_SpawnGragasExplosionEffect(
 		RExplosionLocation,
-		RExplosionEffectVisualRadius
+		RExplosionEffectVisualRadius,
+		false
 	);
 
 	const FSkillData& RData = SkillComponent->GetR_Data();
@@ -644,39 +679,45 @@ void AChampion_Gragas::ExplodeR()
 			ULOL_DamageMagic::StaticClass()
 		);
 
-		ABaseChampion* TargetChampion = Cast<ABaseChampion>(Target);
-		if (!TargetChampion) continue;
-
 		FVector ExplosionPushDirection =
-			TargetChampion->GetActorLocation() - RExplosionLocation;
+			Target->GetActorLocation() - RExplosionLocation;
 		ExplosionPushDirection.Z = 0.0f;
 		if (ExplosionPushDirection.IsNearlyZero())
 		{
 			ExplosionPushDirection =
-				TargetChampion->GetActorLocation() - GetActorLocation();
+				Target->GetActorLocation() - GetActorLocation();
 			ExplosionPushDirection.Z = 0.0f;
 		}
 
 		FVector LaunchVelocity =
 			ExplosionPushDirection.GetSafeNormal() * RKnockbackSpeed;
 		LaunchVelocity.Z = 160.0f;
-		TargetChampion->StartKnockbackWithWallCheck(
-			LaunchVelocity,
-			RKnockbackDuration,
-			0.0f
-		);
+		if (ABaseChampion* TargetChampion = Cast<ABaseChampion>(Target))
+		{
+			TargetChampion->StartKnockbackWithWallCheck(
+				LaunchVelocity,
+				RKnockbackDuration,
+				0.0f
+			);
+		}
+		else if (ACharacter* TargetCharacter = Cast<ACharacter>(Target))
+		{
+			TargetCharacter->LaunchCharacter(LaunchVelocity, true, true);
+		}
 	}
 }
 
 void AChampion_Gragas::RestoreQSlow(
-	TWeakObjectPtr<ABaseChampion> Target)
+	TWeakObjectPtr<ACharacter> Target)
 {
 	if (Target.IsValid() && Target->GetCharacterMovement())
 	{
+		ULOL_StatComponent* TargetStat =
+			Target->FindComponentByClass<ULOL_StatComponent>();
 		const float BaseMoveSpeed =
-			Target->StatComponent &&
-			Target->StatComponent->GetStat().MoveSpeed > 0.0f
-				? Target->StatComponent->GetStat().MoveSpeed
+			TargetStat &&
+			TargetStat->GetStat().MoveSpeed > 0.0f
+				? TargetStat->GetStat().MoveSpeed
 				: 330.0f;
 		Target->GetCharacterMovement()->MaxWalkSpeed = BaseMoveSpeed;
 	}
@@ -724,7 +765,7 @@ void AChampion_Gragas::EndMovementLock()
 
 bool AChampion_Gragas::IsMoveInputBlocked() const
 {
-	return bMovementLocked || bEDashing;
+	return Super::IsMoveInputBlocked() || bMovementLocked || bEDashing;
 }
 
 float AChampion_Gragas::TakeDamage(
@@ -902,105 +943,106 @@ void AChampion_Gragas::Multicast_DestroyQProjectile_Implementation()
 
 void AChampion_Gragas::Multicast_SpawnGragasExplosionEffect_Implementation(
 	FVector SpawnLocation,
-	float VisualRadius)
+	float VisualRadius,
+	bool bUseQEffect)
 {
 	if (HasAuthority()) return;
 
-	SpawnGragasExplosionEffect(SpawnLocation, VisualRadius);
+	SpawnGragasExplosionEffect(SpawnLocation, VisualRadius, bUseQEffect);
 }
 
 void AChampion_Gragas::SpawnGragasExplosionEffect(
 	FVector SpawnLocation,
-	float VisualRadius)
+	float VisualRadius,
+	bool bUseQEffect)
 {
 	if (!GetWorld())
 	{
 		return;
 	}
 
-	if (!FloatEffectMesh)
+	UNiagaraSystem* EffectSystem = bUseQEffect
+		? QFloatEffectSystem.Get()
+		: FloatEffectSystem.Get();
+
+	if (!EffectSystem)
 	{
-		FloatEffectMesh = LoadObject<UStaticMesh>(
+		EffectSystem = LoadObject<UNiagaraSystem>(
 			nullptr,
-			TEXT("/Game/Level/gragas/tex_gragas/gragas_float.gragas_float")
+			bUseQEffect
+				? TEXT("/Game/Level/gragas/tex_gragas/ns_gragas_float_q.ns_gragas_float_q")
+				: TEXT("/Game/Level/gragas/tex_gragas/ns_gragas_float.ns_gragas_float")
 		);
+
+		if (bUseQEffect)
+		{
+			QFloatEffectSystem = EffectSystem;
+		}
+		else
+		{
+			FloatEffectSystem = EffectSystem;
+		}
 	}
 
-	if (!FloatEffectMaterial)
+	if (!EffectSystem)
 	{
-		FloatEffectMaterial = LoadObject<UMaterialInterface>(
-			nullptr,
-			TEXT("/Game/Level/gragas/tex_gragas/m_gragas_float.m_gragas_float")
+		UE_LOG(
+			LogTemp,
+			Warning,
+			TEXT("Gragas explosion Niagara effect skipped: EffectSystem is still null after LoadObject. bUseQEffect=%d"),
+			bUseQEffect ? 1 : 0
 		);
-	}
-
-	if (!FloatEffectMesh)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Gragas explosion effect skipped: FloatEffectMesh is still null after LoadObject."));
 		return;
 	}
 
 	SpawnLocation.Z += ExplosionEffectHeightOffset;
 
-	FActorSpawnParameters SpawnParameters;
-	SpawnParameters.Owner = this;
-	SpawnParameters.Instigator = this;
-	SpawnParameters.SpawnCollisionHandlingOverride =
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-	AActor* EffectActor = GetWorld()->SpawnActor<AActor>(
-		AActor::StaticClass(),
-		SpawnLocation,
-		ExplosionEffectRotation,
-		SpawnParameters
+	const float NiagaraScale = FMath::Max(
+		VisualRadius / FMath::Max(ExplosionEffectScaleDivisor, 1.0f),
+		ExplosionEffectMinScale
 	);
-	if (!EffectActor)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Gragas explosion effect actor spawn failed."));
-		return;
-	}
-
-	UStaticMeshComponent* EffectComponent =
-		NewObject<UStaticMeshComponent>(
-			EffectActor,
-			TEXT("GragasExplosionFloatEffect")
+	UNiagaraComponent* EffectComponent =
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			GetWorld(),
+			EffectSystem,
+			SpawnLocation,
+			ExplosionEffectRotation,
+			FVector(NiagaraScale),
+			true,
+			true,
+			ENCPoolMethod::None,
+			true
 		);
 	if (!EffectComponent)
 	{
-		EffectActor->Destroy();
+		UE_LOG(LogTemp, Warning, TEXT("Gragas explosion Niagara effect spawn failed."));
 		return;
 	}
+	EffectComponent->SetWorldScale3D(FVector(NiagaraScale));
 
-	EffectActor->AddInstanceComponent(EffectComponent);
-	EffectActor->SetRootComponent(EffectComponent);
-	EffectComponent->SetStaticMesh(FloatEffectMesh);
-	if (FloatEffectMaterial)
-	{
-		EffectComponent->SetMaterial(0, FloatEffectMaterial);
-	}
-	EffectComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	EffectComponent->SetGenerateOverlapEvents(false);
-	EffectComponent->SetCastShadow(false);
-	EffectComponent->RegisterComponent();
-
-	const float MeshRadius = FloatEffectMesh->GetBounds().SphereRadius;
-	const float Scale = MeshRadius > KINDA_SMALL_NUMBER
-		? FMath::Max(VisualRadius, 1.0f) / MeshRadius
-		: 1.0f;
-	EffectComponent->SetWorldScale3D(FVector(Scale));
-	EffectComponent->SetVisibility(true, true);
-	EffectComponent->SetHiddenInGame(false, true);
-
-	EffectActor->SetLifeSpan(FMath::Max(ExplosionEffectLifeTime, 0.05f));
+	const TWeakObjectPtr<UNiagaraComponent> EffectWeak(EffectComponent);
+	FTimerHandle DestroyEffectTimerHandle;
+	GetWorldTimerManager().SetTimer(
+		DestroyEffectTimerHandle,
+		FTimerDelegate::CreateLambda([EffectWeak]()
+		{
+			if (EffectWeak.IsValid())
+			{
+				EffectWeak->DestroyComponent();
+			}
+		}),
+		FMath::Max(ExplosionEffectLifeTime, 0.05f),
+		false
+	);
 
 	UE_LOG(
 		LogTemp,
 		Warning,
-		TEXT("Gragas explosion effect spawned. Location=%s VisualRadius=%.1f MeshRadius=%.1f Scale=%.2f LifeTime=%.2f"),
+		TEXT("Gragas explosion Niagara effect spawned. Type=%s Location=%s VisualRadius=%.1f Scale=%.2f LifeTime=%.2f"),
+		bUseQEffect ? TEXT("Q") : TEXT("R"),
 		*SpawnLocation.ToString(),
 		VisualRadius,
-		MeshRadius,
-		Scale,
+		NiagaraScale,
 		ExplosionEffectLifeTime
 	);
 }

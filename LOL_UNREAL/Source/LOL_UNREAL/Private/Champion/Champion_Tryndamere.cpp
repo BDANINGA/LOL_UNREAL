@@ -311,7 +311,12 @@ void AChampion_Tryndamere::UpdateESpin(float DeltaTime)
 		}
 	}
 
-	SetActorLocation(DesiredLocation, true);
+	SetActorLocation(
+		DesiredLocation,
+		false,
+		nullptr,
+		ETeleportType::TeleportPhysics
+	);
 
 	if (Alpha >= 1.0f)
 	{
@@ -413,7 +418,7 @@ float AChampion_Tryndamere::TakeDamage(
 
 bool AChampion_Tryndamere::IsMoveInputBlocked() const
 {
-	return bMovementLocked || bESpinning;
+	return Super::IsMoveInputBlocked() || bMovementLocked || bESpinning;
 }
 
 void AChampion_Tryndamere::BeginMovementLock(float Duration)

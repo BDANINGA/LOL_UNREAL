@@ -63,11 +63,15 @@ void ULOL_UIComponent::BeginPlay()
 
             RangeIndicator->AttachToComponent(Champ->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
         }
-        else if (Cast<ABaseJungleMonster>(OwnerPawn))
+        else if (ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(OwnerPawn))
         {
             ActorWidget->SetWidgetClass(JungleMonsterWidgetClass ? JungleMonsterWidgetClass : MinionWidgetClass);
-            ActorWidget->SetDrawSize(FVector2D(50.f, 5.f));
-            ActorWidget->SetRelativeLocation(FVector(0.0f, 0.0f, 130.0f));
+            ActorWidget->InitWidget();
+            if (ULOL_MinionWidget* MinionWidgetObj = Cast<ULOL_MinionWidget>(ActorWidget->GetUserWidgetObject()))
+            {
+                MinionWidgetObj->SetHPBarColor(FLinearColor::Red);
+            }
+            ApplyJungleMonsterWidgetLayout(JungleMonster);
 
             RangeIndicator->DestroyComponent();
         }
@@ -89,6 +93,61 @@ void ULOL_UIComponent::BeginPlay()
         DecalMID = UMaterialInstanceDynamic::Create(BaseDecalMaterial, this);
         RangeIndicator->SetDecalMaterial(DecalMID);
     }
+}
+
+void ULOL_UIComponent::ApplyJungleMonsterWidgetLayout(ABaseJungleMonster* JungleMonster)
+{
+    if (!ActorWidget || !JungleMonster)
+    {
+        return;
+    }
+
+    FVector2D DrawSize(200.0f, 10.0f);
+    FVector RelativeLocation(0.0f, 0.0f, 200.0f);
+
+    const FName MonsterName = JungleMonster->GetJungleMonsterName();
+
+    if (MonsterName == FName("Wolf"))
+    {
+        DrawSize = FVector2D(120.0f, 8.0f);
+        RelativeLocation = FVector(0.0f, 0.0f, 160.0f);
+    }
+    else if (MonsterName == FName("Gromp"))
+    {
+        DrawSize = FVector2D(140.0f, 8.0f);
+        RelativeLocation = FVector(0.0f, 0.0f, 180.0f);
+    }
+    else if (MonsterName == FName("Razorbeak") || MonsterName == FName("Raptor"))
+    {
+        DrawSize = FVector2D(110.0f, 7.0f);
+        RelativeLocation = FVector(0.0f, 0.0f, 150.0f);
+    }
+    else if (MonsterName == FName("Krug"))
+    {
+        DrawSize = FVector2D(130.0f, 8.0f);
+        RelativeLocation = FVector(0.0f, 0.0f, 170.0f);
+    }
+    else if (MonsterName == FName("Red") || MonsterName == FName("Blue"))
+    {
+        DrawSize = FVector2D(180.0f, 10.0f);
+        RelativeLocation = FVector(0.0f, 0.0f, 220.0f);
+    }
+    else if (MonsterName == FName("Baron") || MonsterName == FName("baron") ||
+        MonsterName == FName("BaronNashor") || MonsterName == FName("Baron_Nashor") ||
+        MonsterName == FName("baron_nashor"))
+    {
+        DrawSize = FVector2D(260.0f, 14.0f);
+        RelativeLocation = FVector(0.0f, 0.0f, 420.0f);
+    }
+    else if (MonsterName == FName("Atakhan") || MonsterName == FName("atakhan") ||
+        MonsterName == FName("Atakan") || MonsterName == FName("atakan"))
+    {
+        DrawSize = FVector2D(240.0f, 14.0f);
+        RelativeLocation = FVector(0.0f, 0.0f, 380.0f);
+    }
+
+    ActorWidget->SetDrawSize(DrawSize);
+    ActorWidget->SetRelativeLocation(RelativeLocation);
 }
 
 void ULOL_UIComponent::ShowRangeIndicator()

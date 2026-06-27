@@ -19,11 +19,13 @@ public:
 	virtual void Skill_E() override;
 	virtual void Skill_R() override;
 
-	virtual void OnBasicAttackHit(ACharacter* Target) override;
+    virtual void OnBasicAttackHit(ACharacter* Target) override;
+    virtual bool IsMoveInputBlocked() const override;
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
     virtual void Tick(float DeltaTime) override;
 
-    UPROPERTY()
+    UPROPERTY(Replicated)
     bool bIsSpinning = false;
 
 
@@ -70,6 +72,21 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | Skills")
     float W_SpellBlockBonus = 30.0f;
 
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Garen | W | Visual")
+    TObjectPtr<class UStaticMeshComponent> WShieldComponent;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | W | Visual")
+    FVector WShieldRelativeLocation = FVector(0.0f, 0.0f, 80.0f);
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | W | Visual")
+    FRotator WShieldRelativeRotation = FRotator::ZeroRotator;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | W | Visual")
+    FVector WShieldRelativeScale = FVector(2.5f, 2.5f, 2.5f);
+
+    UFUNCTION(NetMulticast, Reliable)
+    void Multicast_SetWShieldVisible(bool bVisible);
+
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_Skill_E();
 
@@ -80,7 +97,7 @@ protected:
     int32 E_CurrentTick = 0;
     int32 E_MaxTicks = 0;
     float E_DamagePerTick = 0.0f;
-    TMap<TWeakObjectPtr<ABaseChampion>, int32> E_HitCounts;
+    TMap<TWeakObjectPtr<AActor>, int32> E_HitCounts;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | Skills")
     int32 E_TotalHits = 7;
@@ -89,7 +106,7 @@ protected:
     float E_DefaultDuration = 3.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | Skills")
-    float E_DefaultRadius = 100.0f;
+    float E_DefaultRadius = 200.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | Skills")
     float E_ADRatio = 0.4f;
@@ -103,16 +120,36 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | Skills")
     float E_ArmorReductionDuration = 6.0f;
 
-    TSet<TWeakObjectPtr<ABaseChampion>> E_ArmorReducedTargets;
+    TSet<TWeakObjectPtr<AActor>> E_ArmorReducedTargets;
 
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_Skill_R(AActor* TargetActor);
+
+    UFUNCTION(NetMulticast, Reliable)
+    void Multicast_SpawnREffect(FVector SpawnLocation);
+
+    void SpawnREffect(FVector SpawnLocation);
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | Skills")
     float R_DefaultRange = 400.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | Skills")
     float R_MissingHPRatio = 0.25f;
+
+    UPROPERTY()
+    TObjectPtr<class UNiagaraSystem> REffectSystem;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | R | Visual")
+    FVector REffectLocationOffset = FVector(0.0f, 0.0f, 20.0f);
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | R | Visual")
+    FVector REffectScale = FVector(3.0f, 3.0f, 10.0f);
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | R | Visual")
+    FRotator REffectRotation = FRotator::ZeroRotator;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | R | Visual")
+    float REffectLifeTime = 3.0f;
 	FTimerHandle UltTimerHandle;
 
     UPROPERTY()
