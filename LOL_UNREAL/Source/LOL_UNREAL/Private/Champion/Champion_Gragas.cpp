@@ -539,9 +539,8 @@ void AChampion_Gragas::UpdateEDash(float DeltaTime)
 		return;
 	}
 
-	FHitResult WorldHit;
-	SetActorLocation(DesiredLocation, true, &WorldHit);
-	if (WorldHit.bBlockingHit || Alpha >= 1.0f)
+	SetActorLocation(DesiredLocation, false, nullptr, ETeleportType::TeleportPhysics);
+	if (Alpha >= 1.0f)
 	{
 		FinishEDash(nullptr);
 	}
@@ -766,7 +765,7 @@ void AChampion_Gragas::EndMovementLock()
 
 bool AChampion_Gragas::IsMoveInputBlocked() const
 {
-	return bMovementLocked || bEDashing;
+	return Super::IsMoveInputBlocked() || bMovementLocked || bEDashing;
 }
 
 float AChampion_Gragas::TakeDamage(

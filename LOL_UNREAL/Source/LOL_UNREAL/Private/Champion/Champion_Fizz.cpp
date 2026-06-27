@@ -282,7 +282,8 @@ void AChampion_Fizz::Server_Skill_R_Implementation(FVector TargetLocation)
 	Multicast_PlayFizzSkillAnimation(3, 0, 1.0f, FacingRotation);
 
 	const FVector Start = GetActorLocation() + FVector(0.0f, 0.0f, 50.0f);
-	const FVector End = Start + Direction * Range;
+	FVector End = ClampTargetLocation(TargetLocation, Range);
+	End.Z = Start.Z;
 
 	RAttachedTarget = nullptr;
 
@@ -328,9 +329,10 @@ void AChampion_Fizz::Server_Skill_R_Implementation(FVector TargetLocation)
 
 	// Keep the visual projectile on the cursor ray. Using the target actor's
 	// center here can bend the projectile toward an enemy caught by the sweep.
+	const float MaxProjectileDistance = FVector::Dist2D(Start, End);
 	const float ProjectileDistance = bFoundValidTarget
-		? FMath::Clamp(TargetHit.Distance, 0.0f, Range)
-		: Range;
+		? FMath::Clamp(TargetHit.Distance, 0.0f, MaxProjectileDistance)
+		: MaxProjectileDistance;
 	const FVector ProjectileEnd = Start + Direction * ProjectileDistance;
 
 	RExplosionLocation = RAttachedTarget
@@ -441,7 +443,12 @@ void AChampion_Fizz::UpdateQDash(float DeltaTime)
 		Direction.GetSafeNormal() * TargetOffset;
 	DashEnd.Z = QDashStart.Z;
 
-	SetActorLocation(FMath::Lerp(QDashStart, DashEnd, Alpha), true);
+	SetActorLocation(
+		FMath::Lerp(QDashStart, DashEnd, Alpha),
+		false,
+		nullptr,
+		ETeleportType::TeleportPhysics
+	);
 
 	if (Alpha >= 1.0f)
 	{
@@ -638,7 +645,9 @@ void AChampion_Fizz::UpdateEDescent(float DeltaTime)
 
 	SetActorLocation(
 		FMath::Lerp(EDescentStartLocation, ETargetLocation, Alpha),
-		true
+		false,
+		nullptr,
+		ETeleportType::TeleportPhysics
 	);
 
 	if (Alpha >= 1.0f)
@@ -652,7 +661,7 @@ void AChampion_Fizz::FinishPlayfulTrickster()
 	if (!HasAuthority() || !bEActive || !SkillComponent || !StatComponent) return;
 
 	GetWorldTimerManager().ClearTimer(EDescentTimerHandle);
-	SetActorLocation(ETargetLocation, true);
+	SetActorLocation(ETargetLocation, false, nullptr, ETeleportType::TeleportPhysics);
 
 	const FSkillData& EData = SkillComponent->GetE_Data();
 	const float BaseDamage = GetSkillValue(EData.BaseDamage, 0, 70.0f);

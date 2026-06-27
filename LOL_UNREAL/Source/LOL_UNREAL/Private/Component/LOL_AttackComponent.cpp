@@ -13,6 +13,7 @@
 #include "Building/Building_Turret.h"
 #include "Champion/Projectile/BaseProjectile.h"
 #include "Champion/Champion_Garen.h"
+#include "Champion/Champion_Jax.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
@@ -178,10 +179,23 @@ void ULOL_AttackComponent::StartAttack()
                     Champion->ChampionResource.AttackMontage.IsValidIndex(AttackMontageIndex)
                     ? Champion->ChampionResource.AttackMontage[AttackMontageIndex]
                     : nullptr;
+                float AttackPlayRate = StatComp->GetStat().AttackSpeed;
+
+                if (AChampion_Jax* Jax = Cast<AChampion_Jax>(Champion))
+                {
+                    if (Jax->IsWEmpowered())
+                    {
+                        if (UAnimMontage* WAttackMontage = Jax->GetWEmpoweredAttackMontage())
+                        {
+                            AttackMontage = WAttackMontage;
+                            AttackPlayRate = Jax->GetWEmpoweredAttackPlayRate();
+                        }
+                    }
+                }
 
                 Champion->Multicast_SetTargetAndPlayMontage(
                     AttackMontage,
-                    StatComp->GetStat().AttackSpeed,
+                    AttackPlayRate,
                     NewRotation
                 );
             }

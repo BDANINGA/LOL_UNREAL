@@ -13,6 +13,7 @@
 
 #include "LOL_HUD.h"
 #include "LOL_GameState.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 ULOL_StatComponent::ULOL_StatComponent()
 {
@@ -175,6 +176,12 @@ void ULOL_StatComponent::InitializeStat()
 			SetStat(*FoundRow);
 			SetHP(BaseStat.MaxHP);
 			SetMP(BaseStat.MaxMP);
+
+			if (Cast<ABaseChampion>(Owner))
+			{
+				CurrentGold = StartingGold;
+				OnRep_CurrentGold();
+			}
 		}
 	}
 }
@@ -185,6 +192,8 @@ void ULOL_StatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	DOREPLIFETIME(ULOL_StatComponent, BaseStat);
 	DOREPLIFETIME(ULOL_StatComponent, CurrentHP);
 	DOREPLIFETIME(ULOL_StatComponent, CurrentMP);
+	DOREPLIFETIME(ULOL_StatComponent, CurrentGold);
+	DOREPLIFETIME(ULOL_StatComponent, CurrentEXP);
 }
 
 void ULOL_StatComponent::AddGold(float Amount)
@@ -194,6 +203,151 @@ void ULOL_StatComponent::AddGold(float Amount)
 	CurrentGold += Amount;
 
 	OnRep_CurrentGold();
+}
+
+bool ULOL_StatComponent::SpendGold(float Amount)
+{
+	if (Amount <= 0.f)
+	{
+		return true;
+	}
+
+	if (CurrentGold < Amount)
+	{
+		return false;
+	}
+
+	CurrentGold -= Amount;
+	OnRep_CurrentGold();
+	return true;
+}
+
+void ULOL_StatComponent::ApplyItemData(const FItemData& ItemData)
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
+
+	const float PreviousMaxHP = BaseStat.MaxHP;
+	const float PreviousMaxMP = BaseStat.MaxMP;
+
+	BaseStat.BonusMaxHP += ItemData.BonusMaxHP;
+	BaseStat.BonusMaxMP += ItemData.BonusMaxMP;
+	BaseStat.BonusAttackDamage += ItemData.BonusAttackDamage;
+	BaseStat.BonusAttackSpeed += ItemData.BonusAttackSpeed;
+	BaseStat.BonusArmor += ItemData.BonusArmor;
+	BaseStat.BonusSpellBlock += ItemData.BonusSpellBlock;
+	BaseStat.BonusMoveSpeed += ItemData.BonusMoveSpeed;
+
+	BaseStat.MaxHP += ItemData.BonusMaxHP;
+	BaseStat.MaxMP += ItemData.BonusMaxMP;
+	BaseStat.AttackDamage += ItemData.BonusAttackDamage;
+	BaseStat.AttackSpeed += ItemData.BonusAttackSpeed;
+	BaseStat.Armor += ItemData.BonusArmor;
+	BaseStat.SpellBlock += ItemData.BonusSpellBlock;
+	BaseStat.MoveSpeed += ItemData.BonusMoveSpeed;
+	BaseStat.AbilityPower += ItemData.BonusAbilityPower;
+	BaseStat.CriticalChance += ItemData.BonusCriticalChance;
+	BaseStat.LifeSteal += ItemData.BonusLifeSteal;
+	BaseStat.AbilityHaste += ItemData.BonusAbilityHaste;
+	BaseStat.HealShieldPower += ItemData.BonusHealShieldPower;
+	BaseStat.PhysicalPenetrationPercent += ItemData.BonusPhysicalPenetrationPercent;
+	BaseStat.MagicPenetrationPercent += ItemData.BonusMagicPenetrationPercent;
+
+	const float NewMaxHP = BaseStat.MaxHP;
+	const float NewMaxMP = BaseStat.MaxMP;
+
+	if (ItemData.BonusMaxHP > 0.f)
+	{
+		const float HPRatio = PreviousMaxHP > 0.f ? CurrentHP / PreviousMaxHP : 1.f;
+		CurrentHP = FMath::Clamp(NewMaxHP * HPRatio, 0.f, NewMaxHP);
+		OnRep_CurrentHP();
+	}
+
+	if (ItemData.BonusMaxMP > 0.f)
+	{
+		const float MPRatio = PreviousMaxMP > 0.f ? CurrentMP / PreviousMaxMP : 1.f;
+		CurrentMP = FMath::Clamp(NewMaxMP * MPRatio, 0.f, NewMaxMP);
+		OnRep_CurrentMP();
+	}
+
+	if (ItemData.BonusMoveSpeed != 0.f)
+	{
+		if (ABaseChampion* OwnerChampion = Cast<ABaseChampion>(GetOwner()))
+		{
+			if (UCharacterMovementComponent* Movement = OwnerChampion->GetCharacterMovement())
+			{
+				Movement->MaxWalkSpeed = BaseStat.MoveSpeed;
+			}
+		}
+	}
+
+	OnRep_BaseStat();
+}
+
+void ULOL_StatComponent::RemoveItemData(const FItemData& ItemData)
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
+
+	const float PreviousMaxHP = BaseStat.MaxHP;
+	const float PreviousMaxMP = BaseStat.MaxMP;
+
+	BaseStat.BonusMaxHP -= ItemData.BonusMaxHP;
+	BaseStat.BonusMaxMP -= ItemData.BonusMaxMP;
+	BaseStat.BonusAttackDamage -= ItemData.BonusAttackDamage;
+	BaseStat.BonusAttackSpeed -= ItemData.BonusAttackSpeed;
+	BaseStat.BonusArmor -= ItemData.BonusArmor;
+	BaseStat.BonusSpellBlock -= ItemData.BonusSpellBlock;
+	BaseStat.BonusMoveSpeed -= ItemData.BonusMoveSpeed;
+
+	BaseStat.MaxHP = FMath::Max(1.f, BaseStat.MaxHP - ItemData.BonusMaxHP);
+	BaseStat.MaxMP = FMath::Max(0.f, BaseStat.MaxMP - ItemData.BonusMaxMP);
+	BaseStat.AttackDamage -= ItemData.BonusAttackDamage;
+	BaseStat.AttackSpeed -= ItemData.BonusAttackSpeed;
+	BaseStat.Armor -= ItemData.BonusArmor;
+	BaseStat.SpellBlock -= ItemData.BonusSpellBlock;
+	BaseStat.MoveSpeed -= ItemData.BonusMoveSpeed;
+	BaseStat.AbilityPower -= ItemData.BonusAbilityPower;
+	BaseStat.CriticalChance -= ItemData.BonusCriticalChance;
+	BaseStat.LifeSteal -= ItemData.BonusLifeSteal;
+	BaseStat.AbilityHaste -= ItemData.BonusAbilityHaste;
+	BaseStat.HealShieldPower -= ItemData.BonusHealShieldPower;
+	BaseStat.PhysicalPenetrationPercent -= ItemData.BonusPhysicalPenetrationPercent;
+	BaseStat.MagicPenetrationPercent -= ItemData.BonusMagicPenetrationPercent;
+
+	const float NewMaxHP = BaseStat.MaxHP;
+	const float NewMaxMP = BaseStat.MaxMP;
+
+	if (ItemData.BonusMaxHP != 0.f)
+	{
+		const float HPRatio = PreviousMaxHP > 0.f ? CurrentHP / PreviousMaxHP : 1.f;
+		CurrentHP = FMath::Clamp(NewMaxHP * HPRatio, 0.f, NewMaxHP);
+		OnRep_CurrentHP();
+	}
+
+	if (ItemData.BonusMaxMP != 0.f)
+	{
+		const float MPRatio = PreviousMaxMP > 0.f ? CurrentMP / PreviousMaxMP : 1.f;
+		CurrentMP = FMath::Clamp(NewMaxMP * MPRatio, 0.f, NewMaxMP);
+		OnRep_CurrentMP();
+	}
+
+	if (ItemData.BonusMoveSpeed != 0.f)
+	{
+		if (ABaseChampion* OwnerChampion = Cast<ABaseChampion>(GetOwner()))
+		{
+			if (UCharacterMovementComponent* Movement = OwnerChampion->GetCharacterMovement())
+			{
+				Movement->MaxWalkSpeed = BaseStat.MoveSpeed;
+			}
+		}
+	}
+
+	OnRep_BaseStat();
 }
 
 void ULOL_StatComponent::AddEXP(float Amount)
@@ -258,7 +412,7 @@ void ULOL_StatComponent::HandleRegeneration()
 		SetMP(CurrentMP + MPRatio);
 	}
 
-	CurrentGold += 1;
+	CurrentGold += GoldPerSecond;
 	OnRep_CurrentGold();
 }
 

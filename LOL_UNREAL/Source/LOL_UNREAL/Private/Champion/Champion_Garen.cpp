@@ -652,7 +652,7 @@ float AChampion_Garen::GetRSkillRange()
 
 bool AChampion_Garen::IsMoveInputBlocked() const
 {
-    return bIsCastingR;
+    return Super::IsMoveInputBlocked() || bIsCastingR;
 }
 void AChampion_Garen::Tick(float DeltaTime)
 {

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Item/LOL_ItemData.h"
 #include "LOL_StatComponent.generated.h"
 
 // 스탯 구조체
@@ -198,6 +199,7 @@ public:
 	FORCEINLINE const FChampionStat GetStat() const { return BaseStat; }
 	FORCEINLINE const float GetCurrentHP() const { return CurrentHP; }
 	FORCEINLINE const float GetCurrentMP() const { return CurrentMP; }
+	FORCEINLINE const float GetCurrentGold() const { return CurrentGold; }
 
 	void InitializeStat();
 
@@ -210,13 +212,22 @@ public:
 	FORCEINLINE float GetMaxEXP() const { return MaxEXP; }
 
 	void AddGold(float Amount);
+	bool SpendGold(float Amount);
 	void AddEXP(float Amount);
+	void ApplyItemData(const FItemData& ItemData);
+	void RemoveItemData(const FItemData& ItemData);
 
 	void HandleRegeneration();
 protected:
 	// 능력치 관련
 	UPROPERTY(ReplicatedUsing = OnRep_BaseStat, EditAnywhere, Category = "Stat|Data")
 	FChampionStat BaseStat;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Gold")
+	float StartingGold = 500.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Gold")
+	float GoldPerSecond = 2.0f;
 
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentHP)
 	float CurrentHP;
