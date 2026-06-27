@@ -418,7 +418,7 @@ float AChampion_Tryndamere::TakeDamage(
 
 bool AChampion_Tryndamere::IsMoveInputBlocked() const
 {
-	return bMovementLocked || bESpinning;
+	return Super::IsMoveInputBlocked() || bMovementLocked || bESpinning;
 }
 
 void AChampion_Tryndamere::BeginMovementLock(float Duration)

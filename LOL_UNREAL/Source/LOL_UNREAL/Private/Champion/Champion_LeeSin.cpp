@@ -396,7 +396,7 @@ void AChampion_LeeSin::Tick(float DeltaTime)
 
 bool AChampion_LeeSin::IsMoveInputBlocked() const
 {
-	return bSkillMovementLocked || bIsQDashing || bIsWDashing;
+	return Super::IsMoveInputBlocked() || bSkillMovementLocked || bIsQDashing || bIsWDashing;
 }
 
 void AChampion_LeeSin::MarkQTarget(AActor* Target)

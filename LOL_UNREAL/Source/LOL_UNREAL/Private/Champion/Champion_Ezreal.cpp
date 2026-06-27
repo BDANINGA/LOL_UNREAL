@@ -253,7 +253,7 @@ void AChampion_Ezreal::Server_Skill_E_Implementation(FVector TargetLocation)
         );
     }
 
-    SetActorLocation(BlinkLocation, true);
+    SetActorLocation(BlinkLocation, false, nullptr, ETeleportType::TeleportPhysics);
 
     const float DamageRadius = 650.0f;
 

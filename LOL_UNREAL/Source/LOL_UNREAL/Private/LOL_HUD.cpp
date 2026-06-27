@@ -116,3 +116,19 @@ void ALOL_HUD::UpdateSkillCoolDown(FName SkillName, float CoolLocalEndTime, floa
     if (MainHUDWidget)
         MainHUDWidget->SetSkillCooldown(SkillName, CoolLocalEndTime, CoolEndTime);
 }
+
+void ALOL_HUD::AddItemIcon(UTexture2D* IconTexture)
+{
+    if (MainHUDWidget)
+    {
+        MainHUDWidget->AddItemIcon(IconTexture);
+    }
+}
+
+void ALOL_HUD::SetItemIcons(const TArray<UTexture2D*>& IconTextures)
+{
+    if (MainHUDWidget)
+    {
+        MainHUDWidget->SetItemIcons(IconTextures);
+    }
+}

@@ -26,6 +26,19 @@ public:
     UPROPERTY(meta = (BindWidget))
     class UImage* SkillP_Image;
 
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* ItemSlot_1;
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* ItemSlot_2;
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* ItemSlot_3;
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* ItemSlot_4;
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* ItemSlot_5;
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* ItemSlot_6;
+
     UPROPERTY(meta = (BindWidget))
     class UProgressBar* HPProgressBar;
 
@@ -88,6 +101,8 @@ public:
 
     void SetSkillCooldown(FName SkillName, float CoolLocalEndTime, float CoolEndTime);
     void SetSkillImage(FName SkillName, UTexture2D* IconTexture);
+    void AddItemIcon(UTexture2D* IconTexture);
+    void SetItemIcons(const TArray<UTexture2D*>& IconTextures);
 protected:
     UPROPERTY()
     class UMaterialInstanceDynamic* SkillQ_MID;
@@ -118,6 +133,14 @@ protected:
     float SkillCoolLocalEndTimeP;
     UPROPERTY()
     float SkillCoolEndTimeP;
+
+    UPROPERTY()
+    TArray<class UImage*> CachedItemSlotImages;
+
+    UPROPERTY()
+    int32 NextItemSlotIndex = 0;
+
+    void CacheItemSlotImages();
 
     virtual void NativeConstruct() override;
     virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;

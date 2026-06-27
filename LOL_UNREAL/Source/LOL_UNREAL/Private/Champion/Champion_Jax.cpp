@@ -146,7 +146,6 @@ void AChampion_Jax::Server_Skill_W_Implementation()
     if (!SkillComponent->TryCastSkill("W", 1)) return;
 
     bWEmpowered = true;
-    Multicast_PlayJaxSkillAnimation(1, 1.15f, GetActorRotation());
 
     // Empower resets Jax's basic attack timer.
     GetWorldTimerManager().ClearTimer(AttackComponent->AttackTimerHandle);
@@ -687,6 +686,11 @@ UAnimMontage* AChampion_Jax::GetSkillMontage(uint8 SkillIndex) const
     return Montages && Montages->IsValidIndex(MontageIndex)
         ? (*Montages)[MontageIndex]
         : nullptr;
+}
+
+UAnimMontage* AChampion_Jax::GetWEmpoweredAttackMontage() const
+{
+    return GetSkillMontage(1);
 }
 
 void AChampion_Jax::Multicast_PlayJaxSkillAnimation_Implementation(

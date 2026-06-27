@@ -444,6 +444,12 @@ bool AChampion_Alistar::Server_Skill_E_Validate()
 void AChampion_Alistar::Server_Skill_E_Implementation()
 {
     if (!SkillComponent->TryCastSkill("E", 1)) return;
+
+    if (ChampionResource.EMontage.IsValidIndex(AM_SKIll_E_IDX) &&
+        ChampionResource.EMontage[AM_SKIll_E_IDX])
+    {
+        Multicast_PlayMontage(ChampionResource.EMontage[AM_SKIll_E_IDX], 1.0f);
+    }
     UE_LOG(LogTemp, Warning, TEXT("[Alistar E] DoT started. Ticks=%d"), E_MaxTicks);
 
     // ??카운??초기??
