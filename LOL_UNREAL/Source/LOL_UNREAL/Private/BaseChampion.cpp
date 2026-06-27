@@ -21,9 +21,10 @@
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_UIComponent.h"
 #include "Component/LOL_StateComponent.h"
+#include "Component/LOL_VisionComponent.h"
+
 #include "GamePlayTag/LOL_GamePlayTags.h"
 #include "Component/Champion_SkillComponent.h"
-#include "DrawDebugHelpers.h"
 
 #include "UObject/ConstructorHelpers.h"
 
@@ -48,6 +49,9 @@ ABaseChampion::ABaseChampion()
 
 	// State
 	StateComponent = CreateDefaultSubobject<ULOL_StateComponent>(TEXT("StateComponent"));
+
+	// Vision
+	VisionComponent = CreateDefaultSubobject<ULOL_VisionComponent>(TEXT("VisionComponent"));
 
 	// Skill
 	SkillComponent = CreateDefaultSubobject<UChampion_SkillComponent>(TEXT("SkillComponent"));
@@ -478,7 +482,7 @@ void ABaseChampion::Multicast_SetTargetAndPlayMontage_Implementation(UAnimMontag
 	if (AnimMontage) PlayAnimMontage(AnimMontage, InplayRate);
 }
 
-inline void ABaseChampion::SetIsPressA(bool toggle)
+void ABaseChampion::SetIsPressA(bool toggle)
 {
 	bIsPressA = toggle;
 }

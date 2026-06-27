@@ -62,7 +62,7 @@ APawn* ALOL_GameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewPla
     {
         if (Champion->StateComponent)
         {
-            const bool bForceRedForTryndamere = Champion->IsA(AChampion_Tryndamere::StaticClass());
+            const bool bForceRedForTryndamere = Champion->IsA(AChampion_Ezreal::StaticClass());
             const bool bIsBlueTeam = !bForceRedForTryndamere && NewPlayer && NewPlayer->IsLocalController();
 
             Champion->StateComponent->RemoveStatusTag(LOLTags::Team_Blue);

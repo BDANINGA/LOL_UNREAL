@@ -85,6 +85,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
 	class ULOL_StateComponent* StateComponent;
 
+	// 시야 컴포넌트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
+	class ULOL_VisionComponent* VisionComponent;
+
 	// 스킬 컴포넌트
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|Champion")
 	class UChampion_SkillComponent* SkillComponent;

@@ -2,101 +2,50 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "VisionManager.generated.h"
 
-//class ABaseChampion;
-//class UCanvas;
-//class UCanvasRenderTarget2D;
-//class UTexture2D;
-//class ULOL_StateComponent;
-//
-//UCLASS()
-//class LOL_UNREAL_API AVisionManager : public AActor
-//{
-//	GENERATED_BODY()
-//
-//public:
-//	AVisionManager();
-//
-//	virtual void BeginPlay() override;
-//	virtual void Tick(float DeltaTime) override;
-//
-//	UFUNCTION(BlueprintCallable, Category = "Vision")
-//	UCanvasRenderTarget2D* GetVisionRenderTarget() const { return VisionRenderTarget; }
-//
-//protected:
-//	UFUNCTION()
-//	void DrawVisionMask(UCanvas* Canvas, int32 Width, int32 Height);
-//
-//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|Map")
-//	FVector2D MapCenter = FVector2D::ZeroVector;
-//
-//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|Map")
-//	FVector2D MapWorldSize = FVector2D(16000.0f, 16000.0f);
-//
-//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|RenderTarget", meta = (ClampMin = "64", ClampMax = "4096"))
-//	int32 RenderTargetSize = 512;
-//
-//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|RenderTarget")
-//	float HiddenFowValue = 0.4f;
-//
-//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|RenderTarget")
-//	float VisibleFowValue = 1.0f;
-//
-//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|LineOfSight", meta = (ClampMin = "8", ClampMax = "720"))
-//	int32 VisionTraceSegments = 256;
-//
-//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|LineOfSight")
-//	float VisionTraceHeight = 80.0f;
-//
-//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|LineOfSight")
-//	float VisionBlockerProbeBackoff = 8.0f;
-//
-//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|Sources")
-//	bool bUseChampionVision = true;
-//
-//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|Sources")
-//	bool bUseMinionVision = true;
-//
-//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|Visibility")
-//	bool bHideEnemiesOutsideVision = true;
-//
-//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|Material")
-//	bool bApplyRenderTargetToWorldMaterials = true;
-//
-//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|Material")
-//	TArray<FName> VisionTextureParameterNames;
-//
-//private:
-//	struct FVisionSource
-//	{
-//		FVector Location = FVector::ZeroVector;
-//		float Radius = 0.0f;
-//	};
-//
-//	UPROPERTY(Transient)
-//	TObjectPtr<UCanvasRenderTarget2D> VisionRenderTarget;
-//
-//	UPROPERTY(Transient)
-//	TObjectPtr<UTexture2D> CanvasWhiteTexture;
-//
-//	UPROPERTY(Transient)
-//	TObjectPtr<ABaseChampion> LocalChampion;
-//
-//	TArray<FVisionSource> CachedVisionSources;
-//
-//	void RefreshVision();
-//	void CollectVisionSources();
-//	void UpdateActorVisibility();
-//	void ApplyRenderTargetToWorldMaterials();
-//
-//	ABaseChampion* ResolveLocalChampion() const;
-//	ULOL_StateComponent* GetLocalState() const;
-//	bool IsFriendlyVisionSource(AActor* Actor, ULOL_StateComponent* LocalState) const;
-//	bool ShouldControlVisibility(AActor* Actor, ULOL_StateComponent* LocalState) const;
-//	bool IsWorldLocationVisible(const FVector& WorldLocation) const;
-//	bool HasLineOfSight(const FVector& From, const FVector& To) const;
-//	FVector2D WorldToCanvas(const FVector& WorldLocation, int32 Width, int32 Height) const;
-//	FVector CanvasToWorld2D(const FVector2D& CanvasLocation, int32 Width, int32 Height, float Z) const;
-//	void AddTriangle(TArray<FCanvasUVTri>& Triangles, const FVector2D& A, const FVector2D& B, const FVector2D& C, const FLinearColor& Color) const;
-//	void AddVisionSourceTriangles(TArray<FCanvasUVTri>& Triangles, const FVisionSource& Source, int32 Width, int32 Height) const;
-//};
+class ULOL_VisionComponent;
+class UTextureRenderTarget2D;
+class UMaterialInterface;
+class UMaterialInstanceDynamic;
+
+UCLASS()
+class AVisionManager : public AActor
+{
+	GENERATED_BODY()
+
+public:
+	AVisionManager();
+
+protected:
+	virtual void BeginPlay() override;
+
+public:
+	virtual void Tick(float DeltaTime) override;
+
+	void RegisterVisionComponent(ULOL_VisionComponent* Component);
+	void UnregisterVisionComponent(ULOL_VisionComponent* Component);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|Render")
+	UTextureRenderTarget2D* FoWRenderTarget;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|Render")
+	UMaterialInterface* VisionBrushMaterial;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|Map")
+	FVector2D MapMinBounds = FVector2D(-5000.0f, -5000.0f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|Map")
+	FVector2D MapMaxBounds = FVector2D(5000.0f, 5000.0f);
+
+private:
+	UPROPERTY()
+	TArray<ULOL_VisionComponent*> BlueVisionComponents;
+	UPROPERTY()
+	TArray<ULOL_VisionComponent*> RedVisionComponents;
+
+	UPROPERTY()
+	UMaterialInstanceDynamic* VisionBrushMID;
+
+	void UpdateFoW();
+};
