@@ -78,7 +78,7 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
         if (StateComp && StateComp->HasStatusTag(LOLTags::State_Moving))
         {
             float Distance = FVector::Dist2D(OwnerPawn->GetActorLocation(), TargetLocation);
-            if (Distance <= 50.f) {
+            if (Distance <= 100.f) {
                 StopMovement();
             }
         }
