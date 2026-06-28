@@ -3,6 +3,7 @@
 #include "LOL_PlayerController.h"
 #include "LOL_HUD.h"
 #include "LOL_GameState.h"
+#include "LOL_PlayerState.h"
 
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_StateComponent.h"
@@ -38,6 +39,8 @@ ALOL_GameModeBase::ALOL_GameModeBase()
     HUDClass = ALOL_HUD::StaticClass();
 
     GameStateClass = ALOL_GameState::StaticClass();
+
+    PlayerStateClass = ALOL_PlayerState::StaticClass();
 }  
 
 UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(AController* InController)
@@ -47,11 +50,11 @@ UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(ACont
     if (InController && InController->IsLocalController())
     {
         // 첫 번째 플레이어
-        return AChampion_Gragas::StaticClass();
+        return AChampion_Alistar::StaticClass();
     }
 
     // 2. 그 외에 접속하는 클라이언트 플레이어들
-    return AChampion_Alistar::StaticClass();
+    return AChampion_Tryndamere::StaticClass();
 }
 
 APawn* ALOL_GameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot)

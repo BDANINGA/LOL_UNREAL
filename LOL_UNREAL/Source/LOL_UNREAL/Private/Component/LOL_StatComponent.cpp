@@ -1,6 +1,7 @@
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_UIComponent.h"
 #include "Component/LOL_StateComponent.h"
+#include "Component/LOL_LifeCycleComponent.h"
 
 #include "BaseChampion.h"
 #include "JungleMonster/BaseJungleMonster.h"
@@ -452,6 +453,15 @@ float ULOL_StatComponent::ApplyDamage(float InDamage, EDamageType DamageType, AC
 	float FinalDamage = CalculateReducedDamage(InDamage, DamageType);
 
 	const float ActualDamage = FMath::Clamp(FinalDamage, 0.f, CurrentHP);
+
+	if (ActualDamage > 0.0f)
+	{
+		if (ULOL_LifeCycleComponent* LifeCycle = GetOwner()->FindComponentByClass<ULOL_LifeCycleComponent>())
+		{
+			LifeCycle->RecordDamageFrom(Instigator);
+		}
+	}
+
 	SetHP(CurrentHP - ActualDamage);
 
 	if (CurrentHP <= 0.f)

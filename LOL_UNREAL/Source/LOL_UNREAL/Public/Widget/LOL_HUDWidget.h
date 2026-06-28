@@ -13,6 +13,8 @@ class LOL_UNREAL_API ULOL_HUDWidget : public UUserWidget
 	GENERATED_BODY()
 	
 public:
+    ULOL_HUDWidget(const FObjectInitializer& ObjectInitializer);
+
     UPROPERTY(meta = (BindWidget))
     class UImage* Portrait_Image;
     UPROPERTY(meta = (BindWidget))
@@ -103,6 +105,9 @@ public:
     void SetSkillImage(FName SkillName, UTexture2D* IconTexture);
     void AddItemIcon(UTexture2D* IconTexture);
     void SetItemIcons(const TArray<UTexture2D*>& IconTextures);
+
+    UFUNCTION()
+    void HandleChampionKill(class ABaseChampion* Killer, class ABaseChampion* Victim);
 protected:
     UPROPERTY()
     class UMaterialInstanceDynamic* SkillQ_MID;
@@ -140,8 +145,49 @@ protected:
     UPROPERTY()
     int32 NextItemSlotIndex = 0;
 
+    UPROPERTY(Transient)
+    UTextBlock* BlueKillCountText = nullptr;
+
+    UPROPERTY(Transient)
+    UTextBlock* RedKillCountText = nullptr;
+
+    UPROPERTY(Transient)
+    UTextBlock* KillCountText = nullptr;
+
+    UPROPERTY(Transient)
+    UTextBlock* DeathCountText = nullptr;
+
+    UPROPERTY(Transient)
+    UTextBlock* AssistCountText = nullptr;
+
+    UPROPERTY(Transient)
+    UTextBlock* KdaCountText = nullptr;
+
+    UPROPERTY(Transient)
+    UTextBlock* MinionCountText = nullptr;
+
+    UPROPERTY(Transient)
+    UTextBlock* MatchTimerText = nullptr;
+
+    UPROPERTY(Transient)
+    class UVerticalBox* KillLogContainer = nullptr;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Kill Log")
+    TSubclassOf<class UUserWidget> KillLogWidgetClass;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Kill Log")
+    float KillLogDisplayDuration = 5.0f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Kill Log")
+    int32 MaxKillLogEntries = 5;
+
     void CacheItemSlotImages();
+    void CacheScoreboardTextBlocks();
+    void CreateKillLogContainer();
+    void RemoveKillLogEntry(class UUserWidget* Entry);
+    void UpdateScoreboard();
 
     virtual void NativeConstruct() override;
+    virtual void NativeDestruct() override;
     virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 };
