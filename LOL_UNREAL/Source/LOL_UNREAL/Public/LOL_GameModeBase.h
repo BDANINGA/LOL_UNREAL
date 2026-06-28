@@ -32,6 +32,12 @@ protected:
 
     void StartMinionWave();
     void SpawnNextMinion();
+    bool InitializeMinionLanePaths();
+    bool InitializeLanePath(
+        FName LaneTag,
+        const FVector& BlueNexusLocation,
+        TArray<AActor*>& OutBluePath,
+        TArray<AActor*>& OutRedPath);
     void SpawnJungleMonsters();
     void SpawnJungleMonsterAtTag(FName TargetTag, FName MonsterRowName);
     void SpawnJungleMonsterAtTransform(FName MonsterRowName, FVector SpawnLocation, FRotator SpawnRotation);

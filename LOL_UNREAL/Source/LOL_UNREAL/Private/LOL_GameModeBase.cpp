@@ -25,8 +25,10 @@
 #include "Minion/Minion_Super.h"
 
 #include "Building/Building_Inhibitor.h"
+#include "Building/Building_Nexus.h"
 #include "JungleMonster/BaseJungleMonster.h"
 
+#include "Algo/Reverse.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerStart.h"
 #include "TimerManager.h"
@@ -42,6 +44,8 @@ ALOL_GameModeBase::ALOL_GameModeBase()
     GameStateClass = ALOL_GameState::StaticClass();
 
     PlayerStateClass = ALOL_PlayerState::StaticClass();
+
+    bUseSeamlessTravel = true;
 }  
 
 void ALOL_GameModeBase::PostLogin(APlayerController* NewPlayer)
@@ -194,34 +198,176 @@ void ALOL_GameModeBase::BeginPlay()
 {
     Super::BeginPlay();
 
-    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("TopLanePoint"), BlueTopLanePoints);
-    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("MidLanePoint"), BlueMidLanePoints);
-    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("BotLanePoint"), BlueBotLanePoints);
-    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("TopLanePoint"), RedTopLanePoints);
-    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("MidLanePoint"), RedMidLanePoints);
-    UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("BotLanePoint"), RedBotLanePoints);
-    
-    BlueTopLanePoints.Sort([](const AActor& A, const AActor& B) {
-        return A.GetActorLabel() < B.GetActorLabel();
-        });
-    BlueMidLanePoints.Sort([](const AActor& A, const AActor& B) {
-        return A.GetActorLabel() < B.GetActorLabel();
-        });
-    BlueBotLanePoints.Sort([](const AActor& A, const AActor& B) {
-        return A.GetActorLabel() < B.GetActorLabel();
-        });
-    RedTopLanePoints.Sort([](const AActor& A, const AActor& B) {
-        return A.GetActorLabel() > B.GetActorLabel();
-        });
-    RedMidLanePoints.Sort([](const AActor& A, const AActor& B) {
-        return A.GetActorLabel() > B.GetActorLabel();
-        });
-    RedBotLanePoints.Sort([](const AActor& A, const AActor& B) {
-        return A.GetActorLabel() > B.GetActorLabel();
-        });
+    const bool bLanePathsReady = InitializeMinionLanePaths();
     SpawnJungleMonsters();
 
-    GetWorld()->GetTimerManager().SetTimer(MinionSpawnTimerHandle, this, &ALOL_GameModeBase::StartMinionWave, 3.0f, false);
+    if (bLanePathsReady)
+    {
+        GetWorld()->GetTimerManager().SetTimer(
+            MinionSpawnTimerHandle,
+            this,
+            &ALOL_GameModeBase::StartMinionWave,
+            3.0f,
+            false);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Minion waves disabled because lane paths could not be initialized."));
+    }
+}
+
+bool ALOL_GameModeBase::InitializeMinionLanePaths()
+{
+    TArray<AActor*> NexusActors;
+    UGameplayStatics::GetAllActorsOfClass(
+        GetWorld(),
+        ABuilding_Nexus::StaticClass(),
+        NexusActors);
+
+    AActor* BlueNexus = nullptr;
+    for (AActor* NexusActor : NexusActors)
+    {
+        if (NexusActor &&
+            (NexusActor->ActorHasTag(FName("BlueTeam")) ||
+             NexusActor->ActorHasTag(FName("BlueNexus"))))
+        {
+            BlueNexus = NexusActor;
+            break;
+        }
+    }
+
+    if (!BlueNexus)
+    {
+        TArray<AActor*> BlueTeamActors;
+        UGameplayStatics::GetAllActorsWithTag(
+            GetWorld(),
+            FName("BlueTeam"),
+            BlueTeamActors);
+
+        FVector BlueSpawnCenter = FVector::ZeroVector;
+        int32 BluePlayerStartCount = 0;
+        for (AActor* BlueTeamActor : BlueTeamActors)
+        {
+            if (Cast<APlayerStart>(BlueTeamActor))
+            {
+                BlueSpawnCenter += BlueTeamActor->GetActorLocation();
+                ++BluePlayerStartCount;
+            }
+        }
+
+        if (BluePlayerStartCount > 0)
+        {
+            BlueSpawnCenter /= static_cast<float>(BluePlayerStartCount);
+            float ClosestDistanceSquared = TNumericLimits<float>::Max();
+
+            for (AActor* NexusActor : NexusActors)
+            {
+                if (!NexusActor)
+                {
+                    continue;
+                }
+
+                const float DistanceSquared = FVector::DistSquared2D(
+                    BlueSpawnCenter,
+                    NexusActor->GetActorLocation());
+                if (DistanceSquared < ClosestDistanceSquared)
+                {
+                    ClosestDistanceSquared = DistanceSquared;
+                    BlueNexus = NexusActor;
+                }
+            }
+
+            if (BlueNexus)
+            {
+                BlueNexus->Tags.AddUnique(FName("BlueNexus"));
+                UE_LOG(
+                    LogTemp,
+                    Log,
+                    TEXT("Registered BlueNexus tag from BlueTeam PlayerStart distance. Nexus=%s"),
+                    *BlueNexus->GetName());
+            }
+        }
+    }
+
+    if (!BlueNexus)
+    {
+        UE_LOG(
+            LogTemp,
+            Error,
+            TEXT("Blue Nexus was not found. Add the BlueTeam or BlueNexus actor tag to the blue Nexus."));
+        return false;
+    }
+
+    const FVector BlueNexusLocation = BlueNexus->GetActorLocation();
+    const bool bTopReady = InitializeLanePath(
+        FName("TopLanePoint"),
+        BlueNexusLocation,
+        BlueTopLanePoints,
+        RedTopLanePoints);
+    const bool bMidReady = InitializeLanePath(
+        FName("MidLanePoint"),
+        BlueNexusLocation,
+        BlueMidLanePoints,
+        RedMidLanePoints);
+    const bool bBotReady = InitializeLanePath(
+        FName("BotLanePoint"),
+        BlueNexusLocation,
+        BlueBotLanePoints,
+        RedBotLanePoints);
+
+    return bTopReady && bMidReady && bBotReady;
+}
+
+bool ALOL_GameModeBase::InitializeLanePath(
+    FName LaneTag,
+    const FVector& BlueNexusLocation,
+    TArray<AActor*>& OutBluePath,
+    TArray<AActor*>& OutRedPath)
+{
+    OutBluePath.Reset();
+    OutRedPath.Reset();
+    UGameplayStatics::GetAllActorsWithTag(GetWorld(), LaneTag, OutBluePath);
+
+    OutBluePath.RemoveAll([](const AActor* Point)
+    {
+        return !IsValid(Point);
+    });
+
+    OutBluePath.Sort([BlueNexusLocation](const AActor& A, const AActor& B)
+    {
+        const float DistanceA = FVector::DistSquared2D(
+            BlueNexusLocation,
+            A.GetActorLocation());
+        const float DistanceB = FVector::DistSquared2D(
+            BlueNexusLocation,
+            B.GetActorLocation());
+        return DistanceA < DistanceB;
+    });
+
+    if (OutBluePath.Num() < 2)
+    {
+        UE_LOG(
+            LogTemp,
+            Error,
+            TEXT("Lane path needs at least two points. Tag=%s Count=%d"),
+            *LaneTag.ToString(),
+            OutBluePath.Num());
+        return false;
+    }
+
+    OutRedPath = OutBluePath;
+    Algo::Reverse(OutRedPath);
+
+    UE_LOG(
+        LogTemp,
+        Log,
+        TEXT("Lane path initialized. Tag=%s Points=%d BlueStartDistance=%.0f RedStartDistance=%.0f"),
+        *LaneTag.ToString(),
+        OutBluePath.Num(),
+        FVector::Dist2D(BlueNexusLocation, OutBluePath[0]->GetActorLocation()),
+        FVector::Dist2D(BlueNexusLocation, OutRedPath[0]->GetActorLocation()));
+
+    return true;
 }
 
 void ALOL_GameModeBase::RequestRespawn(ABaseChampion* DeadChampion)
@@ -276,14 +422,53 @@ void ALOL_GameModeBase::SpawnJungleMonsters()
 {
     if (!HasAuthority()) return;
 
-    SpawnJungleMonsterAtTag(FName("gromp_target"), FName("Gromp"));
-    SpawnJungleMonsterAtTag(FName("wolf_target"), FName("Wolf"));
-    SpawnJungleMonsterAtTag(FName("Razorbeak_target"), FName("Razorbeak"));
-    SpawnJungleMonsterAtTag(FName("red_target"), FName("Red"));
-    SpawnJungleMonsterAtTag(FName("blue_target"), FName("Blue"));
-    SpawnJungleMonsterAtTag(FName("krug_target"), FName("Krug"));
-    SpawnJungleMonsterAtTag(FName("dragon_target"), FName("Atakhan"));
-    SpawnJungleMonsterAtTag(FName("baron_target"), FName("Baron"));
+    const auto RegisterMonsterTagAndSpawn =
+        [this](FName CampTag, FName MonsterRowName)
+    {
+        TArray<AActor*> MonsterTaggedTargets;
+        UGameplayStatics::GetAllActorsWithTag(
+            GetWorld(),
+            MonsterRowName,
+            MonsterTaggedTargets);
+
+        if (MonsterTaggedTargets.Num() == 0)
+        {
+            UGameplayStatics::GetAllActorsWithTag(
+                GetWorld(),
+                CampTag,
+                MonsterTaggedTargets);
+
+            for (AActor* SpawnTarget : MonsterTaggedTargets)
+            {
+                if (SpawnTarget)
+                {
+                    SpawnTarget->Tags.AddUnique(MonsterRowName);
+                }
+            }
+
+            if (MonsterTaggedTargets.Num() > 0)
+            {
+                UE_LOG(
+                    LogTemp,
+                    Log,
+                    TEXT("Registered jungle monster tag. CampTag=%s MonsterTag=%s Targets=%d"),
+                    *CampTag.ToString(),
+                    *MonsterRowName.ToString(),
+                    MonsterTaggedTargets.Num());
+            }
+        }
+
+        SpawnJungleMonsterAtTag(MonsterRowName, MonsterRowName);
+    };
+
+    RegisterMonsterTagAndSpawn(FName("camp_gromp"), FName("Gromp"));
+    RegisterMonsterTagAndSpawn(FName("camp_wolf"), FName("Wolf"));
+    RegisterMonsterTagAndSpawn(FName("camp_razorbeak"), FName("Razorbeak"));
+    RegisterMonsterTagAndSpawn(FName("camp_red"), FName("Red"));
+    RegisterMonsterTagAndSpawn(FName("camp_blue"), FName("Blue"));
+    RegisterMonsterTagAndSpawn(FName("camp_krug"), FName("Krug"));
+    RegisterMonsterTagAndSpawn(FName("camp_dragon"), FName("Atakhan"));
+    RegisterMonsterTagAndSpawn(FName("camp_baron"), FName("Baron"));
 }
 
 void ALOL_GameModeBase::SpawnJungleMonsterAtTag(FName TargetTag, FName MonsterRowName)
@@ -292,67 +477,6 @@ void ALOL_GameModeBase::SpawnJungleMonsterAtTag(FName TargetTag, FName MonsterRo
 
     TArray<AActor*> SpawnTargets;
     UGameplayStatics::GetAllActorsWithTag(GetWorld(), TargetTag, SpawnTargets);
-
-    if (SpawnTargets.Num() == 0)
-    {
-        TArray<AActor*> AllActors;
-        UGameplayStatics::GetAllActorsOfClass(GetWorld(), AActor::StaticClass(), AllActors);
-
-        TArray<FString> TargetNames;
-        const FString TargetTagString = TargetTag.ToString();
-        FString BaseTargetName = TargetTagString;
-        BaseTargetName.RemoveFromEnd(TEXT("_target"), ESearchCase::IgnoreCase);
-
-        TargetNames.Add(TargetTagString);
-
-        if (BaseTargetName.Equals(TEXT("atakhan"), ESearchCase::IgnoreCase) ||
-            BaseTargetName.Equals(TEXT("dragon"), ESearchCase::IgnoreCase))
-        {
-            TargetNames.Add(TEXT("dragon"));
-            TargetNames.Add(TEXT("dragon_target"));
-            TargetNames.Add(TEXT("dragon_spawn"));
-            TargetNames.Add(TEXT("dragonTarget"));
-            TargetNames.Add(TEXT("dragonSpawn"));
-            TargetNames.Add(TEXT("atakhan"));
-            TargetNames.Add(TEXT("atakhan_target"));
-            TargetNames.Add(TEXT("atakhan_spawn"));
-            TargetNames.Add(TEXT("atakhanTarget"));
-            TargetNames.Add(TEXT("atakhanSpawn"));
-            TargetNames.Add(TEXT("atakan"));
-            TargetNames.Add(TEXT("atakan_target"));
-            TargetNames.Add(TEXT("atakan_spawn"));
-        }
-
-        if (BaseTargetName.Equals(TEXT("baron"), ESearchCase::IgnoreCase))
-        {
-            TargetNames.Add(TEXT("baron"));
-            TargetNames.Add(TEXT("baron_target"));
-            TargetNames.Add(TEXT("baron_spawn"));
-            TargetNames.Add(TEXT("baronTarget"));
-            TargetNames.Add(TEXT("baronSpawn"));
-            TargetNames.Add(TEXT("nashor"));
-            TargetNames.Add(TEXT("nashor_target"));
-            TargetNames.Add(TEXT("nashor_spawn"));
-            TargetNames.Add(TEXT("baron_nashor"));
-            TargetNames.Add(TEXT("baron_nashor_target"));
-            TargetNames.Add(TEXT("baron_nashor_spawn"));
-        }
-
-        for (AActor* Actor : AllActors)
-        {
-            if (!Actor) continue;
-
-            for (const FString& TargetName : TargetNames)
-            {
-                if (Actor->GetName().Contains(TargetName, ESearchCase::IgnoreCase) ||
-                    Actor->GetActorLabel().Contains(TargetName, ESearchCase::IgnoreCase))
-                {
-                    SpawnTargets.AddUnique(Actor);
-                    break;
-                }
-            }
-        }
-    }
 
     if (SpawnTargets.Num() == 0)
     {
@@ -505,8 +629,23 @@ void ALOL_GameModeBase::SpawnNextMinion()
                 else if (i == 3) SelectedPoints = RedTopLanePoints;
                 else if (i == 4) SelectedPoints = RedMidLanePoints;
                 else if (i == 5) SelectedPoints = RedBotLanePoints;
+
+                if (SelectedPoints.Num() < 2 ||
+                    !IsValid(SelectedPoints[0]) ||
+                    !IsValid(SelectedPoints[1]))
+                {
+                    UE_LOG(
+                        LogTemp,
+                        Error,
+                        TEXT("Skipping minion spawn because lane path is invalid. PathIndex=%d Points=%d"),
+                        i,
+                        SelectedPoints.Num());
+                    continue;
+                }
+
                 SpawnLocation = SelectedPoints[0]->GetActorLocation();
-                SpawnRotation = SelectedPoints[0]->GetActorRotation();
+                SpawnRotation =
+                    (SelectedPoints[1]->GetActorLocation() - SpawnLocation).Rotation();
 
                 FActorSpawnParameters SpawnParams;
                 SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
@@ -519,8 +658,17 @@ void ALOL_GameModeBase::SpawnNextMinion()
 
                 if (SpawnedMinion)
                 {
-                    if (i < 3) SpawnedMinion->StateComponent->AddStatusTag(LOLTags::Team_Blue);
-                    else SpawnedMinion->StateComponent->AddStatusTag(LOLTags::Team_Red);
+                    if (SpawnedMinion->StateComponent)
+                    {
+                        if (i < 3)
+                        {
+                            SpawnedMinion->StateComponent->AddStatusTag(LOLTags::Team_Blue);
+                        }
+                        else
+                        {
+                            SpawnedMinion->StateComponent->AddStatusTag(LOLTags::Team_Red);
+                        }
+                    }
                     
                     for (AActor* Point : SelectedPoints)
                     {

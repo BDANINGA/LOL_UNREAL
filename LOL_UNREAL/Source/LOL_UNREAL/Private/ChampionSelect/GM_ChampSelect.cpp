@@ -83,9 +83,11 @@ void AGM_ChampSelect::StartInGameMatch()
     }
 
     const FString GameMapURL =
-        TEXT("/Game/Level/LOL_Map?listen?game=/Game/Level/MyLOL_GameModeBase.MyLOL_GameModeBase_C");
+        TEXT("/Game/Level/LOL_Map")
+        TEXT("?game=/Game/Level/MyLOL_GameModeBase.MyLOL_GameModeBase_C")
+        TEXT("?SeamlessTravel");
 
-    UE_LOG(LogTemp, Warning, TEXT("Champion select traveling to: %s"), *GameMapURL);
+    UE_LOG(LogTemp, Log, TEXT("Champion select seamless traveling to: %s"), *GameMapURL);
     GetWorld()->ServerTravel(GameMapURL, true);
 }
 

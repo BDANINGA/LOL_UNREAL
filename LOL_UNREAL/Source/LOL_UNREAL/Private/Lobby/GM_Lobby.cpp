@@ -95,8 +95,12 @@ void AGM_Lobby::StartMobaMatch()
     // 게임 시작 신호가 떨어지면 즉시 로비 진입을 잠급니다.
     bLobbyLocked = true;
 
-    FString MapPath = TEXT("/Game/ChampionSelectMap/ChampionSelectMap?listen?game=/Game/ChampionSelectMap/MyGM_ChampSelect.MyGM_ChampSelect_C");
+    const FString MapPath =
+        TEXT("/Game/ChampionSelectMap/ChampionSelectMap")
+        TEXT("?game=/Game/ChampionSelectMap/MyGM_ChampSelect.MyGM_ChampSelect_C")
+        TEXT("?SeamlessTravel");
     // 픽창 레벨로 모든 플레이어 이동
+    UE_LOG(LogTemp, Log, TEXT("Lobby seamless traveling to: %s"), *MapPath);
     GetWorld()->ServerTravel(MapPath, true);
 }
 
