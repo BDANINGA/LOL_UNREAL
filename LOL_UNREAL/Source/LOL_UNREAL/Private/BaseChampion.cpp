@@ -101,7 +101,7 @@ ABaseChampion::ABaseChampion()
 		Movement->GetNavAgentPropertiesRef().bCanJump = false;
 
 		// 낭떠러지 추락 방지
-		Movement->bCanWalkOffLedges = false;
+		Movement->bCanWalkOffLedges = true;
 		Movement->LedgeCheckThreshold = 0.f;
 
 		Movement->bOrientRotationToMovement = true;
