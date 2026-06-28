@@ -130,23 +130,37 @@ void ALOL_GameModeBase::BeginPlay()
     UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("MidLanePoint"), RedMidLanePoints);
     UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("BotLanePoint"), RedBotLanePoints);
     
-    BlueTopLanePoints.Sort([](const AActor& A, const AActor& B) {
-        return A.GetActorLabel() < B.GetActorLabel();
+    FVector BlueBaseLocation = FVector(-2600.0, 2840.0, -4840.0);
+
+    BlueTopLanePoints.Sort([BlueBaseLocation](const AActor& A, const AActor& B) {
+        float DistA = FVector::DistSquared(A.GetActorLocation(), BlueBaseLocation);
+        float DistB = FVector::DistSquared(B.GetActorLocation(), BlueBaseLocation);
+        return DistA < DistB;
         });
-    BlueMidLanePoints.Sort([](const AActor& A, const AActor& B) {
-        return A.GetActorLabel() < B.GetActorLabel();
+    BlueMidLanePoints.Sort([BlueBaseLocation](const AActor& A, const AActor& B) {
+        float DistA = FVector::DistSquared(A.GetActorLocation(), BlueBaseLocation);
+        float DistB = FVector::DistSquared(B.GetActorLocation(), BlueBaseLocation);
+        return DistA < DistB;
         });
-    BlueBotLanePoints.Sort([](const AActor& A, const AActor& B) {
-        return A.GetActorLabel() < B.GetActorLabel();
+    BlueBotLanePoints.Sort([BlueBaseLocation](const AActor& A, const AActor& B) {
+        float DistA = FVector::DistSquared(A.GetActorLocation(), BlueBaseLocation);
+        float DistB = FVector::DistSquared(B.GetActorLocation(), BlueBaseLocation);
+        return DistA < DistB;
         });
-    RedTopLanePoints.Sort([](const AActor& A, const AActor& B) {
-        return A.GetActorLabel() > B.GetActorLabel();
+    RedTopLanePoints.Sort([BlueBaseLocation](const AActor& A, const AActor& B) {
+        float DistA = FVector::DistSquared(A.GetActorLocation(), BlueBaseLocation);
+        float DistB = FVector::DistSquared(B.GetActorLocation(), BlueBaseLocation);
+        return DistA > DistB;
         });
-    RedMidLanePoints.Sort([](const AActor& A, const AActor& B) {
-        return A.GetActorLabel() > B.GetActorLabel();
+    RedMidLanePoints.Sort([BlueBaseLocation](const AActor& A, const AActor& B) {
+        float DistA = FVector::DistSquared(A.GetActorLocation(), BlueBaseLocation);
+        float DistB = FVector::DistSquared(B.GetActorLocation(), BlueBaseLocation);
+        return DistA > DistB;
         });
-    RedBotLanePoints.Sort([](const AActor& A, const AActor& B) {
-        return A.GetActorLabel() > B.GetActorLabel();
+    RedBotLanePoints.Sort([BlueBaseLocation](const AActor& A, const AActor& B) {
+        float DistA = FVector::DistSquared(A.GetActorLocation(), BlueBaseLocation);
+        float DistB = FVector::DistSquared(B.GetActorLocation(), BlueBaseLocation);
+        return DistA > DistB;
         });
     SpawnJungleMonsters();
 
@@ -285,25 +299,6 @@ void ALOL_GameModeBase::SpawnJungleMonsterAtTag(FName TargetTag, FName MonsterRo
 
     if (SpawnTargets.Num() == 0)
     {
-        UE_LOG(
-            LogTemp,
-            Warning,
-            TEXT("Jungle monster spawn target not found. Tag=%s Monster=%s"),
-            *TargetTag.ToString(),
-            *MonsterRowName.ToString()
-        );
-        if (GEngine)
-        {
-            GEngine->AddOnScreenDebugMessage(
-                -1,
-                5.0f,
-                FColor::Red,
-                FString::Printf(
-                    TEXT("Jungle spawn target not found: %s"),
-                    *TargetTag.ToString()
-                )
-            );
-        }
         return;
     }
 
@@ -316,27 +311,6 @@ void ALOL_GameModeBase::SpawnJungleMonsterAtTag(FName TargetTag, FName MonsterRo
             SpawnTarget->GetActorLocation(),
             SpawnTarget->GetActorRotation()
         );
-
-        UE_LOG(
-            LogTemp,
-            Warning,
-            TEXT("Jungle monster spawned. Monster=%s Target=%s Location=%s"),
-            *MonsterRowName.ToString(),
-            *SpawnTarget->GetName(),
-            *SpawnTarget->GetActorLocation().ToString()
-        );
-        if (GEngine)
-        {
-            GEngine->AddOnScreenDebugMessage(
-                -1,
-                5.0f,
-                FColor::Green,
-                FString::Printf(
-                    TEXT("Spawned jungle monster: %s"),
-                    *MonsterRowName.ToString()
-                )
-            );
-        }
     }
 }
 
