@@ -6,6 +6,7 @@
 #include "Component/LOL_AttackComponent.h"
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_UIComponent.h"
+#include "Component/LOL_VisionComponent.h"
 
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -27,6 +28,7 @@ ABaseBuilding::ABaseBuilding()
 	AttackComponent = CreateDefaultSubobject<ULOL_AttackComponent>(TEXT("AttackComponent"));
 	LifeCycleComponent = CreateDefaultSubobject<ULOL_LifeCycleComponent>(TEXT("LifeCycleComponent"));
 	UIComponent = CreateDefaultSubobject<ULOL_UIComponent>(TEXT("UIComponent"));
+	VisionComponent = CreateDefaultSubobject<ULOL_VisionComponent>(TEXT("VisionComponent"));
 }
 
 void ABaseBuilding::BeginPlay()

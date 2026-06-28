@@ -41,6 +41,11 @@ class LOL_UNREAL_API ALOL_PlayerController : public APlayerController
 public:
 	ALOL_PlayerController();
 
+	void SetSelectedChampionClass(TSubclassOf<class ABaseChampion> InChampionClass);
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Player Data")
+	TSubclassOf<class ABaseChampion> SelectedChampionClass;
+
 	void OnRightClick();
 	void OnLeftClick();
 	void OnSkillQ();
@@ -55,6 +60,7 @@ public:
 	void FreeCameraEdgeScroll(float DeltaTime);
 	virtual void AcknowledgePossession(APawn* P) override;
 	void InitCameraAnchor(APawn* TargetPawn);
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	UPROPERTY(EditAnywhere, Category = "UI")
 	TSubclassOf<class ULOL_CursorWidget> CursorWidgetClass;

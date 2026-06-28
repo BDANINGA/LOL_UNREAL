@@ -20,6 +20,8 @@ public:
 	UFUNCTION()
 	void Respawn();
 
+	void RecordDamageFrom(AController* DamageInstigator);
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LifeCycle")
 	bool bCanRespawn = true; // 챔피언은 true, 미니언/몬스터는 false로 세팅
 
@@ -41,4 +43,8 @@ protected:
 private:
 	UPROPERTY()
 	class APawn* OwnerPawn;
+
+	TMap<TWeakObjectPtr<AController>, float> RecentDamageContributors;
+
+	float AssistWindowSeconds = 10.0f;
 };

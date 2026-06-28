@@ -8,7 +8,10 @@
 
 #include "BaseChampion.h"
 #include "LOL_GameModeBase.h"
+#include "LOL_GameState.h"
+#include "LOL_PlayerState.h"
 #include "JungleMonster/BaseJungleMonster.h"
+#include "Minion/BaseMinion.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -38,14 +41,45 @@ void ULOL_LifeCycleComponent::BeginPlay()
 	}
 	
 }
+
+void ULOL_LifeCycleComponent::RecordDamageFrom(AController* DamageInstigator)
+{
+	if (!OwnerPawn || !OwnerPawn->HasAuthority() || !DamageInstigator)
+	{
+		return;
+	}
+
+	ABaseChampion* DamagedChampion = Cast<ABaseChampion>(OwnerPawn);
+	ABaseChampion* DamagingChampion = Cast<ABaseChampion>(DamageInstigator->GetPawn());
+	if (!DamagedChampion || !DamagingChampion || DamagedChampion == DamagingChampion)
+	{
+		return;
+	}
+
+	if (!DamagedChampion->StateComponent || !DamagingChampion->StateComponent ||
+		!DamagedChampion->StateComponent->IsEnemy(DamagingChampion->StateComponent))
+	{
+		return;
+	}
+
+	RecentDamageContributors.FindOrAdd(DamageInstigator) = GetWorld()->GetTimeSeconds();
+}
+
 void ULOL_LifeCycleComponent::Server_HandleDeath(AController* KillerInstigator, AActor* DamageCauser)
 {
 	if (!OwnerPawn || !OwnerPawn->HasAuthority()) return;
 
+	ABaseChampion* KillerChampion = KillerInstigator
+		? Cast<ABaseChampion>(KillerInstigator->GetPawn())
+		: nullptr;
+	ALOL_PlayerState* KillerPlayerState = KillerInstigator
+		? KillerInstigator->GetPlayerState<ALOL_PlayerState>()
+		: nullptr;
+
 	if (KillerInstigator)
 	{
 		APawn* KillerPawn = KillerInstigator->GetPawn();
-		if (ABaseChampion* KillerChampion = Cast<ABaseChampion>(KillerPawn))
+		if (KillerChampion)
 		{
 			ULOL_StatComponent* KillerStatComp = KillerChampion->FindComponentByClass<ULOL_StatComponent>();
 			ULOL_StatComponent* MyStatComp = OwnerPawn->FindComponentByClass<ULOL_StatComponent>();
@@ -57,6 +91,84 @@ void ULOL_LifeCycleComponent::Server_HandleDeath(AController* KillerInstigator, 
 			}
 		}
 	}
+
+	if (ABaseChampion* DeadChampion = Cast<ABaseChampion>(OwnerPawn))
+	{
+		AController* DeadController = DeadChampion->GetController();
+		ALOL_PlayerState* DeadPlayerState = DeadController
+			? DeadController->GetPlayerState<ALOL_PlayerState>()
+			: nullptr;
+
+		if (DeadPlayerState)
+		{
+			DeadPlayerState->AddDeath();
+		}
+		DeadChampion->AddDeathCount();
+
+		const bool bValidEnemyKill =
+			KillerChampion &&
+			KillerChampion != DeadChampion &&
+			KillerChampion->StateComponent &&
+			DeadChampion->StateComponent &&
+			KillerChampion->StateComponent->IsEnemy(DeadChampion->StateComponent);
+
+		if (bValidEnemyKill)
+		{
+			if (KillerPlayerState)
+			{
+				KillerPlayerState->AddKill();
+			}
+			KillerChampion->AddKillCount();
+
+			if (ALOL_GameState* GameState = GetWorld()->GetGameState<ALOL_GameState>())
+			{
+				GameState->AddTeamKill(
+					KillerChampion->StateComponent->HasStatusTag(LOLTags::Team_Blue));
+				GameState->NotifyChampionKill(KillerChampion, DeadChampion);
+			}
+
+			const float Now = GetWorld()->GetTimeSeconds();
+			for (const TPair<TWeakObjectPtr<AController>, float>& Contributor : RecentDamageContributors)
+			{
+				AController* AssistController = Contributor.Key.Get();
+				if (!AssistController ||
+					AssistController == KillerInstigator ||
+					Now - Contributor.Value > AssistWindowSeconds)
+				{
+					continue;
+				}
+
+				ABaseChampion* AssistChampion = Cast<ABaseChampion>(AssistController->GetPawn());
+				if (!AssistChampion ||
+					!AssistChampion->StateComponent ||
+					KillerChampion->StateComponent->IsEnemy(AssistChampion->StateComponent))
+				{
+					continue;
+				}
+
+				if (ALOL_PlayerState* AssistPlayerState =
+					AssistController->GetPlayerState<ALOL_PlayerState>())
+				{
+					AssistPlayerState->AddAssist();
+				}
+				AssistChampion->AddAssistCount();
+			}
+		}
+	}
+	else if (Cast<ABaseMinion>(OwnerPawn) && KillerPlayerState)
+	{
+		KillerPlayerState->AddMinionKill();
+		if (KillerChampion)
+		{
+			KillerChampion->AddMinionKillCount();
+		}
+	}
+	else if (Cast<ABaseMinion>(OwnerPawn) && KillerChampion)
+	{
+		KillerChampion->AddMinionKillCount();
+	}
+
+	RecentDamageContributors.Reset();
 
 	if (ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>())
 	{

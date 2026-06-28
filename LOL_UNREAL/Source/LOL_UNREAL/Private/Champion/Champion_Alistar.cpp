@@ -1,4 +1,5 @@
 #include "Champion/Champion_Alistar.h"
+#include "JungleMonster/BaseJungleMonster.h"
 
 #include "Component/Champion_SkillComponent.h"
 #include "Component/LOL_StatComponent.h"
@@ -130,6 +131,14 @@ void AChampion_Alistar::Server_Skill_Q_Implementation()
             MoveComp->StopMovementImmediately();
             MoveComp->CurrentRootMotion.Clear();
             MoveComp->SetMovementMode(MOVE_Falling);
+        }
+        if (ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(Target))
+        {
+            JungleMonster->ApplyCrowdControl(1.25f);
+            if (UCharacterMovementComponent* JungleMovement = JungleMonster->GetCharacterMovement())
+            {
+                JungleMovement->SetMovementMode(MOVE_Falling);
+            }
         }
 
         // 캡슐 충돌 무시
@@ -404,6 +413,21 @@ void AChampion_Alistar::ApplyWKnockback(ACharacter* Target)
             }), 0.5f, false);
     }
 
+    else if (ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(Target))
+    {
+        JungleMonster->ApplyCrowdControl(0.5f);
+
+        const FVector PushDirection =
+            (JungleMonster->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
+        FVector LaunchVelocity = PushDirection * 1200.0f;
+        LaunchVelocity.Z = 100.0f;
+
+        if (UCharacterMovementComponent* JungleMovement = JungleMonster->GetCharacterMovement())
+        {
+            JungleMovement->SetMovementMode(MOVE_Falling);
+        }
+        JungleMonster->LaunchCharacter(LaunchVelocity, true, true);
+    }
     // 7. ?�리?��? 본인 처리 (?�겟이 ?�던 ?�치??멈춤)
     SetActorLocation(Target->GetActorLocation(), false);
     GetCharacterMovement()->StopMovementImmediately();

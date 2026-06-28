@@ -4,6 +4,7 @@
 #include "LOL_GameModeBase.h"
 #include "LOL_PlayerController.h"
 #include "LOL_HUD.h"
+#include "VisionManager/VisionManager.h"
 
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
@@ -25,8 +26,11 @@
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_UIComponent.h"
 #include "Component/LOL_StateComponent.h"
+#include "Component/LOL_VisionComponent.h"
+
 #include "GamePlayTag/LOL_GamePlayTags.h"
 #include "Component/Champion_SkillComponent.h"
+
 #include "Building/BaseBuilding.h"
 #include "DrawDebugHelpers.h"
 
@@ -53,6 +57,9 @@ ABaseChampion::ABaseChampion()
 
 	// State
 	StateComponent = CreateDefaultSubobject<ULOL_StateComponent>(TEXT("StateComponent"));
+
+	// Vision
+	VisionComponent = CreateDefaultSubobject<ULOL_VisionComponent>(TEXT("VisionComponent"));
 
 	// Skill
 	SkillComponent = CreateDefaultSubobject<UChampion_SkillComponent>(TEXT("SkillComponent"));
@@ -155,6 +162,16 @@ void ABaseChampion::BeginPlay()
 			}
 		}
 	}
+	AVisionManager* Manager =
+		Cast<AVisionManager>(
+			UGameplayStatics::GetActorOfClass(
+				GetWorld(),
+				AVisionManager::StaticClass()));
+
+	if (Manager)
+	{
+		Manager->RegisterActor(this);
+	}
 	if (GetLocalRole() == ROLE_AutonomousProxy && !HasAuthority())
 	{
 		if (UCharacterMovementComponent* Movement = GetCharacterMovement())
@@ -190,6 +207,38 @@ void ABaseChampion::SetVisibleByVision(bool bVisible)
 {
 	bVisibleByVision = bVisible;
 	SetActorHiddenInGame(!bVisible);
+}
+
+void ABaseChampion::AddKillCount()
+{
+	if (HasAuthority())
+	{
+		++KillCount;
+	}
+}
+
+void ABaseChampion::AddDeathCount()
+{
+	if (HasAuthority())
+	{
+		++DeathCount;
+	}
+}
+
+void ABaseChampion::AddAssistCount()
+{
+	if (HasAuthority())
+	{
+		++AssistCount;
+	}
+}
+
+void ABaseChampion::AddMinionKillCount()
+{
+	if (HasAuthority())
+	{
+		++MinionKillCount;
+	}
 }
 
 void ABaseChampion::SetChampionData(FName RowName)
@@ -328,6 +377,10 @@ void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ABaseChampion, ServerCharacterRotation);
 	DOREPLIFETIME(ABaseChampion, TeamId);
+	DOREPLIFETIME(ABaseChampion, KillCount);
+	DOREPLIFETIME(ABaseChampion, DeathCount);
+	DOREPLIFETIME(ABaseChampion, AssistCount);
+	DOREPLIFETIME(ABaseChampion, MinionKillCount);
 	DOREPLIFETIME(ABaseChampion, bIsSilenced);
 	DOREPLIFETIME(ABaseChampion, bIsRecalling);
 }
@@ -631,7 +684,7 @@ void ABaseChampion::Multicast_SetRecallEffectVisible_Implementation(bool bVisibl
 	}
 }
 
-inline void ABaseChampion::SetIsPressA(bool toggle)
+void ABaseChampion::SetIsPressA(bool toggle)
 {
 	bIsPressA = toggle;
 }

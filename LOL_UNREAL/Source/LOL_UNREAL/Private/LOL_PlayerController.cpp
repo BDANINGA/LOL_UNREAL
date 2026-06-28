@@ -119,6 +119,22 @@ ALOL_PlayerController::ALOL_PlayerController()
 	ShopActorTags.Add(FName("ItemShop"));
 }
 
+void ALOL_PlayerController::SetSelectedChampionClass(
+	TSubclassOf<ABaseChampion> InChampionClass)
+{
+	if (HasAuthority())
+	{
+		SelectedChampionClass = InChampionClass;
+	}
+}
+
+void ALOL_PlayerController::GetLifetimeReplicatedProps(
+	TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(ALOL_PlayerController, SelectedChampionClass);
+}
+
 void ALOL_PlayerController::BeginPlay()
 {
 	Super::BeginPlay();

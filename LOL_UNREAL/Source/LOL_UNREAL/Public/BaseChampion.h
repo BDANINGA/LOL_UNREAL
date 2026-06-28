@@ -85,6 +85,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
 	class ULOL_StateComponent* StateComponent;
 
+	// 시야 컴포넌트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
+	class ULOL_VisionComponent* VisionComponent;
+
 	// 스킬 컴포넌트
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|Champion")
 	class UChampion_SkillComponent* SkillComponent;
@@ -100,6 +104,23 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Vision")
 	int32 TeamId = 0;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Score")
+	int32 KillCount = 0;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Score")
+	int32 DeathCount = 0;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Score")
+	int32 AssistCount = 0;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Score")
+	int32 MinionKillCount = 0;
+
+	void AddKillCount();
+	void AddDeathCount();
+	void AddAssistCount();
+	void AddMinionKillCount();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision")
 	float SightRadius = 2000.0f;
