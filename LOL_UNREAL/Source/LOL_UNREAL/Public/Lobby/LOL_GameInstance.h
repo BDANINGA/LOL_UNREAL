@@ -26,6 +26,9 @@ class LOL_UNREAL_API ULOL_GameInstance : public UGameInstance
 	GENERATED_BODY()
 
 public:
+    virtual void Init() override;
+    virtual void Shutdown() override;
+
     UPROPERTY(BlueprintReadWrite, Category = "Player Data")
     FString MySavedNickname = "test";
 
@@ -34,4 +37,22 @@ public:
 
     UPROPERTY(BlueprintReadWrite, Category = "Player Data")
     uint8 MySavedTeamID = 0;
+
+    void BeginLobbyJoin(const FString& Address);
+    void CompleteLobbyJoin();
+
+private:
+    void HandleTravelFailure(
+        UWorld* World,
+        ETravelFailure::Type FailureType,
+        const FString& ErrorString);
+    void HandleNetworkFailure(
+        UWorld* World,
+        class UNetDriver* NetDriver,
+        ENetworkFailure::Type FailureType,
+        const FString& ErrorString);
+    void LogLobbyJoinFailure(const FString& FailureType, const FString& ErrorString);
+
+    bool bLobbyJoinPending = false;
+    FString PendingLobbyAddress;
 };

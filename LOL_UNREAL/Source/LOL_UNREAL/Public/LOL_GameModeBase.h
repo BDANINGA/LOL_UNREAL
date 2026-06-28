@@ -11,9 +11,11 @@ class LOL_UNREAL_API ALOL_GameModeBase : public AGameModeBase
 public:
     ALOL_GameModeBase();
     
-    void PostLogin(APlayerController* NewPlayer);
+    virtual void PostLogin(APlayerController* NewPlayer) override;
 
     virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
+
+    virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 
     virtual APawn* SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot) override;
 

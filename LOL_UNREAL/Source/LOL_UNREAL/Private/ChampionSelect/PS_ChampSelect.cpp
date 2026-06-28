@@ -1,5 +1,7 @@
 #include "ChampionSelect/PS_ChampSelect.h"
 #include "LOL_PlayerState.h"
+#include "Lobby/LOL_GameInstance.h"
+#include "GameFramework/PlayerController.h"
 #include "Net/UnrealNetwork.h"
 
 APS_ChampSelect::APS_ChampSelect()
@@ -19,7 +21,28 @@ void APS_ChampSelect::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 
 void APS_ChampSelect::OnRep_DataChanged()
 {
+    SyncLocalGameInstance();
     OnChampSelectDataChanged.Broadcast();
+}
+
+void APS_ChampSelect::SyncLocalGameInstance()
+{
+    APlayerController* PlayerController = Cast<APlayerController>(GetOwner());
+    if (!PlayerController || !PlayerController->IsLocalController())
+    {
+        return;
+    }
+
+    if (ULOL_GameInstance* GameInstance =
+        Cast<ULOL_GameInstance>(PlayerController->GetGameInstance()))
+    {
+        GameInstance->MySavedNickname = Nickname;
+        GameInstance->MySavedTeamID = TeamID;
+        if (LockedChampion != EChampionID::None)
+        {
+            GameInstance->MySelectedChampion = LockedChampion;
+        }
+    }
 }
 
 void APS_ChampSelect::CopyProperties(APlayerState* NewPlayerState)
@@ -27,7 +50,7 @@ void APS_ChampSelect::CopyProperties(APlayerState* NewPlayerState)
     Super::CopyProperties(NewPlayerState);
 
     // 새 맵에서 생성될 PS(본 게임용)로 캐스팅
-    ALOL_PLayerState* NewPS = Cast<ALOL_PLayerState>(NewPlayerState);
+    ALOL_PlayerState* NewPS = Cast<ALOL_PlayerState>(NewPlayerState);
     if (NewPS)
     {
         // 여기서 로비에서 결정한 값들을 넘겨줌

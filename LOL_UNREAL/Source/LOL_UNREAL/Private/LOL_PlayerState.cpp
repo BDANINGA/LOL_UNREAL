@@ -1,5 +1,7 @@
 #include "LOL_PlayerState.h"
 
+#include "Lobby/LOL_GameInstance.h"
+#include "GameFramework/PlayerController.h"
 #include "Net/UnrealNetwork.h"
 
 void ALOL_PlayerState::AddKill()
@@ -34,10 +36,30 @@ void ALOL_PlayerState::AddMinionKill()
 	}
 }
 
+void ALOL_PlayerState::OnRep_PlayerData()
+{
+	APlayerController* PlayerController = Cast<APlayerController>(GetOwner());
+	if (!PlayerController || !PlayerController->IsLocalController())
+	{
+		return;
+	}
+
+	if (ULOL_GameInstance* GameInstance =
+		Cast<ULOL_GameInstance>(PlayerController->GetGameInstance()))
+	{
+		GameInstance->MySavedNickname = Nickname;
+		GameInstance->MySavedTeamID = TeamID;
+		GameInstance->MySelectedChampion = SelectedChampion;
+	}
+}
+
 void ALOL_PlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
+	DOREPLIFETIME(ALOL_PlayerState, Nickname);
+	DOREPLIFETIME(ALOL_PlayerState, TeamID);
+	DOREPLIFETIME(ALOL_PlayerState, SelectedChampion);
 	DOREPLIFETIME(ALOL_PlayerState, Kills);
 	DOREPLIFETIME(ALOL_PlayerState, Deaths);
 	DOREPLIFETIME(ALOL_PlayerState, Assists);

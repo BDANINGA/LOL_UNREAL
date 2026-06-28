@@ -1,5 +1,7 @@
 #include "Lobby/PS_Lobby.h"
+#include "Lobby/LOL_GameInstance.h"
 #include "ChampionSelect/PS_ChampSelect.h"
+#include "GameFramework/PlayerController.h"
 #include "Net/UnrealNetwork.h"
 
 APS_Lobby::APS_Lobby()
@@ -16,12 +18,35 @@ void APS_Lobby::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 }
 void APS_Lobby::OnRep_Nickname()
 {
+    SyncLocalGameInstance();
     OnPlayerDataReplicated.Broadcast();
 }
 
 void APS_Lobby::OnRep_TeamID()
 {
+    SyncLocalGameInstance();
     OnPlayerDataReplicated.Broadcast();
+}
+
+void APS_Lobby::SyncLocalGameInstance()
+{
+    APlayerController* PlayerController = Cast<APlayerController>(GetOwner());
+    if (!PlayerController || !PlayerController->IsLocalController())
+    {
+        return;
+    }
+
+    if (ULOL_GameInstance* GameInstance =
+        Cast<ULOL_GameInstance>(PlayerController->GetGameInstance()))
+    {
+        // Team assignment happens before the host submits a nickname.
+        // Do not erase the nickname already saved on the GameStart map.
+        if (!Nickname.IsEmpty())
+        {
+            GameInstance->MySavedNickname = Nickname;
+        }
+        GameInstance->MySavedTeamID = TeamID;
+    }
 }
 
 void APS_Lobby::CopyProperties(APlayerState* NewPlayerState)

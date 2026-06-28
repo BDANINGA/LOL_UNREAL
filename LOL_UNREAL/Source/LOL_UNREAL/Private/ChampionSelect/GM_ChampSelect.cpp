@@ -61,6 +61,12 @@ void AGM_ChampSelect::CheckAllPlayersReady()
 
 void AGM_ChampSelect::StartInGameMatch()
 {
+    if (bTravelStarted)
+    {
+        return;
+    }
+    bTravelStarted = true;
+
     AGS_ChampSelect* GS = GetGameState<AGS_ChampSelect>();
     if (GS)
     {
@@ -71,11 +77,16 @@ void AGM_ChampSelect::StartInGameMatch()
             {
                 ChampPS->LockedChampion = EChampionID::Garen;
                 ChampPS->bIsReady = true;
+                ChampPS->SyncLocalGameInstance();
             }
         }
     }
 
-    GetWorld()->ServerTravel(TEXT("/Game/Level/LOL_Map?listen"));
+    const FString GameMapURL =
+        TEXT("/Game/Level/LOL_Map?listen?game=/Game/Level/MyLOL_GameModeBase.MyLOL_GameModeBase_C");
+
+    UE_LOG(LogTemp, Warning, TEXT("Champion select traveling to: %s"), *GameMapURL);
+    GetWorld()->ServerTravel(GameMapURL, true);
 }
 
 void AGM_ChampSelect::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
