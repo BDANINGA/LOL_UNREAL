@@ -3,6 +3,7 @@
 #include "LOL_PlayerController.h"
 #include "LOL_HUD.h"
 #include "LOL_GameState.h"
+#include "LOL_PLayerState.h"
 
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_StateComponent.h"
@@ -38,7 +39,41 @@ ALOL_GameModeBase::ALOL_GameModeBase()
     HUDClass = ALOL_HUD::StaticClass();
 
     GameStateClass = ALOL_GameState::StaticClass();
+
+    PlayerStateClass = ALOL_PLayerState::StaticClass();
 }  
+
+void ALOL_GameModeBase::PostLogin(APlayerController* NewPlayer)
+{
+    Super::PostLogin(NewPlayer);
+
+    if (NewPlayer)
+    {
+        // 1. 기존 HUD 제거
+        if (NewPlayer->GetHUD())
+        {
+            NewPlayer->GetHUD()->Destroy();
+        }
+
+        // 2. 새로운 HUD 생성 (DefaultHUDClass는 에디터에서 설정한 클래스)
+        if (DefaultHUDClass)
+        {
+            AHUD* NewHUD = GetWorld()->SpawnActor<AHUD>(DefaultHUDClass);
+            NewPlayer->MyHUD = NewHUD;
+        }
+    }
+    // 맵 이동 후 생성된 새로운 PlayerState
+    ALOL_PLayerState* PS = NewPlayer->GetPlayerState<ALOL_PLayerState>();
+
+    if (PS)
+    {
+        // 닉네임, 팀ID, 챔피언 정보가 이미 여기 다 들어와 있음!
+        UE_LOG(LogTemp, Warning, TEXT("본 게임 접속 완료: %s, 팀: %d, 챔피언: %d"),
+            *PS->Nickname, PS->TeamID, (int32)PS->SelectedChampion);
+
+        // 이제 이 데이터를 바탕으로 게임 로직(폰 스폰 등)을 짜면 됨
+    }
+}
 
 UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(AController* InController)
 {

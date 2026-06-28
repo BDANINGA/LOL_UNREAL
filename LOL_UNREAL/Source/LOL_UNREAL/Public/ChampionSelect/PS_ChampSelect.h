@@ -37,6 +37,8 @@ public:
     UPROPERTY(BlueprintAssignable, Category = "ChampSelect|Events")
     FOnChampSelectDataChanged OnChampSelectDataChanged;
 
+    virtual void CopyProperties(APlayerState* NewPlayerState) override;
+
 protected:
     UFUNCTION()
     void OnRep_DataChanged();

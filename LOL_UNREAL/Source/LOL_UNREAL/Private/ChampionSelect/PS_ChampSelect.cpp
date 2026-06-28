@@ -1,4 +1,5 @@
 #include "ChampionSelect/PS_ChampSelect.h"
+#include "LOL_PlayerState.h"
 #include "Net/UnrealNetwork.h"
 
 APS_ChampSelect::APS_ChampSelect()
@@ -21,3 +22,17 @@ void APS_ChampSelect::OnRep_DataChanged()
     OnChampSelectDataChanged.Broadcast();
 }
 
+void APS_ChampSelect::CopyProperties(APlayerState* NewPlayerState)
+{
+    Super::CopyProperties(NewPlayerState);
+
+    // 새 맵에서 생성될 PS(본 게임용)로 캐스팅
+    ALOL_PLayerState* NewPS = Cast<ALOL_PLayerState>(NewPlayerState);
+    if (NewPS)
+    {
+        // 여기서 로비에서 결정한 값들을 넘겨줌
+        NewPS->Nickname = this->Nickname;
+        NewPS->TeamID = this->TeamID;
+        NewPS->SelectedChampion = this->LockedChampion;
+    }
+}
