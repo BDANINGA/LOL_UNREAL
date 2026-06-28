@@ -3,43 +3,24 @@
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerState.h"
 #include "Lobby/LOL_GameInstance.h"
-#include "LOL_PlayerState.generated.h"
+#include "LOL_PLayerState.generated.h"
 
 UCLASS()
-class LOL_UNREAL_API ALOL_PlayerState : public APlayerState
+class LOL_UNREAL_API ALOL_PLayerState : public APlayerState
 {
 	GENERATED_BODY()
 
 public:
-	void AddKill();
-	void AddDeath();
-	void AddAssist();
-	void AddMinionKill();
+    // 다른 클라이언트에서도 보이도록 Replicated
+    UPROPERTY(Replicated, BlueprintReadWrite)
+    FString Nickname;
 
-	UPROPERTY(ReplicatedUsing = OnRep_PlayerData, BlueprintReadOnly, Category = "Player Data")
-	FString Nickname;
+    UPROPERTY(Replicated, BlueprintReadWrite)
+    uint8 TeamID;
 
-	UPROPERTY(ReplicatedUsing = OnRep_PlayerData, BlueprintReadOnly, Category = "Player Data")
-	uint8 TeamID = 0;
-
-	UPROPERTY(ReplicatedUsing = OnRep_PlayerData, BlueprintReadOnly, Category = "Player Data")
-	EChampionID SelectedChampion = EChampionID::None;
-
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Score")
-	int32 Kills = 0;
-
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Score")
-	int32 Deaths = 0;
-
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Score")
-	int32 Assists = 0;
-
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Score")
-	int32 MinionKills = 0;
-
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+    UPROPERTY(Replicated, BlueprintReadWrite)
+    EChampionID SelectedChampion;
 
 protected:
-	UFUNCTION()
-	void OnRep_PlayerData();
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };
