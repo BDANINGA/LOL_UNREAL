@@ -209,6 +209,38 @@ void ABaseChampion::SetVisibleByVision(bool bVisible)
 	SetActorHiddenInGame(!bVisible);
 }
 
+void ABaseChampion::AddKillCount()
+{
+	if (HasAuthority())
+	{
+		++KillCount;
+	}
+}
+
+void ABaseChampion::AddDeathCount()
+{
+	if (HasAuthority())
+	{
+		++DeathCount;
+	}
+}
+
+void ABaseChampion::AddAssistCount()
+{
+	if (HasAuthority())
+	{
+		++AssistCount;
+	}
+}
+
+void ABaseChampion::AddMinionKillCount()
+{
+	if (HasAuthority())
+	{
+		++MinionKillCount;
+	}
+}
+
 void ABaseChampion::SetChampionData(FName RowName)
 {
 	FChampionResourceData* Data = DataTable->FindRow<FChampionResourceData>(RowName, TEXT(""));
@@ -345,6 +377,10 @@ void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ABaseChampion, ServerCharacterRotation);
 	DOREPLIFETIME(ABaseChampion, TeamId);
+	DOREPLIFETIME(ABaseChampion, KillCount);
+	DOREPLIFETIME(ABaseChampion, DeathCount);
+	DOREPLIFETIME(ABaseChampion, AssistCount);
+	DOREPLIFETIME(ABaseChampion, MinionKillCount);
 	DOREPLIFETIME(ABaseChampion, bIsSilenced);
 	DOREPLIFETIME(ABaseChampion, bIsRecalling);
 }

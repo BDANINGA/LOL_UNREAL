@@ -73,12 +73,14 @@ public:
 	bool IsStationaryMonster() const { return bStationaryMonster; }
 	void InitializeJungleMonster(FName RowName);
 	void SetJungleMonsterData(FName RowName);
+	void ApplyCrowdControl(float Duration);
 
 protected:
 	FVector GetMeshScaleForMonster(FName RowName) const;
 	void StartReturnToSpawn();
 	void UpdateReturnToSpawn(float DeltaTime);
 	bool ShouldResetLeash() const;
+	void ClearCrowdControl();
 
 	UFUNCTION()
 	void OnRep_JungleMonsterName();
@@ -105,5 +107,8 @@ protected:
 	bool bStationaryMonster = false;
 
 	bool bReturningToSpawn = false;
+	bool bCrowdControlled = false;
+
+	FTimerHandle CrowdControlTimerHandle;
 
 };

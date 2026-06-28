@@ -105,6 +105,23 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Vision")
 	int32 TeamId = 0;
 
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Score")
+	int32 KillCount = 0;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Score")
+	int32 DeathCount = 0;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Score")
+	int32 AssistCount = 0;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Score")
+	int32 MinionKillCount = 0;
+
+	void AddKillCount();
+	void AddDeathCount();
+	void AddAssistCount();
+	void AddMinionKillCount();
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision")
 	float SightRadius = 2000.0f;
 

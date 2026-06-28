@@ -2,8 +2,28 @@
 #include "Widget/LOL_HUDWidget.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/CanvasPanelSlot.h"
+#include "Components/CanvasPanel.h"
 #include "Components/Image.h"
 #include "Components/ProgressBar.h"
+#include "Components/VerticalBox.h"
+#include "Blueprint/UserWidget.h"
+#include "LOL_GameState.h"
+#include "LOL_PlayerState.h"
+#include "BaseChampion.h"
+#include "GameFramework/PlayerController.h"
+#include "TimerManager.h"
+#include "UObject/ConstructorHelpers.h"
+
+ULOL_HUDWidget::ULOL_HUDWidget(const FObjectInitializer& ObjectInitializer)
+    : Super(ObjectInitializer)
+{
+    static ConstructorHelpers::FClassFinder<UUserWidget> KillLogWidgetFinder(
+        TEXT("/Game/UI/wbp_kill_log.wbp_kill_log_C"));
+    if (KillLogWidgetFinder.Succeeded())
+    {
+        KillLogWidgetClass = KillLogWidgetFinder.Class;
+    }
+}
 
 void ULOL_HUDWidget::NativeConstruct()
 {
@@ -15,6 +35,28 @@ void ULOL_HUDWidget::NativeConstruct()
     if (SkillR_Image) SkillR_MID = SkillR_Image->GetDynamicMaterial();
 
     CacheItemSlotImages();
+    CacheScoreboardTextBlocks();
+    CreateKillLogContainer();
+
+    if (ALOL_GameState* GameState = GetWorld()
+        ? GetWorld()->GetGameState<ALOL_GameState>()
+        : nullptr)
+    {
+        GameState->OnChampionKill.RemoveAll(this);
+        GameState->OnChampionKill.AddUObject(this, &ULOL_HUDWidget::HandleChampionKill);
+    }
+}
+
+void ULOL_HUDWidget::NativeDestruct()
+{
+    if (ALOL_GameState* GameState = GetWorld()
+        ? GetWorld()->GetGameState<ALOL_GameState>()
+        : nullptr)
+    {
+        GameState->OnChampionKill.RemoveAll(this);
+    }
+
+    Super::NativeDestruct();
 }
 
 void ULOL_HUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
@@ -77,6 +119,235 @@ void ULOL_HUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 
         SkillR_MID->SetScalarParameterValue(TEXT("Cooldown"), CooldownPercent);
     }
+
+    UpdateScoreboard();
+}
+
+void ULOL_HUDWidget::UpdateScoreboard()
+{
+    const UWorld* World = GetWorld();
+    if (!World)
+    {
+        return;
+    }
+
+    if (const ALOL_GameState* GameState = World->GetGameState<ALOL_GameState>())
+    {
+        if (BlueKillCountText)
+        {
+            BlueKillCountText->SetText(FText::AsNumber(GameState->BlueTeamKills));
+        }
+        if (RedKillCountText)
+        {
+            RedKillCountText->SetText(FText::AsNumber(GameState->RedTeamKills));
+        }
+        if (MatchTimerText)
+        {
+            const int32 TotalSeconds = FMath::Max(0, FMath::FloorToInt(GameState->CurrentMatchTime));
+            const int32 Minutes = TotalSeconds / 60;
+            const int32 Seconds = TotalSeconds % 60;
+            MatchTimerText->SetText(FText::FromString(
+                FString::Printf(TEXT("%02d:%02d"), Minutes, Seconds)));
+        }
+    }
+
+    if (const ABaseChampion* Champion = Cast<ABaseChampion>(GetOwningPlayerPawn()))
+    {
+        if (KdaCountText)
+        {
+            KdaCountText->SetText(FText::FromString(FString::Printf(
+                TEXT("%02d/%02d/%02d"),
+                Champion->KillCount,
+                Champion->DeathCount,
+                Champion->AssistCount)));
+        }
+        if (KillCountText)
+        {
+            KillCountText->SetText(FText::AsNumber(Champion->KillCount));
+        }
+        if (DeathCountText)
+        {
+            DeathCountText->SetText(FText::AsNumber(Champion->DeathCount));
+        }
+        if (AssistCountText)
+        {
+            AssistCountText->SetText(FText::AsNumber(Champion->AssistCount));
+        }
+        if (MinionCountText)
+        {
+            MinionCountText->SetText(FText::AsNumber(Champion->MinionKillCount));
+        }
+        return;
+    }
+
+    const APlayerController* PlayerController = GetOwningPlayer();
+    const ALOL_PlayerState* PlayerState = PlayerController
+        ? PlayerController->GetPlayerState<ALOL_PlayerState>()
+        : nullptr;
+    if (!PlayerState)
+    {
+        return;
+    }
+
+    if (KdaCountText)
+    {
+        KdaCountText->SetText(FText::FromString(FString::Printf(
+            TEXT("%02d/%02d/%02d"),
+            PlayerState->Kills,
+            PlayerState->Deaths,
+            PlayerState->Assists)));
+    }
+    if (KillCountText)
+    {
+        KillCountText->SetText(FText::AsNumber(PlayerState->Kills));
+    }
+    if (DeathCountText)
+    {
+        DeathCountText->SetText(FText::AsNumber(PlayerState->Deaths));
+    }
+    if (AssistCountText)
+    {
+        AssistCountText->SetText(FText::AsNumber(PlayerState->Assists));
+    }
+    if (MinionCountText)
+    {
+        MinionCountText->SetText(FText::AsNumber(PlayerState->MinionKills));
+    }
+}
+
+void ULOL_HUDWidget::CreateKillLogContainer()
+{
+    if (KillLogContainer || !WidgetTree)
+    {
+        return;
+    }
+
+    UCanvasPanel* RootCanvas = Cast<UCanvasPanel>(WidgetTree->RootWidget);
+    if (!RootCanvas)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Kill log container could not be created: HUD root is not a CanvasPanel."));
+        return;
+    }
+
+    KillLogContainer = WidgetTree->ConstructWidget<UVerticalBox>(
+        UVerticalBox::StaticClass(),
+        TEXT("RuntimeKillLogContainer"));
+    if (!KillLogContainer)
+    {
+        return;
+    }
+
+    UCanvasPanelSlot* ContainerSlot = RootCanvas->AddChildToCanvas(KillLogContainer);
+    ContainerSlot->SetAnchors(FAnchors(1.0f, 0.0f));
+    ContainerSlot->SetAlignment(FVector2D(1.0f, 0.0f));
+    ContainerSlot->SetPosition(FVector2D(-40.0f, 500.0f));
+    ContainerSlot->SetAutoSize(true);
+    ContainerSlot->SetZOrder(100);
+}
+
+void ULOL_HUDWidget::HandleChampionKill(ABaseChampion* Killer, ABaseChampion* Victim)
+{
+    if (!Killer || !Victim || !KillLogWidgetClass)
+    {
+        return;
+    }
+
+    if (!KillLogContainer)
+    {
+        CreateKillLogContainer();
+    }
+    if (!KillLogContainer)
+    {
+        return;
+    }
+
+    UUserWidget* Entry = CreateWidget<UUserWidget>(GetOwningPlayer(), KillLogWidgetClass);
+    if (!Entry || !Entry->WidgetTree)
+    {
+        return;
+    }
+
+    UImage* KillerPortrait = Cast<UImage>(Entry->WidgetTree->FindWidget(TEXT("kill_champ")));
+    UImage* VictimPortrait = Cast<UImage>(Entry->WidgetTree->FindWidget(TEXT("death_champ")));
+
+    if (KillerPortrait && Killer->ChampionResource.Portrait)
+    {
+        KillerPortrait->SetBrushFromTexture(Killer->ChampionResource.Portrait, false);
+    }
+    if (VictimPortrait && Victim->ChampionResource.Portrait)
+    {
+        VictimPortrait->SetBrushFromTexture(Victim->ChampionResource.Portrait, false);
+    }
+
+    while (KillLogContainer->GetChildrenCount() >= MaxKillLogEntries)
+    {
+        KillLogContainer->RemoveChildAt(0);
+    }
+
+    KillLogContainer->AddChildToVerticalBox(Entry);
+
+    TWeakObjectPtr<UUserWidget> WeakEntry = Entry;
+    FTimerHandle RemovalTimer;
+    GetWorld()->GetTimerManager().SetTimer(
+        RemovalTimer,
+        FTimerDelegate::CreateWeakLambda(this, [this, WeakEntry]()
+        {
+            RemoveKillLogEntry(WeakEntry.Get());
+        }),
+        KillLogDisplayDuration,
+        false);
+}
+
+void ULOL_HUDWidget::RemoveKillLogEntry(UUserWidget* Entry)
+{
+    if (Entry)
+    {
+        Entry->RemoveFromParent();
+    }
+}
+
+void ULOL_HUDWidget::CacheScoreboardTextBlocks()
+{
+    if (!WidgetTree)
+    {
+        return;
+    }
+
+    auto FindTextBlock = [this](std::initializer_list<const TCHAR*> CandidateNames)
+    {
+        for (const TCHAR* CandidateName : CandidateNames)
+        {
+            if (UTextBlock* TextBlock =
+                Cast<UTextBlock>(WidgetTree->FindWidget(FName(CandidateName))))
+            {
+                return TextBlock;
+            }
+        }
+
+        return static_cast<UTextBlock*>(nullptr);
+    };
+
+    BlueKillCountText = FindTextBlock({ TEXT("blue_kill_count") });
+    RedKillCountText = FindTextBlock({ TEXT("red_kill_count") });
+    KillCountText = FindTextBlock({ TEXT("kills"), TEXT("kill_count") });
+    DeathCountText = FindTextBlock({ TEXT("death"), TEXT("death_count") });
+    AssistCountText = FindTextBlock({ TEXT("assists"), TEXT("assist_count") });
+    KdaCountText = FindTextBlock({ TEXT("kda_count") });
+    MinionCountText = FindTextBlock({ TEXT("minion_count"), TEXT("cs_count") });
+    MatchTimerText = FindTextBlock({ TEXT("timer"), TEXT("time"), TEXT("times") });
+
+    UE_LOG(
+        LogTemp,
+        Log,
+        TEXT("HUD scoreboard widgets: Blue=%s Red=%s K=%s D=%s A=%s KDA=%s CS=%s Time=%s"),
+        BlueKillCountText ? *BlueKillCountText->GetName() : TEXT("None"),
+        RedKillCountText ? *RedKillCountText->GetName() : TEXT("None"),
+        KillCountText ? *KillCountText->GetName() : TEXT("None"),
+        DeathCountText ? *DeathCountText->GetName() : TEXT("None"),
+        AssistCountText ? *AssistCountText->GetName() : TEXT("None"),
+        KdaCountText ? *KdaCountText->GetName() : TEXT("None"),
+        MinionCountText ? *MinionCountText->GetName() : TEXT("None"),
+        MatchTimerText ? *MatchTimerText->GetName() : TEXT("None"));
 }
 
 void ULOL_HUDWidget::UpdateHP(float NewHP, float MaxHP)

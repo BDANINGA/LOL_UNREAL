@@ -8,6 +8,7 @@
 #include "Component/LOL_UIComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "AIController.h"
 #include "Engine/DamageEvents.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
@@ -85,6 +86,11 @@ void ABaseJungleMonster::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (bCrowdControlled)
+	{
+		return;
+	}
+
 	if (bStationaryMonster && bReturningToSpawn)
 	{
 		bReturningToSpawn = false;
@@ -115,6 +121,51 @@ void ABaseJungleMonster::Tick(float DeltaTime)
 		{
 			MoveComponent->UpdateMovement(DeltaTime);
 		}
+	}
+}
+
+void ABaseJungleMonster::ApplyCrowdControl(float Duration)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	bCrowdControlled = true;
+
+	if (AttackComponent)
+	{
+		AttackComponent->ReceivedCrowdControl();
+	}
+	if (MoveComponent)
+	{
+		MoveComponent->StopMovement();
+	}
+	if (AAIController* AIController = Cast<AAIController>(GetController()))
+	{
+		AIController->StopMovement();
+	}
+	if (UCharacterMovementComponent* JungleMovement = GetCharacterMovement())
+	{
+		JungleMovement->StopMovementImmediately();
+		JungleMovement->CurrentRootMotion.Clear();
+	}
+
+	GetWorldTimerManager().ClearTimer(CrowdControlTimerHandle);
+	GetWorldTimerManager().SetTimer(
+		CrowdControlTimerHandle,
+		this,
+		&ABaseJungleMonster::ClearCrowdControl,
+		FMath::Max(0.05f, Duration),
+		false);
+}
+
+void ABaseJungleMonster::ClearCrowdControl()
+{
+	bCrowdControlled = false;
+	if (AttackComponent)
+	{
+		AttackComponent->ResetAttack();
 	}
 }
 

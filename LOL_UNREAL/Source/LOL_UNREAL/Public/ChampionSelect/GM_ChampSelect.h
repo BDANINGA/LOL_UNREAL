@@ -20,6 +20,8 @@ public:
 
 protected:
     FTimerHandle TimerHandle_MatchCountdown;
+    bool bTravelStarted = false;
+
     void AdvanceTimer();
     void StartInGameMatch();
 };

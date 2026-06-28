@@ -25,6 +25,8 @@ public:
     UPROPERTY(BlueprintAssignable, Category = "Lobby|Events")
     FOnLobbyPlayerDataReplicated OnPlayerDataReplicated;
 
+    void SyncLocalGameInstance();
+
 protected:
     UFUNCTION()
     void OnRep_Nickname();

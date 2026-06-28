@@ -35,6 +35,7 @@ void APC_ChampSelect::Server_LockInChampion_Implementation()
     {
         PS->LockedChampion = PS->HoveredChampion;
         PS->bIsReady = true;
+        PS->SyncLocalGameInstance();
 
         AGM_ChampSelect* GM = Cast<AGM_ChampSelect>(GetWorld()->GetAuthGameMode());
         if (GM)

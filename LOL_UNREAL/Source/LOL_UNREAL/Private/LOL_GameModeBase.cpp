@@ -3,7 +3,7 @@
 #include "LOL_PlayerController.h"
 #include "LOL_HUD.h"
 #include "LOL_GameState.h"
-#include "LOL_PLayerState.h"
+#include "LOL_PlayerState.h"
 
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_StateComponent.h"
@@ -28,6 +28,7 @@
 #include "JungleMonster/BaseJungleMonster.h"
 
 #include "EngineUtils.h"
+#include "GameFramework/PlayerStart.h"
 #include "TimerManager.h"
 
 #include "Kismet/GameplayStatics.h"
@@ -40,53 +41,101 @@ ALOL_GameModeBase::ALOL_GameModeBase()
 
     GameStateClass = ALOL_GameState::StaticClass();
 
-    PlayerStateClass = ALOL_PLayerState::StaticClass();
+    PlayerStateClass = ALOL_PlayerState::StaticClass();
 }  
 
 void ALOL_GameModeBase::PostLogin(APlayerController* NewPlayer)
 {
     Super::PostLogin(NewPlayer);
-
-    if (NewPlayer)
-    {
-        // 1. 기존 HUD 제거
-        if (NewPlayer->GetHUD())
-        {
-            NewPlayer->GetHUD()->Destroy();
-        }
-
-        // 2. 새로운 HUD 생성 (DefaultHUDClass는 에디터에서 설정한 클래스)
-        if (DefaultHUDClass)
-        {
-            AHUD* NewHUD = GetWorld()->SpawnActor<AHUD>(DefaultHUDClass);
-            NewPlayer->MyHUD = NewHUD;
-        }
-    }
-    // 맵 이동 후 생성된 새로운 PlayerState
-    ALOL_PLayerState* PS = NewPlayer->GetPlayerState<ALOL_PLayerState>();
-
-    if (PS)
-    {
-        // 닉네임, 팀ID, 챔피언 정보가 이미 여기 다 들어와 있음!
-        UE_LOG(LogTemp, Warning, TEXT("본 게임 접속 완료: %s, 팀: %d, 챔피언: %d"),
-            *PS->Nickname, PS->TeamID, (int32)PS->SelectedChampion);
-
-        // 이제 이 데이터를 바탕으로 게임 로직(폰 스폰 등)을 짜면 됨
-    }
 }
 
 UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(AController* InController)
 {
-    // 1. 해당 컨트롤러가 '로컬'에서 실행되는 서버 컨트롤러인지 확인
-    // 리슨 서버 모드에서 0번 플레이어(방장)는 IsLocalController()가 true이며, 서버 권한을 가집니다.
-    if (InController && InController->IsLocalController())
+    EChampionID SelectedChampion = EChampionID::None;
+    if (InController)
     {
-        // 첫 번째 플레이어
-        return AChampion_Gragas::StaticClass();
+        if (const ALOL_PlayerState* PlayerState =
+            InController->GetPlayerState<ALOL_PlayerState>())
+        {
+            SelectedChampion = PlayerState->SelectedChampion;
+        }
     }
 
-    // 2. 그 외에 접속하는 클라이언트 플레이어들
-    return AChampion_Alistar::StaticClass();
+    UClass* ChampionClass = nullptr;
+    switch (SelectedChampion)
+    {
+    case EChampionID::Alistar:
+        ChampionClass = AChampion_Alistar::StaticClass();
+        break;
+    case EChampionID::Blitzcrank:
+        ChampionClass = AChampion_Blitz::StaticClass();
+        break;
+    case EChampionID::Ezreal:
+        ChampionClass = AChampion_Ezreal::StaticClass();
+        break;
+    case EChampionID::Fizz:
+        ChampionClass = AChampion_Fizz::StaticClass();
+        break;
+    case EChampionID::Garen:
+        ChampionClass = AChampion_Garen::StaticClass();
+        break;
+    case EChampionID::Gragas:
+        ChampionClass = AChampion_Gragas::StaticClass();
+        break;
+    case EChampionID::Jax:
+        ChampionClass = AChampion_Jax::StaticClass();
+        break;
+    case EChampionID::LeeSin:
+        ChampionClass = AChampion_LeeSin::StaticClass();
+        break;
+    case EChampionID::Olaf:
+        ChampionClass = AChampion_Tryndamere::StaticClass();
+        break;
+    case EChampionID::Vayne:
+        ChampionClass = AChampion_Vayne::StaticClass();
+        break;
+    default:
+        ChampionClass = AChampion_Garen::StaticClass();
+        break;
+    }
+
+    if (ALOL_PlayerController* PlayerController =
+        Cast<ALOL_PlayerController>(InController))
+    {
+        PlayerController->SetSelectedChampionClass(ChampionClass);
+    }
+
+    UE_LOG(
+        LogTemp,
+        Log,
+        TEXT("Resolved selected champion. Player=%s ChampionID=%d Class=%s"),
+        *GetNameSafe(InController),
+        static_cast<int32>(SelectedChampion),
+        *GetNameSafe(ChampionClass));
+
+    return ChampionClass;
+}
+
+AActor* ALOL_GameModeBase::ChoosePlayerStart_Implementation(AController* Player)
+{
+    const ALOL_PlayerState* PlayerState = Player
+        ? Player->GetPlayerState<ALOL_PlayerState>()
+        : nullptr;
+
+    const FName DesiredTeamTag =
+        PlayerState && PlayerState->TeamID == 2
+        ? FName("RedTeam")
+        : FName("BlueTeam");
+
+    for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+    {
+        if (It->ActorHasTag(DesiredTeamTag))
+        {
+            return *It;
+        }
+    }
+
+    return Super::ChoosePlayerStart_Implementation(Player);
 }
 
 APawn* ALOL_GameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot)
@@ -97,8 +146,22 @@ APawn* ALOL_GameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewPla
     {
         if (Champion->StateComponent)
         {
-            const bool bForceRedForTryndamere = Champion->IsA(AChampion_Ezreal::StaticClass());
-            const bool bIsBlueTeam = !bForceRedForTryndamere && NewPlayer && NewPlayer->IsLocalController();
+            const ALOL_PlayerState* PlayerState = NewPlayer
+                ? NewPlayer->GetPlayerState<ALOL_PlayerState>()
+                : nullptr;
+
+            bool bIsBlueTeam = NewPlayer && NewPlayer->IsLocalController();
+            if (PlayerState)
+            {
+                if (PlayerState->TeamID == 1)
+                {
+                    bIsBlueTeam = true;
+                }
+                else if (PlayerState->TeamID == 2)
+                {
+                    bIsBlueTeam = false;
+                }
+            }
 
             Champion->StateComponent->RemoveStatusTag(LOLTags::Team_Blue);
             Champion->StateComponent->RemoveStatusTag(LOLTags::Team_Red);
@@ -113,12 +176,20 @@ APawn* ALOL_GameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewPla
                 Champion->TeamId = 1;
                 Champion->StateComponent->AddStatusTag(LOLTags::Team_Red);
             }
+
+            UE_LOG(
+                LogTemp,
+                Log,
+                TEXT("Applied player team. Player=%s TeamID=%d Champion=%s Team=%s"),
+                *GetNameSafe(NewPlayer),
+                PlayerState ? PlayerState->TeamID : 0,
+                *GetNameSafe(Champion),
+                bIsBlueTeam ? TEXT("Blue") : TEXT("Red"));
         }
     }
 
     return SpawnedPawn;
 }
-
 void ALOL_GameModeBase::BeginPlay()
 {
     Super::BeginPlay();

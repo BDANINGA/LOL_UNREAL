@@ -37,6 +37,8 @@ public:
     UPROPERTY(BlueprintAssignable, Category = "ChampSelect|Events")
     FOnChampSelectDataChanged OnChampSelectDataChanged;
 
+    void SyncLocalGameInstance();
+
     virtual void CopyProperties(APlayerState* NewPlayerState) override;
 
 protected:

@@ -2,6 +2,7 @@
 #include "Lobby/PS_Lobby.h"
 #include "Lobby/PC_Lobby.h"
 #include "Lobby/GS_Lobby.h"
+#include "Lobby/LOL_GameInstance.h"
 
 AGM_Lobby::AGM_Lobby()
 {
@@ -32,6 +33,31 @@ void AGM_Lobby::OnPostLogin(AController* NewPlayer)
         RightTeam.Add(PC);
         PS->TeamID = 2;
     }
+
+    // The listen-server host owns the server GameInstance. Initialize its
+    // nickname here so widget/PlayerController BeginPlay order cannot erase it.
+    if (PC->IsLocalController())
+    {
+        if (ULOL_GameInstance* GameInstance = PC->GetGameInstance<ULOL_GameInstance>())
+        {
+            FString SavedNickname = GameInstance->MySavedNickname;
+            SavedNickname.TrimStartAndEndInline();
+            if (!SavedNickname.IsEmpty())
+            {
+                PS->Nickname = SavedNickname.Left(20);
+                UE_LOG(
+                    LogTemp,
+                    Log,
+                    TEXT("Lobby host nickname initialized in PostLogin. Nickname=%s TeamID=%d"),
+                    *PS->Nickname,
+                    PS->TeamID);
+            }
+        }
+    }
+
+    PS->SyncLocalGameInstance();
+    PS->ForceNetUpdate();
+
     if (AGS_Lobby* GS = GetGameState<AGS_Lobby>())
     {
         GS->NotifyTeamChanged();
@@ -56,6 +82,8 @@ void AGM_Lobby::MovePlayerToTeam(APlayerController* Player, uint8 TargetTeamID)
         RightTeam.Add(Player);
         PS->TeamID = 2;
     }
+    PS->SyncLocalGameInstance();
+
     if (AGS_Lobby* GS = GetGameState<AGS_Lobby>())
     {
         GS->NotifyTeamChanged();
