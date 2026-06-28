@@ -31,6 +31,9 @@
 #include "GamePlayTag/LOL_GamePlayTags.h"
 #include "Component/Champion_SkillComponent.h"
 
+#include "Building/BaseBuilding.h"
+#include "DrawDebugHelpers.h"
+
 #include "UObject/ConstructorHelpers.h"
 
 ABaseChampion::ABaseChampion()
@@ -526,9 +529,6 @@ void ABaseChampion::Multicast_SetTargetAndPlayMontage_Implementation(UAnimMontag
 	if (AnimMontage) PlayAnimMontage(AnimMontage, InplayRate);
 }
 
-<<<<<<< HEAD
-void ABaseChampion::SetIsPressA(bool toggle)
-=======
 void ABaseChampion::StartRecall()
 {
 	if (StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
@@ -648,8 +648,7 @@ void ABaseChampion::Multicast_SetRecallEffectVisible_Implementation(bool bVisibl
 	}
 }
 
-inline void ABaseChampion::SetIsPressA(bool toggle)
->>>>>>> origin/origin/hsh
+void ABaseChampion::SetIsPressA(bool toggle)
 {
 	bIsPressA = toggle;
 }
