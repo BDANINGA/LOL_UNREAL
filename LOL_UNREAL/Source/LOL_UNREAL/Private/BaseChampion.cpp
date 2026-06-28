@@ -4,6 +4,7 @@
 #include "LOL_GameModeBase.h"
 #include "LOL_PlayerController.h"
 #include "LOL_HUD.h"
+#include "VisionManager/VisionManager.h"
 
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
@@ -25,8 +26,11 @@
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_UIComponent.h"
 #include "Component/LOL_StateComponent.h"
+#include "Component/LOL_VisionComponent.h"
+
 #include "GamePlayTag/LOL_GamePlayTags.h"
 #include "Component/Champion_SkillComponent.h"
+
 #include "Building/BaseBuilding.h"
 #include "DrawDebugHelpers.h"
 
@@ -53,6 +57,9 @@ ABaseChampion::ABaseChampion()
 
 	// State
 	StateComponent = CreateDefaultSubobject<ULOL_StateComponent>(TEXT("StateComponent"));
+
+	// Vision
+	VisionComponent = CreateDefaultSubobject<ULOL_VisionComponent>(TEXT("VisionComponent"));
 
 	// Skill
 	SkillComponent = CreateDefaultSubobject<UChampion_SkillComponent>(TEXT("SkillComponent"));
@@ -154,6 +161,16 @@ void ABaseChampion::BeginPlay()
 				}
 			}
 		}
+	}
+	AVisionManager* Manager =
+		Cast<AVisionManager>(
+			UGameplayStatics::GetActorOfClass(
+				GetWorld(),
+				AVisionManager::StaticClass()));
+
+	if (Manager)
+	{
+		Manager->RegisterActor(this);
 	}
 	if (GetLocalRole() == ROLE_AutonomousProxy && !HasAuthority())
 	{
@@ -667,7 +684,7 @@ void ABaseChampion::Multicast_SetRecallEffectVisible_Implementation(bool bVisibl
 	}
 }
 
-inline void ABaseChampion::SetIsPressA(bool toggle)
+void ABaseChampion::SetIsPressA(bool toggle)
 {
 	bIsPressA = toggle;
 }

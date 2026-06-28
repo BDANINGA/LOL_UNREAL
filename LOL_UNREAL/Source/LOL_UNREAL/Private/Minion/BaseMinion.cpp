@@ -3,6 +3,7 @@
 #include "Minion/LOL_MinionAIController.h"
 
 #include "BaseChampion.h"
+#include "VisionManager/VisionManager.h"
 
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -14,8 +15,10 @@
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_UIComponent.h"
 #include "Component/LOL_StateComponent.h"
+#include "Component/LOL_VisionComponent.h"
 
 #include "Engine/DamageEvents.h"
+#include "Kismet/GameplayStatics.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
 
@@ -47,6 +50,7 @@ ABaseMinion::ABaseMinion()
 	LifeCycleComponent = CreateDefaultSubobject<ULOL_LifeCycleComponent>(TEXT("LifeCycleComponent"));
 	UIComponent = CreateDefaultSubobject<ULOL_UIComponent>(TEXT("UIComponent"));
 	StateComponent = CreateDefaultSubobject<ULOL_StateComponent>(TEXT("StateComponent"));
+	VisionComponent = CreateDefaultSubobject<ULOL_VisionComponent>(TEXT("VisionComponent"));
 
 	AIControllerClass = ALOL_MinionAIController::StaticClass();
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
@@ -72,6 +76,17 @@ void ABaseMinion::BeginPlay()
 
 		UIComponent->SetMaxHp(StatComponent->GetStat().MaxHP);
 		UIComponent->UpdateHpFromStat(StatComponent->GetCurrentHP());
+	}
+
+	AVisionManager* Manager =
+		Cast<AVisionManager>(
+			UGameplayStatics::GetActorOfClass(
+				GetWorld(),
+				AVisionManager::StaticClass()));
+
+	if (Manager)
+	{
+		Manager->RegisterActor(this);
 	}
 	UpdateTeamVisual();
 }

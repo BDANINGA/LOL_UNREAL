@@ -82,6 +82,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
 	class ULOL_StateComponent* StateComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|LOL")
+	class ULOL_VisionComponent* VisionComponent;
+
 	// -------------------------------------------------------------------------------
 	UDataTable* DataTable;
 

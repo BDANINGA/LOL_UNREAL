@@ -10,6 +10,8 @@ class LOL_UNREAL_API ALOL_GameModeBase : public AGameModeBase
 	GENERATED_BODY()
 public:
     ALOL_GameModeBase();
+    
+    void PostLogin(APlayerController* NewPlayer);
 
     virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
 
@@ -31,6 +33,9 @@ protected:
     void SpawnJungleMonsters();
     void SpawnJungleMonsterAtTag(FName TargetTag, FName MonsterRowName);
     void SpawnJungleMonsterAtTransform(FName MonsterRowName, FVector SpawnLocation, FRotator SpawnRotation);
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
+    TSubclassOf<AHUD> DefaultHUDClass;
 
 private:
     FTimerHandle MinionSpawnTimerHandle;

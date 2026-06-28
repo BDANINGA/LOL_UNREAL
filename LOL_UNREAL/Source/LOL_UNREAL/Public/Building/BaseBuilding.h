@@ -41,6 +41,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class ULOL_UIComponent> UIComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class ULOL_VisionComponent> VisionComponent;
+
 	UPROPERTY(EditAnywhere, Category = "Material")
 	UTexture2D* AllyTexture;
 
