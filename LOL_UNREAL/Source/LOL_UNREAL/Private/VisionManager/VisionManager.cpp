@@ -41,14 +41,6 @@ void AVisionManager::RegisterVisionComponent(ULOL_VisionComponent* Component)
 
 	if (!State)
 	{
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(
-				-1,
-				5.f,
-				FColor::Green,
-				Component->GetOwner()->GetName());
-		}
 		return;
 	}
 		

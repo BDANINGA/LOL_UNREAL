@@ -9,8 +9,6 @@
 #include "Engine/World.h"
 #include "Engine/OverlapResult.h"
 #include "TimerManager.h"
-#include "DrawDebugHelpers.h"
-
 ALOL_MinionAIController::ALOL_MinionAIController()
 {
 	PrimaryActorTick.bCanEverTick = false;
@@ -37,10 +35,6 @@ void ALOL_MinionAIController::OnUnPossess()
 {
 	Super::OnUnPossess();
 	GetWorld()->GetTimerManager().ClearTimer(AI_DecisionTimer);
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("미니언 AI 빙의 해제 (사망)"));
-	}
 }
 void ALOL_MinionAIController::DecisionLoop()
 {

@@ -362,7 +362,6 @@ void ULOL_AttackComponent::ExecuteRangeAttackHit()
     else if (ABuilding_Turret* Turret = Cast<ABuilding_Turret>(OwnerPawn))
     {
         UNiagaraSystem* TargetNiagara = nullptr;
-        Turret->CurrentDebugTarget = HitTarget;
         APlayerController* PC = Turret->GetWorld()->GetFirstPlayerController();
         if (PC && PC->GetPawn())
         {
@@ -433,7 +432,6 @@ ABaseProjectile* ULOL_AttackComponent::GetProjectileFromPool()
             return Proj;
         }
     }
-    if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, TEXT("풀에 남은 화살이 없습니다!"));
     return nullptr;
 }
 void ULOL_AttackComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

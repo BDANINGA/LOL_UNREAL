@@ -38,6 +38,16 @@ void ULOL_LifeCycleComponent::BeginPlay()
 		{
 			StatComp->OnHpZero.AddDynamic(this, &ULOL_LifeCycleComponent::Server_HandleDeath);
 		}
+
+		TArray<UPrimitiveComponent*> PrimitiveComps;
+		OwnerPawn->GetComponents<UPrimitiveComponent>(PrimitiveComps);
+		for (UPrimitiveComponent* Comp : PrimitiveComps)
+		{
+			if (Comp)
+			{
+				InitialCollisionStates.Add(Comp, Comp->GetCollisionEnabled());
+			}
+		}
 	}
 	
 }
@@ -230,6 +240,10 @@ void ULOL_LifeCycleComponent::Multicast_OnDeath_Implementation()
 	OwnerPawn->GetComponents<UPrimitiveComponent>(PrimitiveComps);
 	for (UPrimitiveComponent* Comp : PrimitiveComps)
 	{
+		if (!InitialCollisionStates.Contains(Comp))
+		{
+			InitialCollisionStates.Add(Comp, Comp->GetCollisionEnabled());
+		}
 		Comp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 
@@ -291,12 +305,13 @@ void ULOL_LifeCycleComponent::Multicast_OnRespawn_Implementation()
 {
 	if (!OwnerPawn) return;
 
-	TArray<UPrimitiveComponent*> PrimitiveComps;
-	OwnerPawn->GetComponents<UPrimitiveComponent>(PrimitiveComps);
-
-	for (UPrimitiveComponent* Comp : PrimitiveComps)
+	for (const TPair<TWeakObjectPtr<UPrimitiveComponent>, ECollisionEnabled::Type>& CollisionState
+		: InitialCollisionStates)
 	{
-		Comp->SetCollisionProfileName(TEXT("Pawn"));
+		if (UPrimitiveComponent* Comp = CollisionState.Key.Get())
+		{
+			Comp->SetCollisionEnabled(CollisionState.Value);
+		}
 	}
 
 	if (ULOL_UIComponent* UIComp = OwnerPawn->FindComponentByClass<ULOL_UIComponent>())

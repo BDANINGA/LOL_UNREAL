@@ -55,6 +55,7 @@ public:
 	void OnAKey();
 	void OnToggleShop();
 	void OnRecall();
+	void OnQuitGame();
 
 	void OnToggleCamera();
 	void FreeCameraEdgeScroll(float DeltaTime);

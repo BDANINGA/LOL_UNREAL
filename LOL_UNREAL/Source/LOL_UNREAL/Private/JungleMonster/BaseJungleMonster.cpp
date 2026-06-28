@@ -222,15 +222,6 @@ void ABaseJungleMonster::SetJungleMonsterData(FName RowName)
 		UE_LOG(LogTemp, Warning, TEXT("Jungle monster data setup failed. DataTable=%s RowName=%s"),
 			DataTable ? TEXT("Valid") : TEXT("Null"),
 			*RowName.ToString());
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(
-				-1,
-				5.0f,
-				FColor::Red,
-				TEXT("Jungle monster data table or row name is missing.")
-			);
-		}
 		return;
 	}
 
@@ -335,15 +326,6 @@ void ABaseJungleMonster::SetJungleMonsterData(FName RowName)
 	if (!Data)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Jungle monster resource row not found. RowName=%s"), *RowName.ToString());
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(
-				-1,
-				5.0f,
-				FColor::Red,
-				FString::Printf(TEXT("Jungle resource row not found: %s"), *RowName.ToString())
-			);
-		}
 		return;
 	}
 
@@ -357,15 +339,6 @@ void ABaseJungleMonster::SetJungleMonsterData(FName RowName)
 	else
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Jungle monster mesh missing. RowName=%s"), *RowName.ToString());
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(
-				-1,
-				5.0f,
-				FColor::Yellow,
-				FString::Printf(TEXT("Jungle mesh missing: %s"), *RowName.ToString())
-			);
-		}
 	}
 
 	if (Data->AnimBlueprint)

@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Engine/EngineTypes.h"
 #include "LOL_LifeCycleComponent.generated.h"
 
 
@@ -43,6 +44,8 @@ protected:
 private:
 	UPROPERTY()
 	class APawn* OwnerPawn;
+
+	TMap<TWeakObjectPtr<class UPrimitiveComponent>, ECollisionEnabled::Type> InitialCollisionStates;
 
 	TMap<TWeakObjectPtr<AController>, float> RecentDamageContributors;
 

@@ -284,6 +284,4 @@ protected:
 	UFUNCTION()
 	void OnEnemyLeaveRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
-	UPROPERTY(Replicated)
-	FRotator ServerCharacterRotation;
 };

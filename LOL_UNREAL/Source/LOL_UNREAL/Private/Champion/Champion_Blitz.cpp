@@ -11,8 +11,6 @@
 #include "Minion/BaseMinion.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/CapsuleComponent.h"
-#include "DrawDebugHelpers.h"
-
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/DamageEvents.h" 
@@ -422,13 +420,6 @@ void AChampion_Blitz::SpawnQProjectileVisual(FVector StartLocation, FVector EndL
     ProjectileMovement->Activate(true);
 
     ProjectileActor->SetLifeSpan(FMath::Max(TravelTime, 0.05f));
-
-    UE_LOG(LogTemp, Warning, TEXT("Blitz Q projectile spawned. Mesh=%s Start=%s End=%s TravelTime=%.2f Scale=%.2f"),
-        *QProjectileMesh->GetName(),
-        *StartLocation.ToString(),
-        *EndLocation.ToString(),
-        TravelTime,
-        MeshScale * QProjectileVisualScale);
 }
 void AChampion_Blitz::Skill_W() 
 {
@@ -463,8 +454,6 @@ void AChampion_Blitz::EndWBuff()
         GetCharacterMovement()->MaxWalkSpeed = 330.0f - (330.0f * W_SlowAmount);
     }
 
-    UE_LOG(LogTemp, Warning, TEXT("[Server Blitz W] End W Buff - Slow Start"));
-
     GetWorldTimerManager().SetTimer(W_SlowTimerHandle, this, &AChampion_Blitz::EndWSlow, W_SlowDuration, false);
 }
 
@@ -497,8 +486,6 @@ void AChampion_Blitz::Server_Skill_E_Implementation()
     if (!SkillComponent->TryCastSkill("E", 1)) return;
 
     bIsEActive = true;
-
-    UE_LOG(LogTemp, Warning, TEXT("Blitz E Active"));
 }
 
 void AChampion_Blitz::ResetE()
@@ -511,8 +498,6 @@ void AChampion_Blitz::OnAttackHitWithE(ACharacter* Target)
     if (!HasAuthority() || !Target) return;
     if (!bIsEActive) return;
     if (!IsValidBlitzSkillTarget(Target)) return;
-
-    UE_LOG(LogTemp, Warning, TEXT("Blitz E KnockUp"));
 
     Target->StopAnimMontage();
 
@@ -545,10 +530,6 @@ void AChampion_Blitz::OnAttackHitWithE(ACharacter* Target)
 void AChampion_Blitz::OnBasicAttackHit(ACharacter* Target)
 {
     Super::OnBasicAttackHit(Target);
-
-    UE_LOG(LogTemp, Warning, TEXT("Blitz OnBasicAttackHit Called. EActive=%d Target=%s"),
-        bIsEActive,
-        Target ? *Target->GetName() : TEXT("NULL"));
 
     if (!HasAuthority()) return;
     if (!bIsEActive) return;
@@ -627,6 +608,4 @@ void AChampion_Blitz::Server_Skill_R_Implementation()
         }
     }
 
-    UE_LOG(LogTemp, Warning, TEXT("[Blitz R] Radius=%.1f Damage=%.1f Hit=%d"),
-        Radius, SkillDamage, HitTargets.Num());
 }

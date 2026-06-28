@@ -319,8 +319,4 @@ void APC_GameStart::JoinLobby()
 void APC_GameStart::ShowInputError(const FString& Message) const
 {
 	UE_LOG(LogTemp, Error, TEXT("GameStart: %s"), *Message);
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 6.0f, FColor::Red, Message);
-	}
 }

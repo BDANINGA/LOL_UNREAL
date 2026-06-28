@@ -27,6 +27,7 @@
 #include "NiagaraSystem.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "InputMappingContext.h"
 #include "InputAction.h"
 #include "UObject/ConstructorHelpers.h"
@@ -218,6 +219,22 @@ void ALOL_PlayerController::SetupInputComponent()
 
 	InputComponent->BindKey(EKeys::P, IE_Pressed, this, &ALOL_PlayerController::OnToggleShop);
 	InputComponent->BindKey(EKeys::B, IE_Pressed, this, &ALOL_PlayerController::OnRecall);
+	InputComponent->BindKey(EKeys::Escape, IE_Pressed, this, &ALOL_PlayerController::OnQuitGame);
+}
+
+void ALOL_PlayerController::OnQuitGame()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	UKismetSystemLibrary::QuitGame(
+		this,
+		this,
+		EQuitPreference::Quit,
+		false
+	);
 }
 
 void ALOL_PlayerController::OnRecall()
@@ -366,7 +383,6 @@ void ALOL_PlayerController::OnSkillQ()
 		MyChampion->SetIsPressA(false);
 		MyChampion->UIComponent->HideRangeIndicator();
 	}
-	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Q Skill Used!"));
 }
 void ALOL_PlayerController::OnSkillW()
 {
@@ -376,7 +392,6 @@ void ALOL_PlayerController::OnSkillW()
 		MyChampion->SetIsPressA(false);
 		MyChampion->UIComponent->HideRangeIndicator();
 	}
-	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green, TEXT("W Skill Used!"));
 }
 void ALOL_PlayerController::OnSkillE()
 {
@@ -386,7 +401,6 @@ void ALOL_PlayerController::OnSkillE()
 		MyChampion->SetIsPressA(false);
 		MyChampion->UIComponent->HideRangeIndicator();
 	}
-	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Blue, TEXT("E Skill Used!"));
 }
 void ALOL_PlayerController::OnSkillR()
 {
@@ -396,7 +410,6 @@ void ALOL_PlayerController::OnSkillR()
 		MyChampion->SetIsPressA(false);
 		MyChampion->UIComponent->HideRangeIndicator();
 	}
-	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("R Skill (Ultimate) Used!"));
 }
 void ALOL_PlayerController::OnAKey()
 {
