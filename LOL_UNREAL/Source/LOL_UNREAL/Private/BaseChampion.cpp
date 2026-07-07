@@ -230,11 +230,11 @@ void ABaseChampion::AddAssistCount()
 	}
 }
 
-void ABaseChampion::AddMinionKillCount()
+void ABaseChampion::AddMinionKillCount(int32 Amount)
 {
-	if (HasAuthority())
+	if (HasAuthority() && Amount > 0)
 	{
-		++MinionKillCount;
+		MinionKillCount += Amount;
 	}
 }
 

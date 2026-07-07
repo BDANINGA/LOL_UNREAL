@@ -14,7 +14,7 @@ public:
 	void AddKill();
 	void AddDeath();
 	void AddAssist();
-	void AddMinionKill();
+	void AddMinionKill(int32 Amount = 1);
 
 	UPROPERTY(ReplicatedUsing = OnRep_PlayerData, BlueprintReadOnly, Category = "Player Data")
 	FString Nickname;

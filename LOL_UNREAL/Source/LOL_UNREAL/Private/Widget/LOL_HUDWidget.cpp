@@ -1,5 +1,6 @@
 // HUD 관리하는 위젯 클래스
 #include "Widget/LOL_HUDWidget.h"
+#include "LOL_PlayerController.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/CanvasPanelSlot.h"
 #include "Components/CanvasPanel.h"
@@ -487,6 +488,33 @@ void ULOL_HUDWidget::SetItemIcons(const TArray<UTexture2D*>& IconTextures)
     {
         AddItemIcon(IconTexture);
     }
+}
+
+FReply ULOL_HUDWidget::NativeOnMouseButtonDown(
+    const FGeometry& InGeometry,
+    const FPointerEvent& InMouseEvent)
+{
+    if (InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+    {
+        const FVector2D ScreenPosition = InMouseEvent.GetScreenSpacePosition();
+        for (int32 SlotIndex = 0; SlotIndex < CachedItemSlotImages.Num(); ++SlotIndex)
+        {
+            UImage* SlotImage = CachedItemSlotImages[SlotIndex];
+            if (SlotImage &&
+                SlotImage->GetVisibility() == ESlateVisibility::Visible &&
+                SlotImage->GetCachedGeometry().IsUnderLocation(ScreenPosition))
+            {
+                if (ALOL_PlayerController* PlayerController =
+                    Cast<ALOL_PlayerController>(GetOwningPlayer()))
+                {
+                    PlayerController->SelectInventoryItem(SlotIndex);
+                    return FReply::Handled();
+                }
+            }
+        }
+    }
+
+    return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
 }
 
 void ULOL_HUDWidget::CacheItemSlotImages()

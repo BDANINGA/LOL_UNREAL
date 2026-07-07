@@ -26,6 +26,7 @@ public:
 	void CancelAttack();
 
 	void ReceivedCrowdControl();
+	void ResetAfterRespawn();
 
 	bool CanAttack() const { return bCanAttack; }
 	bool HitHappened() const { return bHitHappened; }

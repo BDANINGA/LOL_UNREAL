@@ -76,14 +76,16 @@ public:
 	void RequestBuyItem(FName ItemName);
 
 	void SelectShopItem(FName ItemName);
+	void SelectInventoryItem(int32 ItemSlotIndex);
 	void BuySelectedShopItem();
 	void SellSelectedShopItem();
+	bool IsNearTeamShop() const;
 
 	UFUNCTION(Server, Reliable)
 	void Server_BuyItem(FName ItemName);
 
 	UFUNCTION(Server, Reliable)
-	void Server_SellItem(FName ItemName);
+	void Server_SellItem(int32 ItemSlotIndex);
 
 	UFUNCTION(Client, Reliable)
 	void Client_OnItemPurchased(FName ItemName);
@@ -168,6 +170,9 @@ private:
 
 	UPROPERTY()
 	FName SelectedShopItemName = NAME_None;
+
+	UPROPERTY()
+	int32 SelectedInventoryItemSlotIndex = INDEX_NONE;
 
 	UPROPERTY()
 	TArray<FName> PurchasedItemNames;

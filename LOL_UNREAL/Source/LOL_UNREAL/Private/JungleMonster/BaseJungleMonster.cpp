@@ -31,6 +31,9 @@ ABaseJungleMonster::ABaseJungleMonster()
 	GetMesh()->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
+	GetCharacterMovement()->bOrientRotationToMovement = true;
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 480.0f, 0.0f);
+
 	static ConstructorHelpers::FObjectFinder<UDataTable> ResourceDataAssetTable(
 		TEXT("/Game/LOL_Data/Data_JungleMonsters/Data_JungleMonsterResource.Data_JungleMonsterResource")
 	);
@@ -86,6 +89,17 @@ void ABaseJungleMonster::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	if (StateComponent &&
+		StateComponent->HasStatusTag(LOLTags::State_Dead))
+	{
+		return;
+	}
+
 	if (bCrowdControlled)
 	{
 		return;
@@ -96,6 +110,7 @@ void ABaseJungleMonster::Tick(float DeltaTime)
 		bReturningToSpawn = false;
 		SetActorLocation(SpawnLocation);
 		SetActorRotation(SpawnRotation);
+		ScheduleStationaryResetHeal();
 	}
 
 	if (bReturningToSpawn)
@@ -104,15 +119,44 @@ void ABaseJungleMonster::Tick(float DeltaTime)
 		return;
 	}
 
-	if (AttackComponent && AttackComponent->CombatTarget)
+	if (AttackComponent)
 	{
-		if (ShouldResetLeash())
+		AActor* CombatTarget = AttackComponent->CombatTarget;
+		bool bTargetLost = bHadCombatTarget && !IsValid(CombatTarget);
+
+		if (IsValid(CombatTarget))
+		{
+			ULOL_StateComponent* TargetState =
+				CombatTarget->FindComponentByClass<ULOL_StateComponent>();
+			bTargetLost =
+				(TargetState &&
+				 TargetState->HasStatusTag(LOLTags::State_Dead)) ||
+				!AttackComponent->IsValidAttackTarget(CombatTarget);
+		}
+
+		if (bTargetLost)
 		{
 			StartReturnToSpawn();
 			return;
 		}
 
-		AttackComponent->UpdateAttackLogic();
+		if (CombatTarget)
+		{
+			bHadCombatTarget = true;
+
+			if (ShouldResetLeash())
+			{
+				StartReturnToSpawn();
+				return;
+			}
+
+			AttackComponent->UpdateAttackLogic();
+		}
+		else if (bHadCombatTarget)
+		{
+			StartReturnToSpawn();
+			return;
+		}
 	}
 
 	if (MoveComponent)
@@ -203,6 +247,8 @@ float ABaseJungleMonster::TakeDamage(float DamageAmount, FDamageEvent const& Dam
 
 	if (ActualDamage > 0.0f && AttackComponent)
 	{
+		GetWorldTimerManager().ClearTimer(StationaryResetHealTimerHandle);
+
 		AActor* Attacker = EventInstigator ? EventInstigator->GetPawn() : nullptr;
 		if (!Attacker)
 		{
@@ -210,6 +256,7 @@ float ABaseJungleMonster::TakeDamage(float DamageAmount, FDamageEvent const& Dam
 		}
 
 		AttackComponent->SetCombatTarget(Attacker);
+		bHadCombatTarget = AttackComponent->CombatTarget != nullptr;
 	}
 
 	return ActualDamage;
@@ -432,6 +479,8 @@ FVector ABaseJungleMonster::GetMeshScaleForMonster(FName RowName) const
 void ABaseJungleMonster::StartReturnToSpawn()
 {
 	bReturningToSpawn = true;
+	bHadCombatTarget = false;
+	RestoreDefaultMoveSpeed();
 
 	if (AttackComponent)
 	{
@@ -453,7 +502,14 @@ void ABaseJungleMonster::StartReturnToSpawn()
 
 	if (MoveComponent)
 	{
-		MoveComponent->TargetLocation = SpawnLocation;
+		if (!bStationaryMonster)
+		{
+			MoveComponent->SetMoveTarget(SpawnLocation, nullptr);
+		}
+		else
+		{
+			MoveComponent->TargetLocation = SpawnLocation;
+		}
 	}
 
 	if (bStationaryMonster)
@@ -461,6 +517,7 @@ void ABaseJungleMonster::StartReturnToSpawn()
 		bReturningToSpawn = false;
 		SetActorLocation(SpawnLocation);
 		SetActorRotation(SpawnRotation);
+		ScheduleStationaryResetHeal();
 	}
 }
 
@@ -472,6 +529,7 @@ void ABaseJungleMonster::UpdateReturnToSpawn(float DeltaTime)
 	if (Direction.Size2D() <= ReturnAcceptanceRadius)
 	{
 		bReturningToSpawn = false;
+		bHadCombatTarget = false;
 		SetActorLocation(SpawnLocation);
 		SetActorRotation(SpawnRotation);
 
@@ -483,12 +541,83 @@ void ABaseJungleMonster::UpdateReturnToSpawn(float DeltaTime)
 		{
 			StateComponent->RemoveStatusTag(LOLTags::State_Moving);
 		}
+		if (AttackComponent)
+		{
+			AttackComponent->SetCombatTarget(nullptr);
+			AttackComponent->HitTarget = nullptr;
+		}
+
+		RestoreHealthAtSpawn();
 		return;
 	}
 
-	const FVector MoveDirection = Direction.GetSafeNormal2D();
-	AddMovementInput(MoveDirection, 1.0f);
-	SetActorRotation(MoveDirection.Rotation());
+}
+
+void ABaseJungleMonster::RestoreHealthAtSpawn()
+{
+	if (!HasAuthority() || !StatComponent)
+	{
+		return;
+	}
+
+	StatComponent->SetHP(StatComponent->GetStat().MaxHP);
+}
+
+void ABaseJungleMonster::RestoreStationaryHealthAfterDelay()
+{
+	if (AttackComponent && AttackComponent->CombatTarget)
+	{
+		return;
+	}
+
+	RestoreHealthAtSpawn();
+}
+
+void ABaseJungleMonster::ScheduleStationaryResetHeal()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	GetWorldTimerManager().ClearTimer(StationaryResetHealTimerHandle);
+
+	if (StationaryResetHealDelay <= 0.0f)
+	{
+		RestoreStationaryHealthAfterDelay();
+		return;
+	}
+
+	GetWorldTimerManager().SetTimer(
+		StationaryResetHealTimerHandle,
+		this,
+		&ABaseJungleMonster::RestoreStationaryHealthAfterDelay,
+		StationaryResetHealDelay,
+		false
+	);
+}
+
+void ABaseJungleMonster::ApplyChaseMoveSpeed()
+{
+	if (!HasAuthority() || !StatComponent || !GetCharacterMovement())
+	{
+		return;
+	}
+
+	GetCharacterMovement()->MaxWalkSpeed =
+		StatComponent->GetStat().MoveSpeed *
+		FMath::Clamp(ChaseMoveSpeedMultiplier, 0.1f, 1.0f);
+}
+
+void ABaseJungleMonster::RestoreDefaultMoveSpeed()
+{
+	if (!HasAuthority() || !StatComponent || !GetCharacterMovement())
+	{
+		return;
+	}
+
+	GetCharacterMovement()->MaxWalkSpeed =
+		StatComponent->GetStat().MoveSpeed;
 }
 
 bool ABaseJungleMonster::ShouldResetLeash() const

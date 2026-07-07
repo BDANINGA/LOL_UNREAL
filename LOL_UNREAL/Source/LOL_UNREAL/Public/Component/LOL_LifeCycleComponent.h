@@ -47,6 +47,9 @@ private:
 
 	TMap<TWeakObjectPtr<class UPrimitiveComponent>, ECollisionEnabled::Type> InitialCollisionStates;
 
+	FVector InitialSpawnLocation = FVector::ZeroVector;
+	FRotator InitialSpawnRotation = FRotator::ZeroRotator;
+
 	TMap<TWeakObjectPtr<AController>, float> RecentDamageContributors;
 
 	float AssistWindowSeconds = 10.0f;

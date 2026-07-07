@@ -134,12 +134,16 @@ AActor* ALOL_GameModeBase::ChoosePlayerStart_Implementation(AController* Player)
     const FName DesiredTeamAlias = bIsRedTeam
         ? FName("Red")
         : FName("Blue");
+    const FName DesiredPlayerStartAlias = bIsRedTeam
+        ? FName("PlayerStart2")
+        : FName("PlayerStart1");
 
     // PlayerStartTag is the value shown as "Player Start Tag" in the editor.
     for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
     {
         if (It->PlayerStartTag == DesiredTeamTag ||
-            It->PlayerStartTag == DesiredTeamAlias)
+            It->PlayerStartTag == DesiredTeamAlias ||
+            It->PlayerStartTag == DesiredPlayerStartAlias)
         {
             UE_LOG(
                 LogTemp,
@@ -156,9 +160,9 @@ AActor* ALOL_GameModeBase::ChoosePlayerStart_Implementation(AController* Player)
     // Preserve compatibility with older maps that used Actor Tags.
     for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
     {
-        if (It->PlayerStartTag.IsNone() &&
-            (It->ActorHasTag(DesiredTeamTag) ||
-             It->ActorHasTag(DesiredTeamAlias)))
+        if (It->ActorHasTag(DesiredTeamTag) ||
+            It->ActorHasTag(DesiredTeamAlias) ||
+            It->ActorHasTag(DesiredPlayerStartAlias))
         {
             UE_LOG(
                 LogTemp,

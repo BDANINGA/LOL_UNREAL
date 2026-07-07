@@ -120,7 +120,7 @@ public:
 	void AddKillCount();
 	void AddDeathCount();
 	void AddAssistCount();
-	void AddMinionKillCount();
+	void AddMinionKillCount(int32 Amount = 1);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision")
 	float SightRadius = 2000.0f;

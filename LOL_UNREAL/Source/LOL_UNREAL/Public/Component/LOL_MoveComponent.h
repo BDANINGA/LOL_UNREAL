@@ -18,6 +18,9 @@ public:
 	void SetMoveTarget(FVector NewLocation, AActor* TargetActor);
 	void StopMovement();
 
+	UFUNCTION(Client, Reliable)
+	void Client_SetNavigationPath(const TArray<FVector>& NewPathPoints);
+
 	UPROPERTY(Replicated)
 	FVector TargetLocation;
 
@@ -30,6 +33,13 @@ protected:
 private:
 	UPROPERTY()
 	class APawn* OwnerPawn;
+
+	bool bUsingDirectMovement = false;
+	TArray<FVector> LocalNavigationPath;
+	int32 CurrentNavigationPathIndex = 0;
+	TWeakObjectPtr<AActor> MovementTargetActor;
+
+	void SetLocalNavigationPath(const TArray<FVector>& NewPathPoints);
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };

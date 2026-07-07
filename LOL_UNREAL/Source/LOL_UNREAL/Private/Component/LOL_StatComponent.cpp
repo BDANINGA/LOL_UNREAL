@@ -14,7 +14,9 @@
 
 #include "LOL_HUD.h"
 #include "LOL_GameState.h"
+#include "LOL_PlayerController.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "TimerManager.h"
 
 ULOL_StatComponent::ULOL_StatComponent()
 {
@@ -60,7 +62,7 @@ void ULOL_StatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAc
 }
 
 
-inline void ULOL_StatComponent::SetHP(float NewHP)
+void ULOL_StatComponent::SetHP(float NewHP)
 {
 	if (GetOwnerRole() == ROLE_Authority)
 	{
@@ -69,7 +71,7 @@ inline void ULOL_StatComponent::SetHP(float NewHP)
 		OnRep_CurrentHP();
 	}
 }
-inline void ULOL_StatComponent::SetMP(float NewMP)
+void ULOL_StatComponent::SetMP(float NewMP)
 {
 	if (GetOwnerRole() == ROLE_Authority)
 	{
@@ -79,7 +81,7 @@ inline void ULOL_StatComponent::SetMP(float NewMP)
 	}
 }
 
-inline void ULOL_StatComponent::SetStat(FChampionStat NewStat)
+void ULOL_StatComponent::SetStat(FChampionStat NewStat)
 {
 	if (GetOwnerRole() == ROLE_Authority)
 	{
@@ -174,7 +176,9 @@ void ULOL_StatComponent::InitializeStat()
 		}
 		if (FoundRow)
 		{
+			LevelOneAttackSpeed = FoundRow->AttackSpeed;
 			SetStat(*FoundRow);
+			RecalculateAttackSpeed();
 			SetHP(BaseStat.MaxHP);
 			SetMP(BaseStat.MaxMP);
 
@@ -244,7 +248,6 @@ void ULOL_StatComponent::ApplyItemData(const FItemData& ItemData)
 	BaseStat.MaxHP += ItemData.BonusMaxHP;
 	BaseStat.MaxMP += ItemData.BonusMaxMP;
 	BaseStat.AttackDamage += ItemData.BonusAttackDamage;
-	BaseStat.AttackSpeed += ItemData.BonusAttackSpeed;
 	BaseStat.Armor += ItemData.BonusArmor;
 	BaseStat.SpellBlock += ItemData.BonusSpellBlock;
 	BaseStat.MoveSpeed += ItemData.BonusMoveSpeed;
@@ -255,6 +258,7 @@ void ULOL_StatComponent::ApplyItemData(const FItemData& ItemData)
 	BaseStat.HealShieldPower += ItemData.BonusHealShieldPower;
 	BaseStat.PhysicalPenetrationPercent += ItemData.BonusPhysicalPenetrationPercent;
 	BaseStat.MagicPenetrationPercent += ItemData.BonusMagicPenetrationPercent;
+	RecalculateAttackSpeed();
 
 	const float NewMaxHP = BaseStat.MaxHP;
 	const float NewMaxMP = BaseStat.MaxMP;
@@ -308,7 +312,6 @@ void ULOL_StatComponent::RemoveItemData(const FItemData& ItemData)
 	BaseStat.MaxHP = FMath::Max(1.f, BaseStat.MaxHP - ItemData.BonusMaxHP);
 	BaseStat.MaxMP = FMath::Max(0.f, BaseStat.MaxMP - ItemData.BonusMaxMP);
 	BaseStat.AttackDamage -= ItemData.BonusAttackDamage;
-	BaseStat.AttackSpeed -= ItemData.BonusAttackSpeed;
 	BaseStat.Armor -= ItemData.BonusArmor;
 	BaseStat.SpellBlock -= ItemData.BonusSpellBlock;
 	BaseStat.MoveSpeed -= ItemData.BonusMoveSpeed;
@@ -319,6 +322,7 @@ void ULOL_StatComponent::RemoveItemData(const FItemData& ItemData)
 	BaseStat.HealShieldPower -= ItemData.BonusHealShieldPower;
 	BaseStat.PhysicalPenetrationPercent -= ItemData.BonusPhysicalPenetrationPercent;
 	BaseStat.MagicPenetrationPercent -= ItemData.BonusMagicPenetrationPercent;
+	RecalculateAttackSpeed();
 
 	const float NewMaxHP = BaseStat.MaxHP;
 	const float NewMaxMP = BaseStat.MaxMP;
@@ -351,6 +355,70 @@ void ULOL_StatComponent::RemoveItemData(const FItemData& ItemData)
 	OnRep_BaseStat();
 }
 
+void ULOL_StatComponent::ApplyPermanentCombatStatBonus(
+	float AttackDamageBonus,
+	float AbilityPowerBonus,
+	float ArmorBonus,
+	float SpellBlockBonus)
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
+
+	BaseStat.AttackDamage += AttackDamageBonus;
+	BaseStat.AbilityPower += AbilityPowerBonus;
+	BaseStat.Armor += ArmorBonus;
+	BaseStat.SpellBlock += SpellBlockBonus;
+	OnRep_BaseStat();
+}
+
+void ULOL_StatComponent::ApplyTimedOffensiveStatBonus(
+	float AttackDamageBonus,
+	float AbilityPowerBonus,
+	float Duration)
+{
+	if (GetOwnerRole() != ROLE_Authority || Duration <= 0.0f)
+	{
+		return;
+	}
+
+	BaseStat.AttackDamage -= ActiveTimedAttackDamageBonus;
+	BaseStat.AbilityPower -= ActiveTimedAbilityPowerBonus;
+
+	ActiveTimedAttackDamageBonus = AttackDamageBonus;
+	ActiveTimedAbilityPowerBonus = AbilityPowerBonus;
+
+	BaseStat.AttackDamage += ActiveTimedAttackDamageBonus;
+	BaseStat.AbilityPower += ActiveTimedAbilityPowerBonus;
+
+	GetWorld()->GetTimerManager().ClearTimer(
+		TimedOffensiveStatBonusTimerHandle);
+	GetWorld()->GetTimerManager().SetTimer(
+		TimedOffensiveStatBonusTimerHandle,
+		this,
+		&ULOL_StatComponent::RemoveTimedOffensiveStatBonus,
+		Duration,
+		false
+	);
+
+	OnRep_BaseStat();
+}
+
+void ULOL_StatComponent::RemoveTimedOffensiveStatBonus()
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
+
+	BaseStat.AttackDamage -= ActiveTimedAttackDamageBonus;
+	BaseStat.AbilityPower -= ActiveTimedAbilityPowerBonus;
+	ActiveTimedAttackDamageBonus = 0.0f;
+	ActiveTimedAbilityPowerBonus = 0.0f;
+	OnRep_BaseStat();
+}
+
 void ULOL_StatComponent::AddEXP(float Amount)
 {
 	if (Amount <= 0.f) return;
@@ -373,8 +441,7 @@ void ULOL_StatComponent::AddEXP(float Amount)
 		BaseStat.Armor += BaseStat.ArmorPerLevel;
 		BaseStat.SpellBlock += BaseStat.SpellBlockPerLevel;
 		BaseStat.AttackDamage += BaseStat.AttackDamagePerLevel;
-		BaseStat.AttackSpeed += BaseStat.AttackSpeedPerLevel;
-		
+		RecalculateAttackSpeed();
 
 		SetHP(CurrentHP + BaseStat.HPPerLevel);
 		SetMP(CurrentMP + BaseStat.MPPerLevel);
@@ -392,6 +459,27 @@ void ULOL_StatComponent::AddEXP(float Amount)
 	}
 }
 
+void ULOL_StatComponent::RecalculateAttackSpeed()
+{
+	if (LevelOneAttackSpeed <= 0.0f)
+	{
+		LevelOneAttackSpeed = FMath::Max(BaseStat.AttackSpeed, 0.01f);
+	}
+
+	const float LevelGrowthRatio =
+		BaseStat.AttackSpeedPerLevel *
+		FMath::Max(BaseStat.Level - 1, 0) /
+		100.0f;
+	const float TotalAttackSpeedRatio =
+		1.0f + LevelGrowthRatio + BaseStat.BonusAttackSpeed;
+
+	BaseStat.AttackSpeed = FMath::Clamp(
+		LevelOneAttackSpeed * TotalAttackSpeedRatio,
+		0.01f,
+		MaxAttackSpeed
+	);
+}
+
 void ULOL_StatComponent::HandleRegeneration()
 {
 	ABaseChampion* OwnerChampion = Cast<ABaseChampion>(GetOwner());
@@ -400,17 +488,27 @@ void ULOL_StatComponent::HandleRegeneration()
 	ULOL_StateComponent* StateComp = OwnerChampion->FindComponentByClass<ULOL_StateComponent>();
 	if(StateComp->HasStatusTag(LOLTags::State_Dead)) return;
 
-	float HPRatio = BaseStat.HPRegen / 5.0f;
-	float MPRatio = BaseStat.MPRegen / 5.0f;
+	float HPRecovery = BaseStat.HPRegen / 5.0f;
+	float MPRecovery = BaseStat.MPRegen / 5.0f;
 
-	if (CurrentHP > 0.0f)
+	if (const ALOL_PlayerController* PlayerController =
+		Cast<ALOL_PlayerController>(OwnerChampion->GetController()))
 	{
-		SetHP(CurrentHP + HPRatio);
+		if (PlayerController->IsNearTeamShop())
+		{
+			HPRecovery += ShopRecoveryPerSecond;
+			MPRecovery += ShopRecoveryPerSecond;
+		}
 	}
 
-	if (CurrentMP > 0.0f)
+	if (CurrentHP > 0.0f && CurrentHP < BaseStat.MaxHP)
 	{
-		SetMP(CurrentMP + MPRatio);
+		SetHP(CurrentHP + HPRecovery);
+	}
+
+	if (BaseStat.MaxMP > 0.0f && CurrentMP < BaseStat.MaxMP)
+	{
+		SetMP(CurrentMP + MPRecovery);
 	}
 
 	CurrentGold += GoldPerSecond;

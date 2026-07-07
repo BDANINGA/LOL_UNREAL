@@ -216,6 +216,15 @@ public:
 	void AddEXP(float Amount);
 	void ApplyItemData(const FItemData& ItemData);
 	void RemoveItemData(const FItemData& ItemData);
+	void ApplyPermanentCombatStatBonus(
+		float AttackDamageBonus,
+		float AbilityPowerBonus,
+		float ArmorBonus,
+		float SpellBlockBonus);
+	void ApplyTimedOffensiveStatBonus(
+		float AttackDamageBonus,
+		float AbilityPowerBonus,
+		float Duration);
 
 	void HandleRegeneration();
 protected:
@@ -228,6 +237,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Gold")
 	float GoldPerSecond = 2.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Regeneration")
+	float ShopRecoveryPerSecond = 200.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Limits")
+	float MaxAttackSpeed = 2.5f;
 
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentHP)
 	float CurrentHP;
@@ -270,4 +285,13 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Stat|Data")
 	class UDataTable* BuildingStatDataTable;
+
+private:
+	void RecalculateAttackSpeed();
+	void RemoveTimedOffensiveStatBonus();
+
+	float LevelOneAttackSpeed = 0.0f;
+	float ActiveTimedAttackDamageBonus = 0.0f;
+	float ActiveTimedAbilityPowerBonus = 0.0f;
+	FTimerHandle TimedOffensiveStatBonusTimerHandle;
 };

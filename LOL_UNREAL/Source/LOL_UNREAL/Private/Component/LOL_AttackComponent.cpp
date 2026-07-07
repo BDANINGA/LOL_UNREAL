@@ -125,10 +125,33 @@ void ULOL_AttackComponent::UpdateAttackLogic()
                 StateComp->RemoveStatusTag(LOLTags::State_Moving);
                 return;
             }
+
+            const bool bWasMoving =
+                StateComp->HasStatusTag(LOLTags::State_Moving);
+            StateComp->AddStatusTag(LOLTags::State_Moving);
+            MoveComp->TargetLocation = CombatTarget->GetActorLocation();
+            JungleMonster->ApplyChaseMoveSpeed();
+
+            if (!bWasMoving)
+            {
+                MoveComp->SetMoveTarget(
+                    CombatTarget->GetActorLocation(),
+                    CombatTarget
+                );
+            }
+            return;
         }
 
         StateComp->AddStatusTag(LOLTags::State_Moving);
         MoveComp->TargetLocation = CombatTarget->GetActorLocation();
+
+        if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
+        {
+            if (!Champion->IsLocallyControlled())
+            {
+                return;
+            }
+        }
 
         FVector Direction = MoveComp->TargetLocation - OwnerPawn->GetActorLocation();
         Direction.Z = 0.f;
@@ -423,6 +446,30 @@ void ULOL_AttackComponent::ReceivedCrowdControl()
         GetWorld()->GetTimerManager().ClearTimer(AttackHitTimerHandle);
     }
 }
+
+void ULOL_AttackComponent::ResetAfterRespawn()
+{
+    if (GetWorld())
+    {
+        GetWorld()->GetTimerManager().ClearTimer(AttackTimerHandle);
+        GetWorld()->GetTimerManager().ClearTimer(AttackHitTimerHandle);
+    }
+
+    CombatTarget = nullptr;
+    HitTarget = nullptr;
+    bCanAttack = true;
+    bHitHappened = false;
+
+    if (OwnerPawn)
+    {
+        if (ULOL_StateComponent* StateComp =
+            OwnerPawn->FindComponentByClass<ULOL_StateComponent>())
+        {
+            StateComp->RemoveStatusTag(LOLTags::State_Attacking);
+        }
+    }
+}
+
 ABaseProjectile* ULOL_AttackComponent::GetProjectileFromPool()
 {
     for (ABaseProjectile* Proj : ProjectilePool)
