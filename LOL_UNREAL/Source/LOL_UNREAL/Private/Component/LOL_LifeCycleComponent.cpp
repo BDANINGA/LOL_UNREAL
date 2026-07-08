@@ -34,9 +34,22 @@ void ULOL_LifeCycleComponent::BeginPlay()
 	OwnerPawn = Cast<APawn>(GetOwner());
 	if (OwnerPawn)
 	{
+		InitialSpawnLocation = OwnerPawn->GetActorLocation();
+		InitialSpawnRotation = OwnerPawn->GetActorRotation();
+
 		if (ULOL_StatComponent* StatComp = OwnerPawn->FindComponentByClass<ULOL_StatComponent>())
 		{
 			StatComp->OnHpZero.AddDynamic(this, &ULOL_LifeCycleComponent::Server_HandleDeath);
+		}
+
+		TArray<UPrimitiveComponent*> PrimitiveComps;
+		OwnerPawn->GetComponents<UPrimitiveComponent>(PrimitiveComps);
+		for (UPrimitiveComponent* Comp : PrimitiveComps)
+		{
+			if (Comp)
+			{
+				InitialCollisionStates.Add(Comp, Comp->GetCollisionEnabled());
+			}
 		}
 	}
 	
@@ -155,17 +168,86 @@ void ULOL_LifeCycleComponent::Server_HandleDeath(AController* KillerInstigator, 
 			}
 		}
 	}
-	else if (Cast<ABaseMinion>(OwnerPawn) && KillerPlayerState)
+	else if (Cast<ABaseMinion>(OwnerPawn))
 	{
-		KillerPlayerState->AddMinionKill();
+		if (KillerPlayerState)
+		{
+			KillerPlayerState->AddMinionKill();
+		}
 		if (KillerChampion)
 		{
 			KillerChampion->AddMinionKillCount();
 		}
 	}
-	else if (Cast<ABaseMinion>(OwnerPawn) && KillerChampion)
+	else if (ABaseJungleMonster* DeadJungleMonster =
+		Cast<ABaseJungleMonster>(OwnerPawn))
 	{
-		KillerChampion->AddMinionKillCount();
+		constexpr int32 JungleMonsterCS = 4;
+		if (KillerPlayerState)
+		{
+			KillerPlayerState->AddMinionKill(JungleMonsterCS);
+		}
+		if (KillerChampion)
+		{
+			KillerChampion->AddMinionKillCount(JungleMonsterCS);
+		}
+
+		const FName MonsterName =
+			DeadJungleMonster->GetJungleMonsterName();
+		const bool bIsAtakhan =
+			MonsterName == FName("Atakhan") ||
+			MonsterName == FName("atakhan") ||
+			MonsterName == FName("Atakan") ||
+			MonsterName == FName("atakan");
+		const bool bIsBaron =
+			MonsterName == FName("Baron") ||
+			MonsterName == FName("baron") ||
+			MonsterName == FName("BaronNashor") ||
+			MonsterName == FName("Baron_Nashor") ||
+			MonsterName == FName("baron_nashor");
+
+		if ((bIsAtakhan || bIsBaron) && KillerChampion)
+		{
+			TArray<AActor*> Champions;
+			UGameplayStatics::GetAllActorsOfClass(
+				GetWorld(),
+				ABaseChampion::StaticClass(),
+				Champions
+			);
+
+			for (AActor* ChampionActor : Champions)
+			{
+				ABaseChampion* TeamChampion =
+					Cast<ABaseChampion>(ChampionActor);
+				if (!TeamChampion ||
+					KillerChampion->IsEnemyActor(TeamChampion) ||
+					!TeamChampion->StatComponent)
+				{
+					continue;
+				}
+
+				if (bIsAtakhan)
+				{
+					TeamChampion->StatComponent
+						->ApplyPermanentCombatStatBonus(
+							10.0f,
+							10.0f,
+							5.0f,
+							5.0f
+						);
+				}
+
+				if (bIsBaron)
+				{
+					TeamChampion->StatComponent
+						->ApplyTimedOffensiveStatBonus(
+							30.0f,
+							30.0f,
+							120.0f
+						);
+				}
+			}
+		}
 	}
 
 	RecentDamageContributors.Reset();
@@ -220,6 +302,8 @@ void ULOL_LifeCycleComponent::Multicast_OnDeath_Implementation()
 	if (ULOL_AttackComponent* AttackComp = OwnerPawn->FindComponentByClass<ULOL_AttackComponent>())
 	{
 		AttackComp->ReceivedCrowdControl();
+		AttackComp->SetCombatTarget(nullptr);
+		AttackComp->HitTarget = nullptr;
 	}
 	if (UPawnMovementComponent* MovementComp = OwnerPawn->GetMovementComponent())
 	{
@@ -230,6 +314,10 @@ void ULOL_LifeCycleComponent::Multicast_OnDeath_Implementation()
 	OwnerPawn->GetComponents<UPrimitiveComponent>(PrimitiveComps);
 	for (UPrimitiveComponent* Comp : PrimitiveComps)
 	{
+		if (!InitialCollisionStates.Contains(Comp))
+		{
+			InitialCollisionStates.Add(Comp, Comp->GetCollisionEnabled());
+		}
 		Comp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 
@@ -247,31 +335,47 @@ void ULOL_LifeCycleComponent::Respawn()
 	
 	AActor* TargetStart = nullptr;
 
-	FName TeamTag = "BlueTeam";
+	bool bIsRedTeam = false;
 	if (ABaseChampion* OwnerChampion = Cast<ABaseChampion>(OwnerPawn))
 	{
-		if(OwnerChampion->StateComponent->HasStatusTag(LOLTags::Team_Blue)) TeamTag = "BlueTeam";
-		else TeamTag = "RedTeam";
+		bIsRedTeam =
+			OwnerChampion->TeamId == 1 ||
+			(OwnerChampion->StateComponent &&
+			 OwnerChampion->StateComponent->HasStatusTag(LOLTags::Team_Red));
 	}
-	
+
+	const FName TeamTag = bIsRedTeam ? FName("RedTeam") : FName("BlueTeam");
+	const FName TeamAlias = bIsRedTeam ? FName("Red") : FName("Blue");
+	const FName PlayerStartAlias =
+		bIsRedTeam ? FName("PlayerStart2") : FName("PlayerStart1");
 
 	for (AActor* Actor : FoundActors)
 	{
-		if (Actor->ActorHasTag(TeamTag))
+		APlayerStart* PlayerStart = Cast<APlayerStart>(Actor);
+		if (!PlayerStart)
 		{
-			TargetStart = Actor;
+			continue;
+		}
+
+		if (PlayerStart->PlayerStartTag == TeamTag ||
+			PlayerStart->PlayerStartTag == TeamAlias ||
+			PlayerStart->PlayerStartTag == PlayerStartAlias ||
+			PlayerStart->ActorHasTag(TeamTag) ||
+			PlayerStart->ActorHasTag(TeamAlias) ||
+			PlayerStart->ActorHasTag(PlayerStartAlias))
+		{
+			TargetStart = PlayerStart;
 			break;
 		}
-	}
-
-	if (!TargetStart && FoundActors.Num() > 0)
-	{
-		TargetStart = FoundActors[0];
 	}
 
 	if (TargetStart)
 	{
 		OwnerPawn->TeleportTo(TargetStart->GetActorLocation(), TargetStart->GetActorRotation());
+	}
+	else
+	{
+		OwnerPawn->TeleportTo(InitialSpawnLocation, InitialSpawnRotation);
 	}
 
 	if (ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>())
@@ -291,12 +395,19 @@ void ULOL_LifeCycleComponent::Multicast_OnRespawn_Implementation()
 {
 	if (!OwnerPawn) return;
 
-	TArray<UPrimitiveComponent*> PrimitiveComps;
-	OwnerPawn->GetComponents<UPrimitiveComponent>(PrimitiveComps);
-
-	for (UPrimitiveComponent* Comp : PrimitiveComps)
+	if (ULOL_AttackComponent* AttackComp =
+		OwnerPawn->FindComponentByClass<ULOL_AttackComponent>())
 	{
-		Comp->SetCollisionProfileName(TEXT("Pawn"));
+		AttackComp->ResetAfterRespawn();
+	}
+
+	for (const TPair<TWeakObjectPtr<UPrimitiveComponent>, ECollisionEnabled::Type>& CollisionState
+		: InitialCollisionStates)
+	{
+		if (UPrimitiveComponent* Comp = CollisionState.Key.Get())
+		{
+			Comp->SetCollisionEnabled(CollisionState.Value);
+		}
 	}
 
 	if (ULOL_UIComponent* UIComp = OwnerPawn->FindComponentByClass<ULOL_UIComponent>())

@@ -27,6 +27,7 @@
 #include "NiagaraSystem.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "InputMappingContext.h"
 #include "InputAction.h"
 #include "UObject/ConstructorHelpers.h"
@@ -218,6 +219,22 @@ void ALOL_PlayerController::SetupInputComponent()
 
 	InputComponent->BindKey(EKeys::P, IE_Pressed, this, &ALOL_PlayerController::OnToggleShop);
 	InputComponent->BindKey(EKeys::B, IE_Pressed, this, &ALOL_PlayerController::OnRecall);
+	InputComponent->BindKey(EKeys::Escape, IE_Pressed, this, &ALOL_PlayerController::OnQuitGame);
+}
+
+void ALOL_PlayerController::OnQuitGame()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	UKismetSystemLibrary::QuitGame(
+		this,
+		this,
+		EQuitPreference::Quit,
+		false
+	);
 }
 
 void ALOL_PlayerController::OnRecall()
@@ -366,7 +383,6 @@ void ALOL_PlayerController::OnSkillQ()
 		MyChampion->SetIsPressA(false);
 		MyChampion->UIComponent->HideRangeIndicator();
 	}
-	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Q Skill Used!"));
 }
 void ALOL_PlayerController::OnSkillW()
 {
@@ -376,7 +392,6 @@ void ALOL_PlayerController::OnSkillW()
 		MyChampion->SetIsPressA(false);
 		MyChampion->UIComponent->HideRangeIndicator();
 	}
-	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green, TEXT("W Skill Used!"));
 }
 void ALOL_PlayerController::OnSkillE()
 {
@@ -386,7 +401,6 @@ void ALOL_PlayerController::OnSkillE()
 		MyChampion->SetIsPressA(false);
 		MyChampion->UIComponent->HideRangeIndicator();
 	}
-	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Blue, TEXT("E Skill Used!"));
 }
 void ALOL_PlayerController::OnSkillR()
 {
@@ -396,7 +410,6 @@ void ALOL_PlayerController::OnSkillR()
 		MyChampion->SetIsPressA(false);
 		MyChampion->UIComponent->HideRangeIndicator();
 	}
-	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("R Skill (Ultimate) Used!"));
 }
 void ALOL_PlayerController::OnAKey()
 {
@@ -428,6 +441,8 @@ void ALOL_PlayerController::OnToggleShop()
 
 	if (ShopWidget->IsInViewport())
 	{
+		SelectedShopItemName = NAME_None;
+		SelectedInventoryItemSlotIndex = INDEX_NONE;
 		ShopWidget->RemoveFromParent();
 		FInputModeGameAndUI InputMode;
 		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::LockAlways);
@@ -437,6 +452,8 @@ void ALOL_PlayerController::OnToggleShop()
 	}
 
 	BindShopWidgetButtons();
+	SelectedShopItemName = NAME_None;
+	SelectedInventoryItemSlotIndex = INDEX_NONE;
 	ShopWidget->AddToViewport();
 	bShowMouseCursor = true;
 
@@ -458,6 +475,22 @@ void ALOL_PlayerController::SelectShopItem(FName ItemName)
 	UE_LOG(LogTemp, Log, TEXT("Shop item selected. Item=%s"), *SelectedShopItemName.ToString());
 }
 
+void ALOL_PlayerController::SelectInventoryItem(int32 ItemSlotIndex)
+{
+	if (!ShopWidget || !ShopWidget->IsInViewport())
+	{
+		return;
+	}
+
+	if (!PurchasedItemNames.IsValidIndex(ItemSlotIndex))
+	{
+		SelectedInventoryItemSlotIndex = INDEX_NONE;
+		return;
+	}
+
+	SelectedInventoryItemSlotIndex = ItemSlotIndex;
+}
+
 void ALOL_PlayerController::BuySelectedShopItem()
 {
 	if (SelectedShopItemName.IsNone())
@@ -466,18 +499,22 @@ void ALOL_PlayerController::BuySelectedShopItem()
 		return;
 	}
 
-	RequestBuyItem(SelectedShopItemName);
+	const FName ItemToBuy = SelectedShopItemName;
+	SelectedShopItemName = NAME_None;
+	RequestBuyItem(ItemToBuy);
 }
 
 void ALOL_PlayerController::SellSelectedShopItem()
 {
-	if (SelectedShopItemName.IsNone())
+	if (!PurchasedItemNames.IsValidIndex(SelectedInventoryItemSlotIndex))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Sell item failed. No shop item selected."));
+		UE_LOG(LogTemp, Warning, TEXT("Sell item failed. No inventory item selected."));
 		return;
 	}
 
-	Server_SellItem(SelectedShopItemName);
+	const int32 ItemSlotIndexToSell = SelectedInventoryItemSlotIndex;
+	SelectedInventoryItemSlotIndex = INDEX_NONE;
+	Server_SellItem(ItemSlotIndexToSell);
 }
 
 void ALOL_PlayerController::RequestBuyItem(FName ItemName)
@@ -511,27 +548,111 @@ void ALOL_PlayerController::Server_BuyItem_Implementation(FName ItemName)
 		return;
 	}
 
+	struct FConsumedRecipeItem
+	{
+		int32 InventoryIndex = INDEX_NONE;
+		FItemData ItemData;
+	};
+
+	TArray<FConsumedRecipeItem> ConsumedRecipeItems;
+	TSet<int32> UsedInventoryIndices;
+	TSet<FName> ActiveRecipePath;
+	int32 ConsumedRecipeValue = 0;
+
+	TFunction<void(FName)> CollectOwnedRecipeItems;
+	CollectOwnedRecipeItems =
+		[&](FName RecipeItemName)
+	{
+		for (int32 InventoryIndex = 0;
+			InventoryIndex < PurchasedItemNames.Num();
+			++InventoryIndex)
+		{
+			if (UsedInventoryIndices.Contains(InventoryIndex) ||
+				PurchasedItemNames[InventoryIndex] != RecipeItemName)
+			{
+				continue;
+			}
+
+			FItemData RecipeItemData;
+			if (!FindItemData(RecipeItemName, RecipeItemData))
+			{
+				return;
+			}
+
+			UsedInventoryIndices.Add(InventoryIndex);
+			ConsumedRecipeValue += RecipeItemData.Price;
+			ConsumedRecipeItems.Add(
+				{ InventoryIndex, RecipeItemData });
+			return;
+		}
+
+		if (ActiveRecipePath.Contains(RecipeItemName))
+		{
+			return;
+		}
+
+		FItemData RecipeItemData;
+		if (!FindItemData(RecipeItemName, RecipeItemData))
+		{
+			return;
+		}
+
+		ActiveRecipePath.Add(RecipeItemName);
+		for (const FName& ChildRecipeItemName :
+			RecipeItemData.RecipeItems)
+		{
+			CollectOwnedRecipeItems(ChildRecipeItemName);
+		}
+		ActiveRecipePath.Remove(RecipeItemName);
+	};
+
+	for (const FName& RecipeItemName : ItemData.RecipeItems)
+	{
+		CollectOwnedRecipeItems(RecipeItemName);
+	}
+
 	constexpr int32 MaxPurchasableItemSlots = 6;
-	if (PurchasedItemNames.Num() >= MaxPurchasableItemSlots)
+	const int32 InventoryCountAfterPurchase =
+		PurchasedItemNames.Num() - ConsumedRecipeItems.Num() + 1;
+	if (InventoryCountAfterPurchase > MaxPurchasableItemSlots)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Buy item failed. Inventory is full. Item=%s"), *ItemName.ToString());
 		return;
 	}
 
-	if (!Champion->StatComponent->SpendGold(static_cast<float>(ItemData.Price)))
+	const int32 PurchasePrice =
+		FMath::Max(0, ItemData.Price - ConsumedRecipeValue);
+	if (!Champion->StatComponent->SpendGold(
+		static_cast<float>(PurchasePrice)))
 	{
 		UE_LOG(
 			LogTemp,
 			Warning,
 			TEXT("Buy item failed. Not enough gold. Item=%s Price=%d Gold=%.0f"),
 			*ItemName.ToString(),
-			ItemData.Price,
+			PurchasePrice,
 			Champion->StatComponent->GetCurrentGold()
 		);
 		return;
 	}
 
 	const FChampionStat BeforeStat = Champion->StatComponent->GetStat();
+	ConsumedRecipeItems.Sort(
+		[](const FConsumedRecipeItem& Left,
+			const FConsumedRecipeItem& Right)
+		{
+			return Left.InventoryIndex > Right.InventoryIndex;
+		});
+
+	for (const FConsumedRecipeItem& ConsumedItem :
+		ConsumedRecipeItems)
+	{
+		Champion->StatComponent->RemoveItemData(
+			ConsumedItem.ItemData);
+		PurchasedItemNames.RemoveAt(
+			ConsumedItem.InventoryIndex);
+	}
+
 	Champion->StatComponent->ApplyItemData(ItemData);
 	const FChampionStat AfterStat = Champion->StatComponent->GetStat();
 
@@ -540,7 +661,7 @@ void ALOL_PlayerController::Server_BuyItem_Implementation(FName ItemName)
 		Log,
 		TEXT("Buy item succeeded. Item=%s Price=%d HP %.0f->%.0f MP %.0f->%.0f AD %.1f->%.1f AP %.1f->%.1f AS %.3f->%.3f Armor %.1f->%.1f MR %.1f->%.1f MS %.1f->%.1f"),
 		*ItemName.ToString(),
-		ItemData.Price,
+		PurchasePrice,
 		BeforeStat.MaxHP,
 		AfterStat.MaxHP,
 		BeforeStat.MaxMP,
@@ -564,13 +685,20 @@ void ALOL_PlayerController::Server_BuyItem_Implementation(FName ItemName)
 	Client_OnInventoryChanged(PurchasedItemNames);
 }
 
-void ALOL_PlayerController::Server_SellItem_Implementation(FName ItemName)
+void ALOL_PlayerController::Server_SellItem_Implementation(int32 ItemSlotIndex)
 {
 	ABaseChampion* Champion = MyChampion ? MyChampion : Cast<ABaseChampion>(GetPawn());
 	if (!Champion || !Champion->StatComponent)
 	{
 		return;
 	}
+
+	if (!PurchasedItemNames.IsValidIndex(ItemSlotIndex))
+	{
+		return;
+	}
+
+	const FName ItemName = PurchasedItemNames[ItemSlotIndex];
 
 	if (!IsInShopRange())
 	{
@@ -586,17 +714,12 @@ void ALOL_PlayerController::Server_SellItem_Implementation(FName ItemName)
 	}
 
 	const FName SoldItemName = ItemData.Name.IsNone() ? ItemName : ItemData.Name;
-	const int32 OwnedItemIndex = PurchasedItemNames.IndexOfByKey(SoldItemName);
-	if (OwnedItemIndex == INDEX_NONE)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Sell item failed. Item is not owned. Item=%s"), *SoldItemName.ToString());
-		return;
-	}
 
 	const FChampionStat BeforeStat = Champion->StatComponent->GetStat();
 	Champion->StatComponent->RemoveItemData(ItemData);
-	Champion->StatComponent->AddGold(static_cast<float>(ItemData.Price));
-	PurchasedItemNames.RemoveAt(OwnedItemIndex);
+	Champion->StatComponent->AddGold(
+		static_cast<float>(ItemData.Price));
+	PurchasedItemNames.RemoveAt(ItemSlotIndex);
 	const FChampionStat AfterStat = Champion->StatComponent->GetStat();
 
 	UE_LOG(
@@ -758,6 +881,16 @@ bool ALOL_PlayerController::IsInShopRange() const
 		return true;
 	}
 
+	return IsNearTeamShop();
+}
+
+bool ALOL_PlayerController::IsNearTeamShop() const
+{
+	if (ShopPurchaseRange <= 0.f)
+	{
+		return false;
+	}
+
 	const ABaseChampion* Champion = MyChampion ? MyChampion : Cast<ABaseChampion>(GetPawn());
 	if (!Champion)
 	{
@@ -770,7 +903,6 @@ bool ALOL_PlayerController::IsInShopRange() const
 		return false;
 	}
 
-	bool bFoundShopActor = false;
 	const FVector ChampionLocation = Champion->GetActorLocation();
 	const bool bChampionIsBlueTeam =
 		Champion->StateComponent &&
@@ -796,7 +928,6 @@ bool ALOL_PlayerController::IsInShopRange() const
 				continue;
 			}
 
-			bFoundShopActor = true;
 			if (bChampionIsBlueTeam && !ShopActor->ActorHasTag(FName("BlueTeam")))
 			{
 				continue;
@@ -811,11 +942,6 @@ bool ALOL_PlayerController::IsInShopRange() const
 				return true;
 			}
 		}
-	}
-
-	if (!bFoundShopActor)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("No shop actor found. Add one of these tags to a shop actor: Shop, shop, ItemShop"));
 	}
 
 	return false;
@@ -940,6 +1066,10 @@ void ALOL_PlayerController::Client_OnItemPurchased_Implementation(FName ItemName
 
 void ALOL_PlayerController::Client_OnInventoryChanged_Implementation(const TArray<FName>& ItemNames)
 {
+	PurchasedItemNames = ItemNames;
+	SelectedShopItemName = NAME_None;
+	SelectedInventoryItemSlotIndex = INDEX_NONE;
+
 	TArray<UTexture2D*> IconTextures;
 	for (const FName& ItemName : ItemNames)
 	{

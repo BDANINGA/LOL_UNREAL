@@ -126,19 +126,63 @@ AActor* ALOL_GameModeBase::ChoosePlayerStart_Implementation(AController* Player)
         ? Player->GetPlayerState<ALOL_PlayerState>()
         : nullptr;
 
-    const FName DesiredTeamTag =
-        PlayerState && PlayerState->TeamID == 2
+    const uint8 TeamID = PlayerState ? PlayerState->TeamID : 0;
+    const bool bIsRedTeam = TeamID == 2;
+    const FName DesiredTeamTag = bIsRedTeam
         ? FName("RedTeam")
         : FName("BlueTeam");
+    const FName DesiredTeamAlias = bIsRedTeam
+        ? FName("Red")
+        : FName("Blue");
+    const FName DesiredPlayerStartAlias = bIsRedTeam
+        ? FName("PlayerStart2")
+        : FName("PlayerStart1");
 
+    // PlayerStartTag is the value shown as "Player Start Tag" in the editor.
     for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
     {
-        if (It->ActorHasTag(DesiredTeamTag))
+        if (It->PlayerStartTag == DesiredTeamTag ||
+            It->PlayerStartTag == DesiredTeamAlias ||
+            It->PlayerStartTag == DesiredPlayerStartAlias)
         {
+            UE_LOG(
+                LogTemp,
+                Log,
+                TEXT("Selected PlayerStart by PlayerStartTag. Player=%s TeamID=%d Start=%s Tag=%s"),
+                *GetNameSafe(Player),
+                TeamID,
+                *It->GetName(),
+                *It->PlayerStartTag.ToString());
             return *It;
         }
     }
 
+    // Preserve compatibility with older maps that used Actor Tags.
+    for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+    {
+        if (It->ActorHasTag(DesiredTeamTag) ||
+            It->ActorHasTag(DesiredTeamAlias) ||
+            It->ActorHasTag(DesiredPlayerStartAlias))
+        {
+            UE_LOG(
+                LogTemp,
+                Log,
+                TEXT("Selected PlayerStart by legacy Actor Tag. Player=%s TeamID=%d Start=%s Team=%s"),
+                *GetNameSafe(Player),
+                TeamID,
+                *It->GetName(),
+                *DesiredTeamTag.ToString());
+            return *It;
+        }
+    }
+
+    UE_LOG(
+        LogTemp,
+        Warning,
+        TEXT("No matching PlayerStart. Player=%s TeamID=%d RequiredTag=%s"),
+        *GetNameSafe(Player),
+        TeamID,
+        *DesiredTeamTag.ToString());
     return Super::ChoosePlayerStart_Implementation(Player);
 }
 
@@ -487,18 +531,6 @@ void ALOL_GameModeBase::SpawnJungleMonsterAtTag(FName TargetTag, FName MonsterRo
             *TargetTag.ToString(),
             *MonsterRowName.ToString()
         );
-        if (GEngine)
-        {
-            GEngine->AddOnScreenDebugMessage(
-                -1,
-                5.0f,
-                FColor::Red,
-                FString::Printf(
-                    TEXT("Jungle spawn target not found: %s"),
-                    *TargetTag.ToString()
-                )
-            );
-        }
         return;
     }
 
@@ -511,27 +543,6 @@ void ALOL_GameModeBase::SpawnJungleMonsterAtTag(FName TargetTag, FName MonsterRo
             SpawnTarget->GetActorLocation(),
             SpawnTarget->GetActorRotation()
         );
-
-        UE_LOG(
-            LogTemp,
-            Warning,
-            TEXT("Jungle monster spawned. Monster=%s Target=%s Location=%s"),
-            *MonsterRowName.ToString(),
-            *SpawnTarget->GetName(),
-            *SpawnTarget->GetActorLocation().ToString()
-        );
-        if (GEngine)
-        {
-            GEngine->AddOnScreenDebugMessage(
-                -1,
-                5.0f,
-                FColor::Green,
-                FString::Printf(
-                    TEXT("Spawned jungle monster: %s"),
-                    *MonsterRowName.ToString()
-                )
-            );
-        }
     }
 }
 

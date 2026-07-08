@@ -237,7 +237,12 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+    "Dagger",
+    "Dagger",
+    "Boots"
+    ]
   },
   {
     "Name": "BootsOfSwiftness",
@@ -939,4 +944,6 @@
     "BonusPhysicalPenetrationPercent": 0.0,
     "BonusMagicPenetrationPercent": 0.0
   }
+
+
 ]

@@ -120,7 +120,7 @@ public:
 	void AddKillCount();
 	void AddDeathCount();
 	void AddAssistCount();
-	void AddMinionKillCount();
+	void AddMinionKillCount(int32 Amount = 1);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision")
 	float SightRadius = 2000.0f;
@@ -284,6 +284,4 @@ protected:
 	UFUNCTION()
 	void OnEnemyLeaveRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
-	UPROPERTY(Replicated)
-	FRotator ServerCharacterRotation;
 };

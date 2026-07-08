@@ -14,6 +14,9 @@
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "AIController.h"
 #include "Net/UnrealNetwork.h"
+#include "NavigationSystem.h"
+#include "NavigationData.h"
+#include "NavigationPath.h"
 #include "Navigation/PathFollowingComponent.h"
 
 ULOL_MoveComponent::ULOL_MoveComponent()
@@ -75,11 +78,34 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
             }
         }
 
-        if (StateComp && StateComp->HasStatusTag(LOLTags::State_Moving))
+        const bool bShouldUpdateMovement =
+            (StateComp && StateComp->HasStatusTag(LOLTags::State_Moving)) ||
+            (Champion->IsLocallyControlled() && bUsingDirectMovement);
+
+        if (bShouldUpdateMovement)
         {
             float Distance = FVector::Dist2D(OwnerPawn->GetActorLocation(), TargetLocation);
-            if (Distance <= 100.f) {
+            if (Distance <= 100.f)
+            {
                 StopMovement();
+            }
+            else if (Champion->IsLocallyControlled() && bUsingDirectMovement)
+            {
+                while (LocalNavigationPath.IsValidIndex(CurrentNavigationPathIndex) &&
+                    FVector::Dist2D(
+                        OwnerPawn->GetActorLocation(),
+                        LocalNavigationPath[CurrentNavigationPathIndex]) <= 60.0f)
+                {
+                    ++CurrentNavigationPathIndex;
+                }
+
+                const FVector MovementTarget =
+                    LocalNavigationPath.IsValidIndex(CurrentNavigationPathIndex)
+                    ? LocalNavigationPath[CurrentNavigationPathIndex]
+                    : TargetLocation;
+                FVector Direction = MovementTarget - OwnerPawn->GetActorLocation();
+                Direction.Z = 0.0f;
+                Champion->AddMovementInput(Direction.GetSafeNormal(), 1.0f);
             }
         }
     }
@@ -100,20 +126,32 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
     }
     else if (ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(OwnerPawn))
     {
+        if (!JungleMonster->HasAuthority())
+        {
+            return;
+        }
         if (!JungleMonster->StateComponent->HasStatusTag(LOLTags::State_Moving)) return;
 
-        FVector CurrentLocation = JungleMonster->GetActorLocation();
-        FVector Direction = TargetLocation - CurrentLocation;
-        Direction.Z = 0.f;
-        float Distance = Direction.Size();
+        if (MovementTargetActor.IsValid())
+        {
+            TargetLocation = MovementTargetActor->GetActorLocation();
+        }
 
-        if (Distance <= 15.f)
+        if (FVector::Dist2D(
+            JungleMonster->GetActorLocation(),
+            TargetLocation) <= 15.0f)
         {
             StopMovement();
         }
-        else
+        else if (bUsingDirectMovement)
         {
-            JungleMonster->AddMovementInput(Direction.GetSafeNormal(), 1.0f);
+            FVector Direction =
+                TargetLocation - JungleMonster->GetActorLocation();
+            Direction.Z = 0.0f;
+            JungleMonster->AddMovementInput(
+                Direction.GetSafeNormal(),
+                1.0f
+            );
             JungleMonster->SetActorRotation(Direction.Rotation());
         }
     }
@@ -141,7 +179,59 @@ void ULOL_MoveComponent::SetMoveTarget(FVector NewLocation, AActor* TargetActor)
                 Champion->StateComponent->AddStatusTag(LOLTags::State_Moving);
             }
 
-            UAIBlueprintHelperLibrary::SimpleMoveToLocation(Champion->GetController(), TargetLocation);
+            if (Champion->IsLocallyControlled())
+            {
+                if (Champion->HasAuthority())
+                {
+                    UNavigationSystemV1* NavigationSystem =
+                        FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+                    const ANavigationData* NavigationData = NavigationSystem
+                        ? NavigationSystem->GetDefaultNavDataInstance(
+                            FNavigationSystem::DontCreate)
+                        : nullptr;
+
+                    if (NavigationData)
+                    {
+                        bUsingDirectMovement = false;
+                        UAIBlueprintHelperLibrary::SimpleMoveToLocation(
+                            Champion->GetController(),
+                            TargetLocation
+                        );
+                    }
+                    else
+                    {
+                        SetLocalNavigationPath({ TargetLocation });
+                    }
+                }
+                else
+                {
+                    SetLocalNavigationPath({ TargetLocation });
+                }
+            }
+            else if (Champion->HasAuthority())
+            {
+                TArray<FVector> PathPoints;
+                if (UNavigationPath* NavigationPath =
+                    UNavigationSystemV1::FindPathToLocationSynchronously(
+                        this,
+                        Champion->GetActorLocation(),
+                        TargetLocation,
+                        Champion))
+                {
+                    if (NavigationPath->IsValid() && !NavigationPath->IsPartial())
+                    {
+                        PathPoints = NavigationPath->PathPoints;
+                    }
+                }
+
+                if (PathPoints.Num() < 2)
+                {
+                    PathPoints.Reset();
+                    PathPoints.Add(TargetLocation);
+                }
+
+                Client_SetNavigationPath(PathPoints);
+            }
         }
     }
     else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
@@ -154,11 +244,79 @@ void ULOL_MoveComponent::SetMoveTarget(FVector NewLocation, AActor* TargetActor)
             AICon->MoveToLocation(TargetLocation, 15.f);
         }
     }
+    else if (ABaseJungleMonster* JungleMonster =
+        Cast<ABaseJungleMonster>(OwnerPawn))
+    {
+        if (JungleMonster->IsStationaryMonster())
+        {
+            return;
+        }
+
+        if (ULOL_StateComponent* StateComp =
+            OwnerPawn->FindComponentByClass<ULOL_StateComponent>())
+        {
+            StateComp->AddStatusTag(LOLTags::State_Moving);
+        }
+
+        if (AAIController* AICon =
+            Cast<AAIController>(JungleMonster->GetController()))
+        {
+            MovementTargetActor = TargetActor;
+
+            EPathFollowingRequestResult::Type MoveResult =
+                EPathFollowingRequestResult::Failed;
+            if (TargetActor)
+            {
+                const ULOL_StatComponent* StatComponent =
+                    JungleMonster->StatComponent;
+                const float AcceptanceRadius = StatComponent
+                    ? FMath::Max(
+                        15.0f,
+                        StatComponent->GetStat().AttackRange)
+                    : 15.0f;
+                MoveResult = AICon->MoveToActor(
+                    TargetActor,
+                    AcceptanceRadius,
+                    true,
+                    true,
+                    true,
+                    nullptr,
+                    true
+                );
+            }
+            else
+            {
+                MoveResult = AICon->MoveToLocation(
+                    TargetLocation,
+                    15.0f,
+                    false,
+                    true,
+                    true,
+                    true,
+                    nullptr,
+                    true
+                );
+            }
+
+            bUsingDirectMovement =
+                MoveResult != EPathFollowingRequestResult::RequestSuccessful;
+        }
+        else
+        {
+            MovementTargetActor = TargetActor;
+            bUsingDirectMovement = true;
+        }
+    }
 }
 
 void ULOL_MoveComponent::StopMovement()
 {
     if (!OwnerPawn) return;
+
+    bUsingDirectMovement = false;
+    LocalNavigationPath.Reset();
+    CurrentNavigationPathIndex = 0;
+    MovementTargetActor.Reset();
 
     ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>();
     if (StateComp) StateComp->RemoveStatusTag(LOLTags::State_Moving);
@@ -178,8 +336,37 @@ void ULOL_MoveComponent::StopMovement()
     }
     else if (ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(OwnerPawn)) {
         TargetLocation = JungleMonster->GetActorLocation();
+        if (AAIController* AICon =
+            Cast<AAIController>(JungleMonster->GetController()))
+        {
+            AICon->StopMovement();
+        }
         if (JungleMonster->GetCharacterMovement()) JungleMonster->GetCharacterMovement()->StopMovementImmediately();
     }
+}
+
+void ULOL_MoveComponent::SetLocalNavigationPath(
+    const TArray<FVector>& NewPathPoints)
+{
+    LocalNavigationPath = NewPathPoints;
+    CurrentNavigationPathIndex = 0;
+    bUsingDirectMovement = LocalNavigationPath.Num() > 0;
+
+    if (LocalNavigationPath.Num() > 0)
+    {
+        TargetLocation = LocalNavigationPath.Last();
+    }
+}
+
+void ULOL_MoveComponent::Client_SetNavigationPath_Implementation(
+    const TArray<FVector>& NewPathPoints)
+{
+    if (!OwnerPawn || !OwnerPawn->IsLocallyControlled())
+    {
+        return;
+    }
+
+    SetLocalNavigationPath(NewPathPoints);
 }
 
 void ULOL_MoveComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

@@ -14,11 +14,6 @@ public:
 	class UNiagaraSystem* GetAllyProjectileNiagara() { return  AllyProjectileNiagara; };
 	class UNiagaraSystem* GetEnemyProjectileNiagara() { return  EnemyProjectileNiagara; };
 
-	UPROPERTY()
-	AActor* CurrentDebugTarget;
-
-	virtual void Tick(float DeltaTime) override;
-
 private:
 	UPROPERTY(EditAnywhere, Category = "Mesh")
 	TObjectPtr<class UStaticMeshComponent> BuildingMesh;

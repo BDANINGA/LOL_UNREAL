@@ -40,8 +40,6 @@ void AChampion_Vayne::Multicast_PlayQMontage_Implementation()
     {
         PlayAnimMontage(ChampionResource.QMontage[AM_SKIll_Q_IDX], 1.0f);
     }
-    else
-        if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("NO (Ultimate) Used!"));
 }
 
 void AChampion_Vayne::Server_Skill_Q_Implementation(FVector QLocation)
@@ -87,10 +85,7 @@ void AChampion_Vayne::Server_Skill_Q_Implementation(FVector QLocation)
     GetCharacterMovement()->SetMovementMode(MOVE_None);
     bIsDashing = true;
 
-    // ★ 추가 — 다음 평타 강화 플래그 ON
     bQEmpowered = true;
-
-    UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 다음 평타 강화!"));
 
     // 만료 타이머 (6초 안에 평타 안 치면 사라짐)
     GetWorld()->GetTimerManager().SetTimer(
@@ -124,17 +119,6 @@ void AChampion_Vayne::Tick(float DeltaTime)
         }
     }
 
-    if (GEngine)
-    {
-        const float Speed = GetCharacterMovement()->MaxWalkSpeed;
-        const float AD = StatComponent->GetStat().AttackDamage;
-
-        GEngine->AddOnScreenDebugMessage(1, 0.f, FColor::Green,
-            FString::Printf(TEXT("MaxWalkSpeed: 90.0f"), Speed));
-        GEngine->AddOnScreenDebugMessage(2, 0.f, FColor::Yellow,
-            FString::Printf(TEXT("AttackDamage: 35.0f"), AD));
-    }
-
     if (IsLocallyControlled() && bIsChasingForE)
     {
         UpdateEChaseToCast();
@@ -143,7 +127,6 @@ void AChampion_Vayne::Tick(float DeltaTime)
 
 void AChampion_Vayne::Skill_W()
 {
-    UE_LOG(LogTemp, Log, TEXT("[Vayne W] 은빛 화살은 패시브입니다."));
 }
 
 void AChampion_Vayne::EndQEmpower()
@@ -151,7 +134,6 @@ void AChampion_Vayne::EndQEmpower()
     if (bQEmpowered)
     {
         bQEmpowered = false;
-        UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 강화 평타 만료 (사용 안 함)"));
     }
 }
 
@@ -169,24 +151,13 @@ void AChampion_Vayne::OnBasicAttackHit(ACharacter* Target)
 
     if (bQEmpowered)
     {
-        UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 강화 평타 발동!"));
-
-        // ★ 1단계 — Target 확인
-        UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 1단계: Target = %s"),
-            IsValid(Target) ? *Target->GetName() : TEXT("nullptr"));
-
-        // ★ 2단계 — SkillComponent 확인
         if (!SkillComponent)
         {
             UE_LOG(LogTemp, Error, TEXT("[Vayne Q] SkillComponent가 nullptr!"));
             return;
         }
-        UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 2단계: SkillComponent OK"));
 
-        // ★ 3단계 — Q 데이터 확인
         const FSkillData& QData = SkillComponent->GetQ_Data();
-        UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 3단계: BaseDamage 크기 = %d"),
-            QData.BaseDamage.Num());
 
         if (QData.BaseDamage.Num() == 0)
         {
@@ -195,21 +166,14 @@ void AChampion_Vayne::OnBasicAttackHit(ACharacter* Target)
             return;
         }
 
-        // ★ 4단계 — StatComponent 확인
         if (!StatComponent)
         {
             UE_LOG(LogTemp, Error, TEXT("[Vayne Q] StatComponent가 nullptr!"));
             return;
         }
 
-        // ★ 5단계 — 데미지 계산
         float SkillDamage = QData.BaseDamage[0] +
             StatComponent->GetStat().AttackDamage * 0.5f;
-
-        UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 5단계: SkillDamage = %.1f"), SkillDamage);
-
-        // ★ 6단계 — ApplyDamage 호출
-        UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 6단계: ApplyDamage 호출 직전"));
 
         UGameplayStatics::ApplyDamage(
             Target,
@@ -218,8 +182,6 @@ void AChampion_Vayne::OnBasicAttackHit(ACharacter* Target)
             this,
             UDamageType::StaticClass()
         );
-
-        UE_LOG(LogTemp, Warning, TEXT("[Vayne Q] 7단계: ApplyDamage 호출 완료, 적 HP 줄었어야 함"));
 
         bQEmpowered = false;
         GetWorldTimerManager().ClearTimer(Q_EmpoweredTimerHandle);
@@ -230,9 +192,6 @@ void AChampion_Vayne::OnBasicAttackHit(ACharacter* Target)
     // 1. 해당 타겟의 스택 +1
     int32& Stack = SilverBoltsStack.FindOrAdd(Key);
     Stack++;
-
-    UE_LOG(LogTemp, Log, TEXT("[Vayne W] %s 스택: %d / %d"),
-        *Target->GetName(), Stack, BoltsThreshold);
 
     // 2. 임계값 도달 → 발동
     if (Stack >= BoltsThreshold)
@@ -260,8 +219,6 @@ void AChampion_Vayne::OnBasicAttackHit(ACharacter* Target)
                 if (!IsValid(this)) return;
                 SilverBoltsStack.Remove(Key);
                 SilverBoltsTimers.Remove(Key);
-
-                UE_LOG(LogTemp, Log, TEXT("[Vayne W] 스택 만료"));
             }),
         BoltsStackDuration, false);
 }
@@ -281,8 +238,6 @@ void AChampion_Vayne::TriggerSilverBolts(ACharacter* Target)
         UDamageType::StaticClass()
     );
 
-    UE_LOG(LogTemp, Warning, TEXT("[Vayne W] 은빛 화살 발동! %s에게 %.0f 고정 피해"),
-        *Target->GetName(), BoltsBonusDamage);
 }
 
 void AChampion_Vayne::Skill_E()
@@ -494,7 +449,6 @@ void AChampion_Vayne::Server_Skill_R_Implementation()
     // 3. 연출 실행 (멀티캐스트)
     Multicast_PlayRMontage();
 
-    UE_LOG(LogTemp, Log, TEXT("[Vayne] 결전의 시간 발동!"));
 }
 
 void AChampion_Vayne::Multicast_PlayRMontage_Implementation()
@@ -511,7 +465,6 @@ void AChampion_Vayne::End_Skill_R()
     AM_Atk_Idx = 0;
     // StatComponent->AddAttackDamage(-R_BonusAD); // 버프 회수
 
-    UE_LOG(LogTemp, Log, TEXT("[Vayne] 결전의 시간 종료"));
 }
 
 void AChampion_Vayne::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

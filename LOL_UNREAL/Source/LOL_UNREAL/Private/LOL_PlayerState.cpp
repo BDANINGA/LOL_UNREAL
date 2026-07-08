@@ -28,11 +28,11 @@ void ALOL_PlayerState::AddAssist()
 	}
 }
 
-void ALOL_PlayerState::AddMinionKill()
+void ALOL_PlayerState::AddMinionKill(int32 Amount)
 {
-	if (HasAuthority())
+	if (HasAuthority() && Amount > 0)
 	{
-		++MinionKills;
+		MinionKills += Amount;
 	}
 }
 

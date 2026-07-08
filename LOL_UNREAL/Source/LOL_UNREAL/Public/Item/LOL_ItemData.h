@@ -22,6 +22,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item")
 	int32 SellPrice = 0;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Recipe")
+	TArray<FName> RecipeItems;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Bonus")
 	float BonusMaxHP = 0.0f;
 

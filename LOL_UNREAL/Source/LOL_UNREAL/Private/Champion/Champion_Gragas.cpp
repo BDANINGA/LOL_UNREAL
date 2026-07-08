@@ -337,7 +337,6 @@ void AChampion_Gragas::Tick(float DeltaTime)
 
 void AChampion_Gragas::ExplodeQ()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Gragas ExplodeQ called. HasAuthority=%d bQActive=%d"), HasAuthority() ? 1 : 0, bQActive ? 1 : 0);
 	if (!HasAuthority() || !bQActive || !SkillComponent || !StatComponent) return;
 
 	GetWorldTimerManager().ClearTimer(QExplosionTimerHandle);
@@ -629,7 +628,6 @@ void AChampion_Gragas::FinishEDash(AActor* HitTarget)
 
 void AChampion_Gragas::ExplodeR()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Gragas ExplodeR called. HasAuthority=%d"), HasAuthority() ? 1 : 0);
 	if (!HasAuthority() || !SkillComponent || !StatComponent) return;
 
 	SpawnGragasExplosionEffect(
@@ -1035,16 +1033,6 @@ void AChampion_Gragas::SpawnGragasExplosionEffect(
 		false
 	);
 
-	UE_LOG(
-		LogTemp,
-		Warning,
-		TEXT("Gragas explosion Niagara effect spawned. Type=%s Location=%s VisualRadius=%.1f Scale=%.2f LifeTime=%.2f"),
-		bUseQEffect ? TEXT("Q") : TEXT("R"),
-		*SpawnLocation.ToString(),
-		VisualRadius,
-		NiagaraScale,
-		ExplosionEffectLifeTime
-	);
 }
 
 FVector AChampion_Gragas::ClampTargetLocation(

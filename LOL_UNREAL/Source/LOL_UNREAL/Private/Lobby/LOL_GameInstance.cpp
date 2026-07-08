@@ -76,14 +76,6 @@ void ULOL_GameInstance::LogLobbyJoinFailure(
         *FailureType,
         ErrorString.IsEmpty() ? TEXT("No additional error was provided.") : *ErrorString);
 
-    if (GEngine)
-    {
-        const FString ScreenMessage = FString::Printf(
-            TEXT("Lobby join failed: %s"),
-            ErrorString.IsEmpty() ? *FailureType : *ErrorString);
-        GEngine->AddOnScreenDebugMessage(-1, 8.0f, FColor::Red, ScreenMessage);
-    }
-
     PendingLobbyAddress.Empty();
     bLobbyJoinPending = false;
 }

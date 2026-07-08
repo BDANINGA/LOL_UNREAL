@@ -32,8 +32,6 @@
 #include "Component/Champion_SkillComponent.h"
 
 #include "Building/BaseBuilding.h"
-#include "DrawDebugHelpers.h"
-
 #include "UObject/ConstructorHelpers.h"
 
 ABaseChampion::ABaseChampion()
@@ -118,6 +116,12 @@ void ABaseChampion::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->bOrientRotationToMovement = true;
+		Movement->bUseControllerDesiredRotation = false;
+	}
+
 	RecallHomeLocation = GetActorLocation();
 	RecallHomeRotation = GetActorRotation();
 
@@ -171,13 +175,6 @@ void ABaseChampion::BeginPlay()
 	if (Manager)
 	{
 		Manager->RegisterActor(this);
-	}
-	if (GetLocalRole() == ROLE_AutonomousProxy && !HasAuthority())
-	{
-		if (UCharacterMovementComponent* Movement = GetCharacterMovement())
-		{
-			Movement->bOrientRotationToMovement = false;
-		}
 	}
 }
 
@@ -233,11 +230,11 @@ void ABaseChampion::AddAssistCount()
 	}
 }
 
-void ABaseChampion::AddMinionKillCount()
+void ABaseChampion::AddMinionKillCount(int32 Amount)
 {
-	if (HasAuthority())
+	if (HasAuthority() && Amount > 0)
 	{
-		++MinionKillCount;
+		MinionKillCount += Amount;
 	}
 }
 
@@ -287,18 +284,6 @@ void ABaseChampion::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 void ABaseChampion::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	if (HasAuthority())
-	{
-		ServerCharacterRotation = GetActorRotation();
-	}
-	if (GetLocalRole() == ROLE_AutonomousProxy && !HasAuthority())
-	{
-		FRotator CurrentRot = GetActorRotation();
-		FRotator TargetRot = FRotator(0.f, ServerCharacterRotation.Yaw, 0.f);
-		FRotator NewRot = FMath::RInterpTo(CurrentRot, TargetRot, DeltaTime, 15.f);
-		SetActorRotation(NewRot);
-	}
 
 	if (bIsKnockedBack)
 	{
@@ -375,7 +360,6 @@ void ABaseChampion::OnEnemyLeaveRange(UPrimitiveComponent* OverlappedComponent, 
 }
 void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(ABaseChampion, ServerCharacterRotation);
 	DOREPLIFETIME(ABaseChampion, TeamId);
 	DOREPLIFETIME(ABaseChampion, KillCount);
 	DOREPLIFETIME(ABaseChampion, DeathCount);
@@ -421,6 +405,26 @@ void ABaseChampion::ProcessMoveInput(FVector ClickLocation, AActor* TargetActor)
 	}
 
 	if (IsMoveInputBlocked()) return;
+
+	FVector ClickDirection = ClickLocation - GetActorLocation();
+	ClickDirection.Z = 0.0f;
+	if (!ClickDirection.IsNearlyZero())
+	{
+		SetActorRotation(FRotator(0.0f, ClickDirection.Rotation().Yaw, 0.0f));
+	}
+
+	const bool bIsAttackTarget =
+		TargetActor &&
+		TargetActor != this &&
+		IsEnemyActor(TargetActor) &&
+		TargetActor->FindComponentByClass<ULOL_StateComponent>();
+
+	if (!HasAuthority() && IsLocallyControlled() && MoveComponent && !bIsAttackTarget)
+	{
+		MoveComponent->bIsSearchAttack = bIsPressA;
+		MoveComponent->SetMoveTarget(ClickLocation, TargetActor);
+	}
+
 	Server_ProcessMoveInput(ClickLocation, TargetActor, bIsPressA);
 }
 void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation, AActor* TargetActor, bool bIsSearch)
@@ -435,6 +439,13 @@ void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation
 	if (bIsKnockedBack) return;
 	if (StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
 	if (bIsStunned) return;
+
+	FVector ClickDirection = ClickLocation - GetActorLocation();
+	ClickDirection.Z = 0.0f;
+	if (!ClickDirection.IsNearlyZero())
+	{
+		SetActorRotation(FRotator(0.0f, ClickDirection.Rotation().Yaw, 0.0f));
+	}
 
 	MoveComponent->bIsSearchAttack = bIsSearch;
 
@@ -730,9 +741,6 @@ void ABaseChampion::CheckKnockbackWall()
 		ObjParams,
 		FCollisionShape::MakeCapsule(Radius * 0.9f, HalfHeight * 0.9f),
 		Params);
-
-	DrawDebugCapsule(GetWorld(), End, HalfHeight * 0.9f, Radius * 0.9f,
-		GetActorQuat(), bHit ? FColor::Green : FColor::Red, false, 0.1f);
 
 	if (!bHit)
 	{

@@ -125,10 +125,33 @@ void ULOL_AttackComponent::UpdateAttackLogic()
                 StateComp->RemoveStatusTag(LOLTags::State_Moving);
                 return;
             }
+
+            const bool bWasMoving =
+                StateComp->HasStatusTag(LOLTags::State_Moving);
+            StateComp->AddStatusTag(LOLTags::State_Moving);
+            MoveComp->TargetLocation = CombatTarget->GetActorLocation();
+            JungleMonster->ApplyChaseMoveSpeed();
+
+            if (!bWasMoving)
+            {
+                MoveComp->SetMoveTarget(
+                    CombatTarget->GetActorLocation(),
+                    CombatTarget
+                );
+            }
+            return;
         }
 
         StateComp->AddStatusTag(LOLTags::State_Moving);
         MoveComp->TargetLocation = CombatTarget->GetActorLocation();
+
+        if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
+        {
+            if (!Champion->IsLocallyControlled())
+            {
+                return;
+            }
+        }
 
         FVector Direction = MoveComp->TargetLocation - OwnerPawn->GetActorLocation();
         Direction.Z = 0.f;
@@ -362,7 +385,6 @@ void ULOL_AttackComponent::ExecuteRangeAttackHit()
     else if (ABuilding_Turret* Turret = Cast<ABuilding_Turret>(OwnerPawn))
     {
         UNiagaraSystem* TargetNiagara = nullptr;
-        Turret->CurrentDebugTarget = HitTarget;
         APlayerController* PC = Turret->GetWorld()->GetFirstPlayerController();
         if (PC && PC->GetPawn())
         {
@@ -424,6 +446,30 @@ void ULOL_AttackComponent::ReceivedCrowdControl()
         GetWorld()->GetTimerManager().ClearTimer(AttackHitTimerHandle);
     }
 }
+
+void ULOL_AttackComponent::ResetAfterRespawn()
+{
+    if (GetWorld())
+    {
+        GetWorld()->GetTimerManager().ClearTimer(AttackTimerHandle);
+        GetWorld()->GetTimerManager().ClearTimer(AttackHitTimerHandle);
+    }
+
+    CombatTarget = nullptr;
+    HitTarget = nullptr;
+    bCanAttack = true;
+    bHitHappened = false;
+
+    if (OwnerPawn)
+    {
+        if (ULOL_StateComponent* StateComp =
+            OwnerPawn->FindComponentByClass<ULOL_StateComponent>())
+        {
+            StateComp->RemoveStatusTag(LOLTags::State_Attacking);
+        }
+    }
+}
+
 ABaseProjectile* ULOL_AttackComponent::GetProjectileFromPool()
 {
     for (ABaseProjectile* Proj : ProjectilePool)
@@ -433,7 +479,6 @@ ABaseProjectile* ULOL_AttackComponent::GetProjectileFromPool()
             return Proj;
         }
     }
-    if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, TEXT("풀에 남은 화살이 없습니다!"));
     return nullptr;
 }
 void ULOL_AttackComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

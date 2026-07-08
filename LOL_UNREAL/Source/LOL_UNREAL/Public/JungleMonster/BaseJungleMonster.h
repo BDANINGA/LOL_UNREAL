@@ -74,6 +74,7 @@ public:
 	void InitializeJungleMonster(FName RowName);
 	void SetJungleMonsterData(FName RowName);
 	void ApplyCrowdControl(float Duration);
+	void ApplyChaseMoveSpeed();
 
 protected:
 	FVector GetMeshScaleForMonster(FName RowName) const;
@@ -81,6 +82,10 @@ protected:
 	void UpdateReturnToSpawn(float DeltaTime);
 	bool ShouldResetLeash() const;
 	void ClearCrowdControl();
+	void RestoreHealthAtSpawn();
+	void ScheduleStationaryResetHeal();
+	void RestoreStationaryHealthAfterDelay();
+	void RestoreDefaultMoveSpeed();
 
 	UFUNCTION()
 	void OnRep_JungleMonsterName();
@@ -97,6 +102,12 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "JungleMonster|Leash")
 	float ReturnAcceptanceRadius = 50.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "JungleMonster|Leash")
+	float StationaryResetHealDelay = 3.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "JungleMonster|Movement", meta = (ClampMin = "0.1", ClampMax = "1.0"))
+	float ChaseMoveSpeedMultiplier = 0.75f;
+
 	UPROPERTY()
 	FVector SpawnLocation = FVector::ZeroVector;
 
@@ -108,7 +119,9 @@ protected:
 
 	bool bReturningToSpawn = false;
 	bool bCrowdControlled = false;
+	bool bHadCombatTarget = false;
 
 	FTimerHandle CrowdControlTimerHandle;
+	FTimerHandle StationaryResetHealTimerHandle;
 
 };

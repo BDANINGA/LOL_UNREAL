@@ -65,10 +65,6 @@ void ALOL_TurretAIController::DecisionLoop()
 			AttackComp->CombatTarget = nullptr;
 			CurrentTarget = nullptr;
 
-			if (ABuilding_Turret* Turret = Cast<ABuilding_Turret>(ControlledPawn))
-			{
-				Turret->CurrentDebugTarget = nullptr;
-			}
 		}
 	}
 
