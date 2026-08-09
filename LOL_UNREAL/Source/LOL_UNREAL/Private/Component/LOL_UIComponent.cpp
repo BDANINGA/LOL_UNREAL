@@ -11,6 +11,7 @@
 #include "Widget/LOL_MinionWidget.h"
 #include "LOL_HUD.h"
 #include "BaseChampion.h"
+#include "Building/BaseBuilding.h"
 #include "JungleMonster/BaseJungleMonster.h"
 
 ULOL_UIComponent::ULOL_UIComponent()
@@ -54,6 +55,10 @@ void ULOL_UIComponent::BeginPlay()
         {
             ActorWidget->AttachToComponent(MeshComp, FAttachmentTransformRules::KeepRelativeTransform);
         }
+        else if (UStaticMeshComponent* StaticMeshComp = OwnerPawn->FindComponentByClass<UStaticMeshComponent>())
+        {
+            ActorWidget->AttachToComponent(StaticMeshComp, FAttachmentTransformRules::KeepRelativeTransform);
+        }
 
         if (ABaseChampion* Champ = Cast<ABaseChampion>(OwnerPawn))
         {
@@ -72,6 +77,15 @@ void ULOL_UIComponent::BeginPlay()
                 MinionWidgetObj->SetHPBarColor(FLinearColor::Red);
             }
             ApplyJungleMonsterWidgetLayout(JungleMonster);
+
+            RangeIndicator->DestroyComponent();
+        }
+        else if (ABaseBuilding* Building = Cast<ABaseBuilding>(OwnerPawn))
+        {
+            ActorWidget->SetWidgetClass(MinionWidgetClass);
+            ActorWidget->InitWidget();
+
+            ApplyBuildingWidgetLayout(Building);
 
             RangeIndicator->DestroyComponent();
         }
@@ -109,17 +123,17 @@ void ULOL_UIComponent::ApplyJungleMonsterWidgetLayout(ABaseJungleMonster* Jungle
 
     if (MonsterName == FName("Wolf"))
     {
-        DrawSize = FVector2D(120.0f, 8.0f);
+        DrawSize = FVector2D(100.0f, 8.0f);
         RelativeLocation = FVector(0.0f, 0.0f, 160.0f);
     }
     else if (MonsterName == FName("Gromp"))
     {
-        DrawSize = FVector2D(140.0f, 8.0f);
+        DrawSize = FVector2D(120.0f, 8.0f);
         RelativeLocation = FVector(0.0f, 0.0f, 180.0f);
     }
     else if (MonsterName == FName("Razorbeak") || MonsterName == FName("Raptor"))
     {
-        DrawSize = FVector2D(110.0f, 7.0f);
+        DrawSize = FVector2D(100.0f, 7.0f);
         RelativeLocation = FVector(0.0f, 0.0f, 150.0f);
     }
     else if (MonsterName == FName("Krug"))
@@ -149,7 +163,39 @@ void ULOL_UIComponent::ApplyJungleMonsterWidgetLayout(ABaseJungleMonster* Jungle
     ActorWidget->SetDrawSize(DrawSize);
     ActorWidget->SetRelativeLocation(RelativeLocation);
 }
+void ULOL_UIComponent::ApplyBuildingWidgetLayout(ABaseBuilding* Building)
+{
+    if (!ActorWidget || !Building)
+    {
+        return;
+    }
 
+    FVector2D DrawSize(150.0f, 10.0f);
+    FVector RelativeLocation(0.0f, 0.0f, 300.0f);
+    FVector WidgetScale(1.0f, 1.0f, 1.0f);
+
+    const FName BName = Building->GetBuildingName();
+
+    if (BName == FName("Building_Turret"))
+    {
+        DrawSize = FVector2D(160.f, 10.f);
+        RelativeLocation = FVector(0.0f, 0.0f, 450.0f);
+    }
+    else if (BName == FName("Building_Inhibitor"))
+    {
+        DrawSize = FVector2D(150.f, 10.f);
+        RelativeLocation = FVector(0.0f, 0.0f, 350.0f);
+    }
+    else if (BName == FName("Building_Nexus"))
+    {
+        DrawSize = FVector2D(300.f, 20.f);
+        RelativeLocation = FVector(0.0f, 0.0f, 400.0f);
+    }
+
+    ActorWidget->SetRelativeScale3D(FVector(5.0f, 1.5f, 1.5f));
+    ActorWidget->SetDrawSize(DrawSize);
+    ActorWidget->SetRelativeLocation(RelativeLocation);
+}
 void ULOL_UIComponent::ShowRangeIndicator()
 {
     ABaseChampion* Champ = Cast<ABaseChampion>(OwnerPawn);

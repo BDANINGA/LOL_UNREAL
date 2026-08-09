@@ -51,6 +51,7 @@ protected:
 
 private:
 	void ApplyJungleMonsterWidgetLayout(class ABaseJungleMonster* JungleMonster);
+	void ApplyBuildingWidgetLayout(class ABaseBuilding* Building);
 
 	TSubclassOf<class UUserWidget> ChampionWidgetClass;
 	TSubclassOf<class UUserWidget> MinionWidgetClass;
