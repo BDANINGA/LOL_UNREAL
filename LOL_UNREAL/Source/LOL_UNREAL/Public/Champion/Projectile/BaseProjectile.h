@@ -38,16 +38,37 @@ public:
 
     void SetShooter(class AActor* Actor);
     void SetMesh(UStaticMesh* InMesh);
+    void SetMeshTransform(FVector InScale, FRotator InRelativeRotation);
     void SetNiagara(class UNiagaraSystem* InNiagara);
 
+    UPROPERTY(ReplicatedUsing = OnRep_IsActive)
     bool bIsActive = false;
 protected:
 	virtual void BeginPlay() override;
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 private:
+    UFUNCTION()
+    void OnRep_IsActive();
+
+    UFUNCTION()
+    void OnRep_ProjectileVisual();
+
+    void ApplyActiveState();
+    void ApplyProjectileVisual();
+
     UPROPERTY()
     AActor* Shooter;
 
     UPROPERTY()
     AActor* CurrentTarget;
+
+    UPROPERTY(ReplicatedUsing = OnRep_ProjectileVisual)
+    TObjectPtr<UStaticMesh> ReplicatedMesh;
+
+    UPROPERTY(ReplicatedUsing = OnRep_ProjectileVisual)
+    FVector ReplicatedMeshScale = FVector::OneVector;
+
+    UPROPERTY(ReplicatedUsing = OnRep_ProjectileVisual)
+    FRotator ReplicatedMeshRelativeRotation = FRotator(0.0f, -90.0f, 0.0f);
 };

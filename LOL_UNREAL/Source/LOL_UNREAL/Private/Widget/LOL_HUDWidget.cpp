@@ -7,10 +7,13 @@
 #include "Components/Image.h"
 #include "Components/ProgressBar.h"
 #include "Components/VerticalBox.h"
+#include "Components/Button.h"
+#include "Components/Widget.h"
 #include "Blueprint/UserWidget.h"
 #include "LOL_GameState.h"
 #include "LOL_PlayerState.h"
 #include "BaseChampion.h"
+#include "Component/Champion_SkillComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
@@ -37,7 +40,36 @@ void ULOL_HUDWidget::NativeConstruct()
 
     CacheItemSlotImages();
     CacheScoreboardTextBlocks();
+    CacheSkillLevelUpButtons();
     CreateKillLogContainer();
+
+    if (!EXPProgressBar && WidgetTree)
+    {
+        const TArray<FName> EXPProgressBarNames = {
+            TEXT("EXPProgressBar"),
+            TEXT("ExpProgressBar"),
+            TEXT("ExperienceBar"),
+            TEXT("experiencebar"),
+            TEXT("ExperienceProgressBar"),
+            TEXT("exp_progressbar"),
+            TEXT("exp_progress"),
+            TEXT("EXP")
+        };
+
+        for (const FName& WidgetName : EXPProgressBarNames)
+        {
+            EXPProgressBar = Cast<UProgressBar>(WidgetTree->FindWidget(WidgetName));
+            if (EXPProgressBar)
+            {
+                break;
+            }
+        }
+    }
+
+    if (EXPProgressBar)
+    {
+        EXPProgressBar->SetPercent(0.0f);
+    }
 
     if (ALOL_GameState* GameState = GetWorld()
         ? GetWorld()->GetGameState<ALOL_GameState>()
@@ -122,6 +154,7 @@ void ULOL_HUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
     }
 
     UpdateScoreboard();
+    UpdateSkillLevelUpButtonStates();
 }
 
 void ULOL_HUDWidget::UpdateScoreboard()
@@ -226,7 +259,6 @@ void ULOL_HUDWidget::CreateKillLogContainer()
     UCanvasPanel* RootCanvas = Cast<UCanvasPanel>(WidgetTree->RootWidget);
     if (!RootCanvas)
     {
-        UE_LOG(LogTemp, Warning, TEXT("Kill log container could not be created: HUD root is not a CanvasPanel."));
         return;
     }
 
@@ -307,6 +339,209 @@ void ULOL_HUDWidget::RemoveKillLogEntry(UUserWidget* Entry)
     }
 }
 
+void ULOL_HUDWidget::CacheSkillLevelUpButtons()
+{
+    if (!WidgetTree)
+    {
+        return;
+    }
+
+    auto FindLevelUpWidget = [this](UButton* BoundButton,
+        std::initializer_list<const TCHAR*> CandidateNames)
+    {
+        if (BoundButton)
+        {
+            return static_cast<UWidget*>(BoundButton);
+        }
+
+        for (const TCHAR* CandidateName : CandidateNames)
+        {
+            if (UWidget* Widget = WidgetTree->FindWidget(FName(CandidateName)))
+            {
+                return Widget;
+            }
+        }
+
+        return static_cast<UWidget*>(nullptr);
+    };
+
+    QLevelUpWidget = FindLevelUpWidget(QLevelUpButton, {
+        TEXT("QLevelUpButton"),
+        TEXT("Q_LevelUpButton"),
+        TEXT("Button_Q_LevelUp"),
+        TEXT("QPlusButton"),
+        TEXT("SkillQLevelUpButton"),
+        TEXT("SkillQ_LevelUpButton"),
+        TEXT("LevelUp_Q")
+    });
+    WLevelUpWidget = FindLevelUpWidget(WLevelUpButton, {
+        TEXT("WLevelUpButton"),
+        TEXT("W_LevelUpButton"),
+        TEXT("Button_W_LevelUp"),
+        TEXT("WPlusButton"),
+        TEXT("SkillWLevelUpButton"),
+        TEXT("SkillW_LevelUpButton"),
+        TEXT("LevelUp_W")
+    });
+    ELevelUpWidget = FindLevelUpWidget(ELevelUpButton, {
+        TEXT("ELevelUpButton"),
+        TEXT("E_LevelUpButton"),
+        TEXT("Button_E_LevelUp"),
+        TEXT("EPlusButton"),
+        TEXT("SkillELevelUpButton"),
+        TEXT("SkillE_LevelUpButton"),
+        TEXT("LevelUp_E")
+    });
+    RLevelUpWidget = FindLevelUpWidget(RLevelUpButton, {
+        TEXT("RLevelUpButton"),
+        TEXT("R_LevelUpButton"),
+        TEXT("Button_R_LevelUp"),
+        TEXT("RPlusButton"),
+        TEXT("SkillRLevelUpButton"),
+        TEXT("SkillR_LevelUpButton"),
+        TEXT("LevelUp_R")
+    });
+
+    if (!QLevelUpWidget && !WLevelUpWidget && !ELevelUpWidget && !RLevelUpWidget)
+    {
+        TArray<UWidget*> AutoNamedLevelUpWidgets;
+        const TArray<FName> AutoNamedButtonNames = {
+            TEXT("Button_0"),
+            TEXT("Button_1"),
+            TEXT("Button_2"),
+            TEXT("Button_3")
+        };
+
+        for (const FName& ButtonName : AutoNamedButtonNames)
+        {
+            if (UWidget* Widget = WidgetTree->FindWidget(ButtonName))
+            {
+                AutoNamedLevelUpWidgets.AddUnique(Widget);
+            }
+        }
+
+        auto GetWidgetSortX = [](const UWidget* Widget)
+        {
+            if (const UCanvasPanelSlot* CanvasSlot =
+                Widget ? Cast<UCanvasPanelSlot>(Widget->Slot) : nullptr)
+            {
+                return CanvasSlot->GetPosition().X;
+            }
+
+            return Widget
+                ? Widget->GetRenderTransform().Translation.X
+                : 0.0f;
+        };
+
+        AutoNamedLevelUpWidgets.Sort(
+            [&GetWidgetSortX](const UWidget& Left, const UWidget& Right)
+            {
+                return GetWidgetSortX(&Left) < GetWidgetSortX(&Right);
+            });
+
+        if (AutoNamedLevelUpWidgets.Num() >= 4)
+        {
+            QLevelUpWidget = AutoNamedLevelUpWidgets[0];
+            WLevelUpWidget = AutoNamedLevelUpWidgets[1];
+            ELevelUpWidget = AutoNamedLevelUpWidgets[2];
+            RLevelUpWidget = AutoNamedLevelUpWidgets[3];
+        }
+    }
+
+    QLevelUpButton = Cast<UButton>(QLevelUpWidget);
+    WLevelUpButton = Cast<UButton>(WLevelUpWidget);
+    ELevelUpButton = Cast<UButton>(ELevelUpWidget);
+    RLevelUpButton = Cast<UButton>(RLevelUpWidget);
+
+    if (QLevelUpButton)
+    {
+        QLevelUpButton->OnClicked.RemoveAll(this);
+        QLevelUpButton->OnClicked.AddDynamic(this, &ULOL_HUDWidget::OnQLevelUpClicked);
+    }
+    if (WLevelUpButton)
+    {
+        WLevelUpButton->OnClicked.RemoveAll(this);
+        WLevelUpButton->OnClicked.AddDynamic(this, &ULOL_HUDWidget::OnWLevelUpClicked);
+    }
+    if (ELevelUpButton)
+    {
+        ELevelUpButton->OnClicked.RemoveAll(this);
+        ELevelUpButton->OnClicked.AddDynamic(this, &ULOL_HUDWidget::OnELevelUpClicked);
+    }
+    if (RLevelUpButton)
+    {
+        RLevelUpButton->OnClicked.RemoveAll(this);
+        RLevelUpButton->OnClicked.AddDynamic(this, &ULOL_HUDWidget::OnRLevelUpClicked);
+    }
+}
+
+void ULOL_HUDWidget::RequestSkillLevelUp(FName SkillName)
+{
+    if (ABaseChampion* Champion = Cast<ABaseChampion>(GetOwningPlayerPawn()))
+    {
+        if (Champion->SkillComponent)
+        {
+            Champion->SkillComponent->Server_LevelUpSkill(SkillName);
+        }
+    }
+}
+
+bool ULOL_HUDWidget::CanRequestSkillLevelUp(FName SkillName) const
+{
+    const ABaseChampion* Champion =
+        Cast<ABaseChampion>(GetOwningPlayerPawn());
+    const UChampion_SkillComponent* SkillComp =
+        Champion ? Champion->SkillComponent : nullptr;
+
+    return SkillComp && SkillComp->CanLevelUpSkill(SkillName);
+}
+
+void ULOL_HUDWidget::UpdateSkillLevelUpButtonStates()
+{
+    auto UpdateButton = [this](UWidget* Widget, UButton* Button, FName SkillName)
+    {
+        if (!Widget)
+        {
+            return;
+        }
+
+        const bool bCanLevelUp = CanRequestSkillLevelUp(SkillName);
+        if (Button)
+        {
+            Button->SetIsEnabled(bCanLevelUp);
+        }
+        Widget->SetVisibility(
+            bCanLevelUp
+                ? ESlateVisibility::Visible
+                : ESlateVisibility::Hidden);
+    };
+
+    UpdateButton(QLevelUpWidget, QLevelUpButton, TEXT("Q"));
+    UpdateButton(WLevelUpWidget, WLevelUpButton, TEXT("W"));
+    UpdateButton(ELevelUpWidget, ELevelUpButton, TEXT("E"));
+    UpdateButton(RLevelUpWidget, RLevelUpButton, TEXT("R"));
+}
+
+void ULOL_HUDWidget::OnQLevelUpClicked()
+{
+    RequestSkillLevelUp(TEXT("Q"));
+}
+
+void ULOL_HUDWidget::OnWLevelUpClicked()
+{
+    RequestSkillLevelUp(TEXT("W"));
+}
+
+void ULOL_HUDWidget::OnELevelUpClicked()
+{
+    RequestSkillLevelUp(TEXT("E"));
+}
+
+void ULOL_HUDWidget::OnRLevelUpClicked()
+{
+    RequestSkillLevelUp(TEXT("R"));
+}
+
 void ULOL_HUDWidget::CacheScoreboardTextBlocks()
 {
     if (!WidgetTree)
@@ -337,18 +572,6 @@ void ULOL_HUDWidget::CacheScoreboardTextBlocks()
     MinionCountText = FindTextBlock({ TEXT("minion_count"), TEXT("cs_count") });
     MatchTimerText = FindTextBlock({ TEXT("timer"), TEXT("time"), TEXT("times") });
 
-    UE_LOG(
-        LogTemp,
-        Log,
-        TEXT("HUD scoreboard widgets: Blue=%s Red=%s K=%s D=%s A=%s KDA=%s CS=%s Time=%s"),
-        BlueKillCountText ? *BlueKillCountText->GetName() : TEXT("None"),
-        RedKillCountText ? *RedKillCountText->GetName() : TEXT("None"),
-        KillCountText ? *KillCountText->GetName() : TEXT("None"),
-        DeathCountText ? *DeathCountText->GetName() : TEXT("None"),
-        AssistCountText ? *AssistCountText->GetName() : TEXT("None"),
-        KdaCountText ? *KdaCountText->GetName() : TEXT("None"),
-        MinionCountText ? *MinionCountText->GetName() : TEXT("None"),
-        MatchTimerText ? *MatchTimerText->GetName() : TEXT("None"));
 }
 
 void ULOL_HUDWidget::UpdateHP(float NewHP, float MaxHP)
@@ -384,7 +607,13 @@ void ULOL_HUDWidget::UpdateMP(float NewMP, float MaxMP)
 
 void ULOL_HUDWidget::UpdateEXP(float NewEXP, float MaxEXP)
 {
-    /*if (EXPProgressBar) MPProgressBar->SetPercent(NewEXP / MaxEXP);*/
+    if (EXPProgressBar)
+    {
+        const float Percent = MaxEXP > 0.0f
+            ? FMath::Clamp(NewEXP / MaxEXP, 0.0f, 1.0f)
+            : 0.0f;
+        EXPProgressBar->SetPercent(Percent);
+    }
 }
 
 void ULOL_HUDWidget::SetSkillImage(FName SkillName, UTexture2D* IconTexture)
@@ -425,11 +654,7 @@ void ULOL_HUDWidget::AddItemIcon(UTexture2D* IconTexture)
         CacheItemSlotImages();
     }
 
-    if (!CachedItemSlotImages.IsValidIndex(NextItemSlotIndex))
-    {
-        UE_LOG(LogTemp, Warning, TEXT("HUD item slot is full or not found. SlotIndex=%d SlotCount=%d"), NextItemSlotIndex, CachedItemSlotImages.Num());
-        return;
-    }
+    if (!CachedItemSlotImages.IsValidIndex(NextItemSlotIndex)) return;
 
     UImage* SlotImage = CachedItemSlotImages[NextItemSlotIndex];
     if (!SlotImage)
@@ -437,25 +662,11 @@ void ULOL_HUDWidget::AddItemIcon(UTexture2D* IconTexture)
         return;
     }
 
-    FVector2D SlotPosition = FVector2D::ZeroVector;
     FVector2D SlotSize = FVector2D::ZeroVector;
     if (const UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(SlotImage->Slot))
     {
-        SlotPosition = CanvasSlot->GetPosition();
         SlotSize = CanvasSlot->GetSize();
     }
-
-    UE_LOG(
-        LogTemp,
-        Log,
-        TEXT("HUD item icon set. SlotIndex=%d Widget=%s CanvasPos=(%.1f, %.1f) CanvasSize=(%.1f, %.1f)"),
-        NextItemSlotIndex,
-        *SlotImage->GetName(),
-        SlotPosition.X,
-        SlotPosition.Y,
-        SlotSize.X,
-        SlotSize.Y
-    );
 
     SlotImage->SetColorAndOpacity(FLinearColor::White);
     SlotImage->SetBrushFromTexture(IconTexture, false);
@@ -497,6 +708,31 @@ FReply ULOL_HUDWidget::NativeOnMouseButtonDown(
     if (InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
     {
         const FVector2D ScreenPosition = InMouseEvent.GetScreenSpacePosition();
+
+        auto TryClickSkillLevelUpWidget =
+            [this, ScreenPosition](UWidget* Widget, FName SkillName)
+        {
+            if (!Widget ||
+                Widget->GetVisibility() != ESlateVisibility::Visible ||
+                !Widget->GetCachedGeometry().IsUnderLocation(ScreenPosition) ||
+                !CanRequestSkillLevelUp(SkillName))
+            {
+                return false;
+            }
+
+            RequestSkillLevelUp(SkillName);
+            Widget->SetVisibility(ESlateVisibility::Hidden);
+            return true;
+        };
+
+        if (TryClickSkillLevelUpWidget(QLevelUpWidget, TEXT("Q")) ||
+            TryClickSkillLevelUpWidget(WLevelUpWidget, TEXT("W")) ||
+            TryClickSkillLevelUpWidget(ELevelUpWidget, TEXT("E")) ||
+            TryClickSkillLevelUpWidget(RLevelUpWidget, TEXT("R")))
+        {
+            return FReply::Handled();
+        }
+
         for (int32 SlotIndex = 0; SlotIndex < CachedItemSlotImages.Num(); ++SlotIndex)
         {
             UImage* SlotImage = CachedItemSlotImages[SlotIndex];
@@ -530,24 +766,15 @@ void ULOL_HUDWidget::CacheItemSlotImages()
     {
         if (!SlotImage)
         {
-            UE_LOG(LogTemp, Warning, TEXT("HUD item slot missing. Expected=%s"), ExpectedName);
             return;
         }
 
         if (SlotImage == SkillQ_Image || SlotImage == SkillW_Image || SlotImage == SkillE_Image || SlotImage == SkillR_Image || SlotImage == SkillP_Image)
         {
-            UE_LOG(
-                LogTemp,
-                Warning,
-                TEXT("HUD item slot rejected because it is a skill image. Expected=%s ActualWidget=%s"),
-                ExpectedName,
-                *SlotImage->GetName()
-            );
             return;
         }
 
         CachedItemSlotImages.Add(SlotImage);
-        UE_LOG(LogTemp, Log, TEXT("HUD item slot accepted. Expected=%s ActualWidget=%s"), ExpectedName, *SlotImage->GetName());
     };
 
     AddItemSlotIfValid(ItemSlot_1, TEXT("ItemSlot_1"));
@@ -559,7 +786,6 @@ void ULOL_HUDWidget::CacheItemSlotImages()
 
     if (CachedItemSlotImages.Num() > 0)
     {
-        UE_LOG(LogTemp, Log, TEXT("HUD item slots cached by explicit bind. Count=%d"), CachedItemSlotImages.Num());
         return;
     }
 
@@ -583,11 +809,8 @@ void ULOL_HUDWidget::CacheItemSlotImages()
 
     if (CachedItemSlotImages.Num() > 0)
     {
-        UE_LOG(LogTemp, Log, TEXT("HUD item slots cached by name. Count=%d"), CachedItemSlotImages.Num());
         return;
     }
-
-    UE_LOG(LogTemp, Warning, TEXT("HUD item slots not found. Rename the six small item icon Images to ItemSlot_1 through ItemSlot_6."));
 }
 
 void ULOL_HUDWidget::SetSkillCooldown(FName SkillName, float CoolLocalEndTime, float CoolEndTime)

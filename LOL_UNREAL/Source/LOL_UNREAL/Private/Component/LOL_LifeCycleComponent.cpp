@@ -78,6 +78,107 @@ void ULOL_LifeCycleComponent::RecordDamageFrom(AController* DamageInstigator)
 	RecentDamageContributors.FindOrAdd(DamageInstigator) = GetWorld()->GetTimeSeconds();
 }
 
+float ULOL_LifeCycleComponent::GetExperienceReward() const
+{
+	if (!OwnerPawn)
+	{
+		return 0.0f;
+	}
+
+	float RewardEXP = 0.0f;
+	if (const ULOL_StatComponent* StatComp =
+		OwnerPawn->FindComponentByClass<ULOL_StatComponent>())
+	{
+		RewardEXP = StatComp->GetGiveEXP();
+	}
+
+	if (RewardEXP > 0.0f)
+	{
+		return RewardEXP;
+	}
+
+	if (Cast<ABaseChampion>(OwnerPawn))
+	{
+		return DefaultChampionGiveEXP;
+	}
+
+	if (Cast<ABaseJungleMonster>(OwnerPawn))
+	{
+		return DefaultJungleMonsterGiveEXP;
+	}
+
+	if (Cast<ABaseMinion>(OwnerPawn))
+	{
+		return DefaultMinionGiveEXP;
+	}
+
+	return 0.0f;
+}
+
+void ULOL_LifeCycleComponent::GrantExperienceToNearbyTeamChampions(
+	float ExpAmount,
+	AActor* TeamSourceActor)
+{
+	if (!OwnerPawn || !OwnerPawn->HasAuthority() || ExpAmount <= 0.0f ||
+		!TeamSourceActor)
+	{
+		return;
+	}
+
+	ULOL_StateComponent* SourceState =
+		TeamSourceActor->FindComponentByClass<ULOL_StateComponent>();
+	if (!SourceState)
+	{
+		return;
+	}
+
+	TArray<AActor*> ChampionActors;
+	UGameplayStatics::GetAllActorsOfClass(
+		GetWorld(),
+		ABaseChampion::StaticClass(),
+		ChampionActors
+	);
+
+	TArray<ABaseChampion*> Receivers;
+	const FVector DeathLocation = OwnerPawn->GetActorLocation();
+
+	for (AActor* ChampionActor : ChampionActors)
+	{
+		ABaseChampion* Champion = Cast<ABaseChampion>(ChampionActor);
+		if (!Champion || !Champion->StatComponent || !Champion->StateComponent ||
+			SourceState->IsEnemy(Champion->StateComponent))
+		{
+			continue;
+		}
+
+		if (ULOL_StateComponent* StateComp =
+			Champion->FindComponentByClass<ULOL_StateComponent>())
+		{
+			if (StateComp->HasStatusTag(LOLTags::State_Dead))
+			{
+				continue;
+			}
+		}
+
+		if (FVector::Dist2D(Champion->GetActorLocation(), DeathLocation) <=
+			ExperienceShareRadius)
+		{
+			Receivers.Add(Champion);
+		}
+	}
+
+	if (Receivers.Num() <= 0)
+	{
+		return;
+	}
+
+	const float SharedEXP = ExpAmount / Receivers.Num();
+	for (ABaseChampion* Receiver : Receivers)
+	{
+		Receiver->StatComponent->AddEXP(SharedEXP);
+	}
+}
+
 void ULOL_LifeCycleComponent::Server_HandleDeath(AController* KillerInstigator, AActor* DamageCauser)
 {
 	if (!OwnerPawn || !OwnerPawn->HasAuthority()) return;
@@ -100,10 +201,19 @@ void ULOL_LifeCycleComponent::Server_HandleDeath(AController* KillerInstigator, 
 			if (KillerStatComp && MyStatComp)
 			{
 				KillerStatComp->AddGold(MyStatComp->GetGiveGold());
-				KillerStatComp->AddEXP(MyStatComp->GetGiveEXP());
 			}
 		}
 	}
+
+	AActor* ExperienceTeamSource = KillerChampion
+		? static_cast<AActor*>(KillerChampion)
+		: DamageCauser;
+	if (!ExperienceTeamSource && KillerInstigator)
+	{
+		ExperienceTeamSource = KillerInstigator->GetPawn();
+	}
+
+	GrantExperienceToNearbyTeamChampions(GetExperienceReward(), ExperienceTeamSource);
 
 	if (ABaseChampion* DeadChampion = Cast<ABaseChampion>(OwnerPawn))
 	{

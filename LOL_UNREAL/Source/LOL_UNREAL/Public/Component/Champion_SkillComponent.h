@@ -53,7 +53,15 @@ public:
     FSkillData& GetE_Data() { return E_Data; }
     FSkillData& GetR_Data() { return R_Data; }
 
-    bool TryCastSkill(FName SkillName, int32 SkillLevel);
+    bool TryCastSkill(FName SkillName, int32 SkillLevel = -1);
+    int32 GetSkillLevel(FName SkillName) const;
+    int32 GetSkillLevelIndex(FName SkillName) const;
+    int32 GetAvailableSkillPoints() const { return AvailableSkillPoints; }
+    bool CanLevelUpSkill(FName SkillName) const;
+    void AddSkillPointForChampionLevel(int32 ChampionLevel);
+
+    UFUNCTION(Server, Reliable, WithValidation)
+    void Server_LevelUpSkill(FName SkillName);
 
     class ABaseChampion* Owner;
     
@@ -71,4 +79,26 @@ private:
     FSkillData W_Data;
     FSkillData E_Data;
     FSkillData R_Data;
+
+    UPROPERTY(Replicated)
+    int32 QSkillLevel = 0;
+
+    UPROPERTY(Replicated)
+    int32 WSkillLevel = 0;
+
+    UPROPERTY(Replicated)
+    int32 ESkillLevel = 0;
+
+    UPROPERTY(Replicated)
+    int32 RSkillLevel = 0;
+
+    UPROPERTY(Replicated)
+    int32 AvailableSkillPoints = 0;
+
+    int32 GetMaxAllowedSkillLevel(FName SkillName, int32 ChampionLevel) const;
+    int32& GetMutableSkillLevel(FName SkillName);
+    void ApplyCurrentSkillRankData(FName SkillName);
+    void CopyCurrentRankToFirstIndex(FSkillData& SkillData, int32 SkillLevel);
+
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };

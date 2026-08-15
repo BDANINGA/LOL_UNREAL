@@ -46,6 +46,18 @@ public:
 	FTimerHandle AttackHitTimerHandle;
 
 	bool bCanAttack = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack|Timing", meta = (ClampMin = "0.1", ClampMax = "3.0"))
+	float BasicAttackMontagePlayRate = 1.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack|Timing", meta = (ClampMin = "0.1", ClampMax = "2.0"))
+	float ChampionAttackSpeedMultiplier = 0.75f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack|Timing", meta = (ClampMin = "0.05", ClampMax = "1.0"))
+	float AttackHitTimingRatio = 0.55f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack|Damage", meta = (ClampMin = "0.0", ClampMax = "2.0"))
+	float MinionAttackDamageMultiplier = 0.5f;
 protected:
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;

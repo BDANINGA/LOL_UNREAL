@@ -169,6 +169,9 @@ public:
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_SetTargetAndPlayMontage(UAnimMontage* AnimMontage, float InplayRate, FRotator TargetRotation);
 
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_StopCurrentMontage();
+
 	FORCENOINLINE bool GetIsPressA() const { return bIsPressA; }
 	void SetIsPressA(bool toggle);
 

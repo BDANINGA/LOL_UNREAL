@@ -97,6 +97,7 @@ void AChampion_Fizz::Skill_E()
 	FHitResult Hit;
 	if (PlayerController->GetHitResultUnderCursor(ECC_Visibility, false, Hit))
 	{
+		if (!IsValidSkillLocation(Hit.ImpactPoint)) return;
 		Server_Skill_E(Hit.ImpactPoint);
 	}
 }
@@ -199,12 +200,13 @@ void AChampion_Fizz::Server_Skill_W_Implementation()
 
 bool AChampion_Fizz::Server_Skill_E_Validate(FVector TargetLocation)
 {
-	return true;
+	return !TargetLocation.ContainsNaN();
 }
 
 void AChampion_Fizz::Server_Skill_E_Implementation(FVector TargetLocation)
 {
 	if (!SkillComponent || !StatComponent) return;
+	if (!IsValidSkillLocation(TargetLocation)) return;
 
 	const FSkillData& EData = SkillComponent->GetE_Data();
 	const float Range = GetSkillValue(EData.Range, 0, 400.0f);
@@ -215,6 +217,7 @@ void AChampion_Fizz::Server_Skill_E_Implementation(FVector TargetLocation)
 		if (!bEDescending)
 		{
 			ETargetLocation = ClampTargetLocation(TargetLocation, Range);
+			if (!IsValidSkillLocation(ETargetLocation)) return;
 			BeginEDescent();
 		}
 		return;
@@ -223,6 +226,7 @@ void AChampion_Fizz::Server_Skill_E_Implementation(FVector TargetLocation)
 	if (!SkillComponent->TryCastSkill("E", 1)) return;
 
 	ETargetLocation = ClampTargetLocation(TargetLocation, Range);
+	if (!IsValidSkillLocation(ETargetLocation)) return;
 	bEActive = true;
 	bEDescending = false;
 
@@ -233,10 +237,11 @@ void AChampion_Fizz::Server_Skill_E_Implementation(FVector TargetLocation)
 		AttackComponent->HitTarget = nullptr;
 	}
 
-	if (GetCharacterMovement())
+	UCharacterMovementComponent* Movement = GetCharacterMovement();
+	if (Movement)
 	{
-		GetCharacterMovement()->StopMovementImmediately();
-		GetCharacterMovement()->DisableMovement();
+		Movement->StopMovementImmediately();
+		Movement->DisableMovement();
 	}
 
 	FVector Direction = ETargetLocation - GetActorLocation();
@@ -607,9 +612,19 @@ void AChampion_Fizz::EndWEmpower()
 void AChampion_Fizz::BeginEDescent()
 {
 	if (!HasAuthority() || !bEActive || bEDescending) return;
+	if (!IsValidSkillLocation(ETargetLocation))
+	{
+		ResetPlayfulTricksterState(true);
+		return;
+	}
 
 	bEDescending = true;
 	EDescentStartLocation = GetActorLocation();
+	if (!IsValidSkillLocation(EDescentStartLocation))
+	{
+		ResetPlayfulTricksterState(true);
+		return;
+	}
 	EDescentElapsed = 0.0f;
 	GetWorldTimerManager().ClearTimer(EAscentTimerHandle);
 
@@ -635,6 +650,12 @@ void AChampion_Fizz::BeginEDescent()
 void AChampion_Fizz::UpdateEDescent(float DeltaTime)
 {
 	if (!bEActive || !bEDescending) return;
+	if (!IsValidSkillLocation(EDescentStartLocation) ||
+		!IsValidSkillLocation(ETargetLocation))
+	{
+		ResetPlayfulTricksterState(true);
+		return;
+	}
 
 	EDescentElapsed += DeltaTime;
 	const float Alpha = FMath::Clamp(
@@ -643,12 +664,15 @@ void AChampion_Fizz::UpdateEDescent(float DeltaTime)
 		1.0f
 	);
 
-	SetActorLocation(
-		FMath::Lerp(EDescentStartLocation, ETargetLocation, Alpha),
-		false,
-		nullptr,
-		ETeleportType::TeleportPhysics
-	);
+	const FVector NewLocation =
+		FMath::Lerp(EDescentStartLocation, ETargetLocation, Alpha);
+	if (!IsValidSkillLocation(NewLocation))
+	{
+		ResetPlayfulTricksterState(true);
+		return;
+	}
+
+	SetActorLocation(NewLocation, false, nullptr, ETeleportType::TeleportPhysics);
 
 	if (Alpha >= 1.0f)
 	{
@@ -658,10 +682,24 @@ void AChampion_Fizz::UpdateEDescent(float DeltaTime)
 
 void AChampion_Fizz::FinishPlayfulTrickster()
 {
-	if (!HasAuthority() || !bEActive || !SkillComponent || !StatComponent) return;
+	if (!HasAuthority() || !bEActive) return;
 
 	GetWorldTimerManager().ClearTimer(EDescentTimerHandle);
+	GetWorldTimerManager().ClearTimer(EAscentTimerHandle);
+
+	if (!IsValidSkillLocation(ETargetLocation))
+	{
+		ResetPlayfulTricksterState(true);
+		return;
+	}
+
 	SetActorLocation(ETargetLocation, false, nullptr, ETeleportType::TeleportPhysics);
+
+	if (!SkillComponent || !StatComponent)
+	{
+		ResetPlayfulTricksterState(true);
+		return;
+	}
 
 	const FSkillData& EData = SkillComponent->GetE_Data();
 	const float BaseDamage = GetSkillValue(EData.BaseDamage, 0, 70.0f);
@@ -702,11 +740,26 @@ void AChampion_Fizz::FinishPlayfulTrickster()
 		}
 	}
 
+	ResetPlayfulTricksterState(true);
+}
+
+void AChampion_Fizz::ResetPlayfulTricksterState(bool bRestoreMovement)
+{
+	GetWorldTimerManager().ClearTimer(EAscentTimerHandle);
+	GetWorldTimerManager().ClearTimer(EDescentTimerHandle);
+
 	bEActive = false;
 	bEDescending = false;
-	if (GetCharacterMovement())
+	EDescentElapsed = 0.0f;
+	EDescentStartLocation = FVector::ZeroVector;
+	ETargetLocation = FVector::ZeroVector;
+
+	if (bRestoreMovement)
 	{
-		GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+		if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+		{
+			Movement->SetMovementMode(MOVE_Walking);
+		}
 	}
 }
 
@@ -938,6 +991,13 @@ float AChampion_Fizz::TakeDamage(
 FVector AChampion_Fizz::ClampTargetLocation(FVector TargetLocation, float MaxRange) const
 {
 	const FVector Start = GetActorLocation();
+	if (!IsValidSkillLocation(TargetLocation) ||
+		!IsValidSkillLocation(Start) ||
+		MaxRange <= 0.0f)
+	{
+		return Start;
+	}
+
 	FVector Direction = TargetLocation - Start;
 	Direction.Z = 0.0f;
 
@@ -950,6 +1010,15 @@ FVector AChampion_Fizz::ClampTargetLocation(FVector TargetLocation, float MaxRan
 	FVector Result = Start + Direction;
 	Result.Z = Start.Z;
 	return Result;
+}
+
+bool AChampion_Fizz::IsValidSkillLocation(const FVector& Location) const
+{
+	return
+		!Location.ContainsNaN() &&
+		FMath::IsFinite(Location.X) &&
+		FMath::IsFinite(Location.Y) &&
+		FMath::IsFinite(Location.Z);
 }
 
 float AChampion_Fizz::GetSkillValue(

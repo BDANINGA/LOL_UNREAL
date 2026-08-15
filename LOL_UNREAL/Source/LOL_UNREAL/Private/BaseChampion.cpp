@@ -576,6 +576,11 @@ void ABaseChampion::Multicast_SetTargetAndPlayMontage_Implementation(UAnimMontag
 	if (AnimMontage) PlayAnimMontage(AnimMontage, InplayRate);
 }
 
+void ABaseChampion::Multicast_StopCurrentMontage_Implementation()
+{
+	StopAnimMontage();
+}
+
 void ABaseChampion::StartRecall()
 {
 	if (StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
