@@ -47,8 +47,20 @@ public:
     UPROPERTY(meta = (BindWidget))
     class UProgressBar* MPProgressBar;
 
-    /*UPROPERTY(meta = (BindWidget))
-    class UProgressBar* EXPProgressBar;*/
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UProgressBar* EXPProgressBar;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UButton* QLevelUpButton;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UButton* WLevelUpButton;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UButton* ELevelUpButton;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UButton* RLevelUpButton;
 
     UPROPERTY(meta = (BindWidget))
     UTextBlock* Txt_AD;
@@ -108,6 +120,18 @@ public:
 
     UFUNCTION()
     void HandleChampionKill(class ABaseChampion* Killer, class ABaseChampion* Victim);
+
+    UFUNCTION()
+    void OnQLevelUpClicked();
+
+    UFUNCTION()
+    void OnWLevelUpClicked();
+
+    UFUNCTION()
+    void OnELevelUpClicked();
+
+    UFUNCTION()
+    void OnRLevelUpClicked();
 protected:
     UPROPERTY()
     class UMaterialInstanceDynamic* SkillQ_MID;
@@ -144,6 +168,18 @@ protected:
 
     UPROPERTY()
     int32 NextItemSlotIndex = 0;
+
+    UPROPERTY(Transient)
+    class UWidget* QLevelUpWidget = nullptr;
+
+    UPROPERTY(Transient)
+    class UWidget* WLevelUpWidget = nullptr;
+
+    UPROPERTY(Transient)
+    class UWidget* ELevelUpWidget = nullptr;
+
+    UPROPERTY(Transient)
+    class UWidget* RLevelUpWidget = nullptr;
 
     UPROPERTY(Transient)
     UTextBlock* BlueKillCountText = nullptr;
@@ -183,6 +219,10 @@ protected:
 
     void CacheItemSlotImages();
     void CacheScoreboardTextBlocks();
+    void CacheSkillLevelUpButtons();
+    void UpdateSkillLevelUpButtonStates();
+    void RequestSkillLevelUp(FName SkillName);
+    bool CanRequestSkillLevelUp(FName SkillName) const;
     void CreateKillLogContainer();
     void RemoveKillLogEntry(class UUserWidget* Entry);
     void UpdateScoreboard();

@@ -2,7 +2,7 @@
   {
     "Name": "Alistar",
     "Level": 1,
-    "MaxHP": 685.0,
+    "MaxHP": 785.0,
     "HPPerLevel": 106.0,
     "MaxMP": 350.0,
     "MPPerLevel": 40.0,
@@ -46,7 +46,7 @@
   {
     "Name": "Vayne",
     "Level": 1,
-    "MaxHP": 550.0,
+    "MaxHP": 650.0,
     "HPPerLevel": 103.0,
     "MaxMP": 231.0,
     "MPPerLevel": 35.0,
@@ -134,7 +134,7 @@
   {
     "Name": "Garen",
     "Level": 1,
-    "MaxHP": 690.0,
+    "MaxHP": 790.0,
     "HPPerLevel": 98.0,
     "MaxMP": 0.0,
     "MPPerLevel": 0.0,

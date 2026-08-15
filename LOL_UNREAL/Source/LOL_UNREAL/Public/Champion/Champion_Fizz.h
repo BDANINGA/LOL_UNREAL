@@ -64,8 +64,10 @@ protected:
 	void BeginEDescent();
 	void UpdateEDescent(float DeltaTime);
 	void FinishPlayfulTrickster();
+	void ResetPlayfulTricksterState(bool bRestoreMovement);
 	void ExplodeChumTheWaters();
 	FVector ClampTargetLocation(FVector TargetLocation, float MaxRange) const;
+	bool IsValidSkillLocation(const FVector& Location) const;
 	float GetSkillValue(const TArray<float>& Values, int32 Index, float Fallback) const;
 	float GetQSkillRange() const;
 	UAnimMontage* GetFizzMontage(uint8 SkillIndex, int32 MontageIndex) const;

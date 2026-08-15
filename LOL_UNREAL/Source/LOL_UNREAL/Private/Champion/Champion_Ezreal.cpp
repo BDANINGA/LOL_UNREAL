@@ -22,6 +22,18 @@ AChampion_Ezreal::AChampion_Ezreal()
 {
     ChampionName = TEXT("Ezreal");
     SetChampionData(ChampionName);
+    StateComponent->AddStatusTag(LOLTags::Champion_Ranged);
+
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> AttackProjectileMeshAsset(
+        TEXT("/Game/Level/ezreal/ezreal_tex/ezreal_attack.ezreal_attack"));
+    if (AttackProjectileMeshAsset.Succeeded())
+    {
+        if (!ChampionResource.ProjectileMesh.IsValidIndex(0))
+        {
+            ChampionResource.ProjectileMesh.SetNum(1);
+        }
+        ChampionResource.ProjectileMesh[0] = AttackProjectileMeshAsset.Object;
+    }
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> QProjectileMeshAsset(
         TEXT("/Game/Level/ezreal/ezreal_tex/ezreal_q_missile.ezreal_q_missile"));

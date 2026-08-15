@@ -32,6 +32,18 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LifeCycle")
 	float JungleRespawnDelay = 15.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LifeCycle|Experience")
+	float ExperienceShareRadius = 1600.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LifeCycle|Experience")
+	float DefaultChampionGiveEXP = 300.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LifeCycle|Experience")
+	float DefaultMinionGiveEXP = 60.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LifeCycle|Experience")
+	float DefaultJungleMonsterGiveEXP = 100.0f;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -53,4 +65,7 @@ private:
 	TMap<TWeakObjectPtr<AController>, float> RecentDamageContributors;
 
 	float AssistWindowSeconds = 10.0f;
+
+	float GetExperienceReward() const;
+	void GrantExperienceToNearbyTeamChampions(float ExpAmount, class AActor* TeamSourceActor);
 };

@@ -33,6 +33,7 @@ void ALOL_HUD::BeginPlay()
             if (MainHUDWidget)
             {
                 MainHUDWidget->AddToViewport();
+                MainHUDWidget->UpdateEXP(0.0f, 1.0f);
             }
         }
     }

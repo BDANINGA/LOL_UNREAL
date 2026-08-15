@@ -17,6 +17,7 @@
 #include "Component/LOL_StateComponent.h"
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_UIComponent.h"
+#include "Component/Champion_SkillComponent.h"
 #include "GamePlayTag/LOL_GamePlayTags.h"
 #include "Item/LOL_ItemData.h"
 
@@ -377,37 +378,46 @@ void ALOL_PlayerController::InitCameraAnchor(APawn* TargetPawn)
 
 void ALOL_PlayerController::OnSkillQ()
 {
-	if (MyChampion)
-	{
-		MyChampion->PressSkill('q');
-		MyChampion->SetIsPressA(false);
-		MyChampion->UIComponent->HideRangeIndicator();
-	}
+	HandleSkillInput('q', TEXT("Q"));
 }
 void ALOL_PlayerController::OnSkillW()
 {
-	if (MyChampion)
-	{
-		MyChampion->PressSkill('w');
-		MyChampion->SetIsPressA(false);
-		MyChampion->UIComponent->HideRangeIndicator();
-	}
+	HandleSkillInput('w', TEXT("W"));
 }
 void ALOL_PlayerController::OnSkillE()
 {
-	if (MyChampion)
-	{
-		MyChampion->PressSkill('e');
-		MyChampion->SetIsPressA(false);
-		MyChampion->UIComponent->HideRangeIndicator();
-	}
+	HandleSkillInput('e', TEXT("E"));
 }
 void ALOL_PlayerController::OnSkillR()
 {
-	if (MyChampion)
+	HandleSkillInput('r', TEXT("R"));
+}
+
+bool ALOL_PlayerController::IsSkillLevelUpInputDown() const
+{
+	return IsInputKeyDown(EKeys::LeftControl) || IsInputKeyDown(EKeys::RightControl);
+}
+
+void ALOL_PlayerController::HandleSkillInput(uint8 SkillKey, FName SkillName)
+{
+	if (!MyChampion)
 	{
-		MyChampion->PressSkill('r');
-		MyChampion->SetIsPressA(false);
+		return;
+	}
+
+	if (IsSkillLevelUpInputDown())
+	{
+		if (MyChampion->SkillComponent)
+		{
+			MyChampion->SkillComponent->Server_LevelUpSkill(SkillName);
+		}
+		return;
+	}
+
+	MyChampion->PressSkill(SkillKey);
+	MyChampion->SetIsPressA(false);
+	if (MyChampion->UIComponent)
+	{
 		MyChampion->UIComponent->HideRangeIndicator();
 	}
 }
