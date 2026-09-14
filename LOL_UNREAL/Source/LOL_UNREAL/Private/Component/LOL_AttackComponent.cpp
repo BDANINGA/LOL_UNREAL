@@ -10,6 +10,8 @@
 #include "BaseChampion.h"
 #include "JungleMonster/BaseJungleMonster.h"
 #include "Minion/BaseMinion.h"
+#include "Minion/Minion_Caster.h"
+#include "Minion/Minion_Siege.h"
 #include "Building/Building_Turret.h"
 #include "Champion/Projectile/BaseProjectile.h"
 #include "Champion/Champion_Garen.h"
@@ -63,6 +65,25 @@ bool ULOL_AttackComponent::IsValidAttackTarget(AActor* Target) const
     }
 
     return false;
+}
+
+bool ULOL_AttackComponent::IsRangedBasicAttacker() const
+{
+    if (!OwnerPawn)
+    {
+        return false;
+    }
+
+    if (Cast<ABuilding_Turret>(OwnerPawn) ||
+        Cast<AMinion_Caster>(OwnerPawn) ||
+        Cast<AMinion_Siege>(OwnerPawn))
+    {
+        return true;
+    }
+
+    const ULOL_StateComponent* OwnerState =
+        OwnerPawn->FindComponentByClass<ULOL_StateComponent>();
+    return OwnerState && OwnerState->HasStatusTag(LOLTags::Champion_Ranged);
 }
 
 void ULOL_AttackComponent::SetCombatTarget(AActor* Target)
@@ -176,6 +197,7 @@ void ULOL_AttackComponent::StartAttack()
 
     bCanAttack = false;
     bHitHappened = false;
+    bWaitingForProjectileHit = false;
     GetWorld()->GetTimerManager().ClearTimer(AttackHitTimerHandle);
 
     StateComp->AddStatusTag(LOLTags::State_Attacking);
@@ -276,7 +298,7 @@ void ULOL_AttackComponent::StartAttack()
                         if (ULOL_StateComponent* OwnerState =
                             OwnerPawn->FindComponentByClass<ULOL_StateComponent>())
                         {
-                            if (OwnerState->HasStatusTag(LOLTags::Champion_Ranged))
+                            if (IsRangedBasicAttacker())
                             {
                                 ExecuteRangeAttackHit();
                             }
@@ -330,6 +352,7 @@ void ULOL_AttackComponent::ExecuteAttackHit()
     if (!IsValidAttackTarget(HitTarget))
     {
         HitTarget = nullptr;
+        bWaitingForProjectileHit = false;
         return;
     }
 
@@ -337,17 +360,14 @@ void ULOL_AttackComponent::ExecuteAttackHit()
     ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>();
     if (!StatComp || !StateComp) return;
 
-    const bool bIsRangedAttack =
-        StateComp->HasStatusTag(LOLTags::Champion_Ranged);
-    if (!bIsRangedAttack && bHitHappened)
+    const bool bApplyProjectileHit = bWaitingForProjectileHit;
+    if (bHitHappened && !bApplyProjectileHit)
     {
         return;
     }
 
-    if (!bIsRangedAttack)
-    {
-        bHitHappened = true;
-    }
+    bHitHappened = true;
+    bWaitingForProjectileHit = false;
 
     if (OwnerPawn->HasAuthority())
     {
@@ -379,6 +399,7 @@ void ULOL_AttackComponent::ExecuteRangeAttackHit()
     if (!IsValidAttackTarget(HitTarget))
     {
         HitTarget = nullptr;
+        bWaitingForProjectileHit = false;
         return;
     }
 
@@ -386,13 +407,21 @@ void ULOL_AttackComponent::ExecuteRangeAttackHit()
     ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>();
     if (!StatComp || !StateComp) return;
 
-    bHitHappened = true;
-    ABaseProjectile* Arrow = GetProjectileFromPool();
-    if (!Arrow)
+    if (bHitHappened)
     {
+        return;
+    }
+
+    ABaseProjectile* Arrow = GetProjectileFromPool();
+    if (!IsValid(Arrow))
+    {
+        bWaitingForProjectileHit = false;
         ExecuteAttackHit();
         return;
     }
+
+    bHitHappened = true;
+    bWaitingForProjectileHit = true;
 
     if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
     {
@@ -515,6 +544,7 @@ void ULOL_AttackComponent::ReceivedCrowdControl()
         GetWorld()->GetTimerManager().ClearTimer(AttackTimerHandle);
         GetWorld()->GetTimerManager().ClearTimer(AttackHitTimerHandle);
     }
+    bWaitingForProjectileHit = false;
 }
 
 void ULOL_AttackComponent::ResetAfterRespawn()
@@ -529,6 +559,7 @@ void ULOL_AttackComponent::ResetAfterRespawn()
     HitTarget = nullptr;
     bCanAttack = true;
     bHitHappened = false;
+    bWaitingForProjectileHit = false;
 
     if (OwnerPawn)
     {

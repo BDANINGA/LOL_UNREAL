@@ -1,6 +1,7 @@
 // 롤 챔피언 투사체
 #include "Champion/Projectile/BaseProjectile.h"
 
+#include "Components/CapsuleComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Component/LOL_AttackComponent.h"
@@ -22,10 +23,11 @@ ABaseProjectile::ABaseProjectile()
     SetReplicateMovement(true);
 
 	CollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComp"));
-	CollisionComp->InitSphereRadius(15.0f);
+	CollisionComp->InitSphereRadius(30.0f);
 	CollisionComp->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
     CollisionComp->SetCollisionResponseToAllChannels(ECR_Ignore);
     CollisionComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+    CollisionComp->SetGenerateOverlapEvents(true);
 	RootComponent = CollisionComp;
 
 	MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
@@ -65,6 +67,26 @@ void ABaseProjectile::Tick(float DeltaTime)
                 return;
             }
         }
+
+        float TargetRadius = 0.0f;
+        if (const UCapsuleComponent* TargetCapsule =
+            CurrentTarget->FindComponentByClass<UCapsuleComponent>())
+        {
+            TargetRadius = TargetCapsule->GetScaledCapsuleRadius();
+        }
+
+        const float ProjectileRadius = CollisionComp
+            ? CollisionComp->GetScaledSphereRadius()
+            : 0.0f;
+        const float ImpactRadius = TargetRadius + ProjectileRadius + 25.0f;
+
+        if (FVector::DistSquared(
+            GetActorLocation(),
+            CurrentTarget->GetActorLocation()) <= FMath::Square(ImpactRadius))
+        {
+            TryApplyHit(CurrentTarget);
+            return;
+        }
     }
 }
 
@@ -86,23 +108,35 @@ void ABaseProjectile::FireAtTarget(AActor* TargetActor)
 
 void ABaseProjectile::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-    if (OtherActor && OtherActor != this && OtherActor != Shooter)
-    {
-        if (Shooter)
-        {
-            ULOL_StateComponent* ShooterState = Shooter->FindComponentByClass<ULOL_StateComponent>();
-            ULOL_StateComponent* TargetState = OtherActor->FindComponentByClass<ULOL_StateComponent>();
+    TryApplyHit(OtherActor);
+}
 
-            if (ShooterState && TargetState && ShooterState->IsEnemy(TargetState))
-            {
-                if (ULOL_AttackComponent* AttackComp = Shooter->FindComponentByClass<ULOL_AttackComponent>())
-                {
-                    AttackComp->ExecuteAttackHit();
-                }
-                Deactivate();
-            }
-        }
+bool ABaseProjectile::TryApplyHit(AActor* OtherActor)
+{
+    if (!HasAuthority() || !bIsActive || !OtherActor ||
+        OtherActor == this || OtherActor == Shooter || !Shooter)
+    {
+        return false;
     }
+
+    ULOL_StateComponent* ShooterState =
+        Shooter->FindComponentByClass<ULOL_StateComponent>();
+    ULOL_StateComponent* TargetState =
+        OtherActor->FindComponentByClass<ULOL_StateComponent>();
+
+    if (!ShooterState || !TargetState || !ShooterState->IsEnemy(TargetState))
+    {
+        return false;
+    }
+
+    if (ULOL_AttackComponent* AttackComp =
+        Shooter->FindComponentByClass<ULOL_AttackComponent>())
+    {
+        AttackComp->ExecuteAttackHit();
+    }
+
+    Deactivate();
+    return true;
 }
 
 void ABaseProjectile::Deactivate()
@@ -223,6 +257,7 @@ void ABaseProjectile::ApplyActiveState()
 {
     SetActorHiddenInGame(!bIsActive);
     CollisionComp->SetCollisionEnabled(bIsActive ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
+    CollisionComp->SetGenerateOverlapEvents(bIsActive);
 }
 
 void ABaseProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

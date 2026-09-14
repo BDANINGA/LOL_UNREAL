@@ -47,26 +47,6 @@ void ALOL_MinionAIController::DecisionLoop()
 		return;
 	}
 
-	if (bReturningToWavePoint)
-	{
-		if (ShouldReturnToWavePoint(Minion))
-		{
-			ReturnToWavePoint(Minion);
-			return;
-		}
-
-		bReturningToWavePoint = false;
-	}
-
-	if (Minion->AttackComponent &&
-		Cast<ABaseChampion>(Minion->AttackComponent->CombatTarget) &&
-		ShouldReturnToWavePoint(Minion))
-	{
-		bReturningToWavePoint = true;
-		ReturnToWavePoint(Minion);
-		return;
-	}
-
 	AActor* ClosestEnemy = ScanForClosestEnemy();
 
 	if (ClosestEnemy)
@@ -92,52 +72,6 @@ void ALOL_MinionAIController::DecisionLoop()
 		}
 	}
 }
-
-bool ALOL_MinionAIController::ShouldReturnToWavePoint(ABaseMinion* Minion) const
-{
-	if (!Minion || !Minion->PathPoints.IsValidIndex(Minion->CurrentPathIndex))
-	{
-		return false;
-	}
-
-	const float AllowedDistance = bReturningToWavePoint
-		? ChampionChaseResumeDistance
-		: ChampionChaseLeashDistance;
-	return FVector::Dist2D(
-		Minion->GetActorLocation(),
-		Minion->PathPoints[Minion->CurrentPathIndex]) > AllowedDistance;
-}
-
-void ALOL_MinionAIController::ReturnToWavePoint(ABaseMinion* Minion)
-{
-	if (!Minion || !Minion->PathPoints.IsValidIndex(Minion->CurrentPathIndex))
-	{
-		return;
-	}
-
-	if (Minion->AttackComponent)
-	{
-		GetWorldTimerManager().ClearTimer(Minion->AttackComponent->AttackHitTimerHandle);
-		GetWorldTimerManager().ClearTimer(Minion->AttackComponent->AttackTimerHandle);
-		Minion->AttackComponent->SetCombatTarget(nullptr);
-		Minion->AttackComponent->HitTarget = nullptr;
-		Minion->AttackComponent->bCanAttack = true;
-	}
-
-	if (Minion->StateComponent)
-	{
-		Minion->StateComponent->RemoveStatusTag(LOLTags::State_Attacking);
-		Minion->StateComponent->AddStatusTag(LOLTags::State_Moving);
-	}
-
-	if (Minion->MoveComponent)
-	{
-		Minion->MoveComponent->SetMoveTarget(
-			Minion->PathPoints[Minion->CurrentPathIndex],
-			nullptr);
-	}
-}
-
 AActor* ALOL_MinionAIController::ScanForClosestEnemy()
 {
 	APawn* ControlledPawn = GetPawn();

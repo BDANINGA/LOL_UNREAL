@@ -18,19 +18,9 @@ protected:
 	void DecisionLoop();
 
 	AActor* ScanForClosestEnemy();
-	bool ShouldReturnToWavePoint(class ABaseMinion* Minion) const;
-	void ReturnToWavePoint(class ABaseMinion* Minion);
 private:
 	FTimerHandle AI_DecisionTimer;
 
 	UPROPERTY(EditDefaultsOnly, Category = "AI")
 	float SearchRadius = 400.0f;
-
-	UPROPERTY(EditDefaultsOnly, Category = "AI")
-	float ChampionChaseLeashDistance = 800.0f;
-
-	UPROPERTY(EditDefaultsOnly, Category = "AI")
-	float ChampionChaseResumeDistance = 250.0f;
-
-	bool bReturningToWavePoint = false;
 };
