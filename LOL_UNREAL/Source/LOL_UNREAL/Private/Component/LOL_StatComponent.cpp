@@ -2,7 +2,6 @@
 #include "Component/LOL_UIComponent.h"
 #include "Component/LOL_StateComponent.h"
 #include "Component/LOL_LifeCycleComponent.h"
-#include "Component/Champion_SkillComponent.h"
 
 #include "BaseChampion.h"
 #include "JungleMonster/BaseJungleMonster.h"
@@ -16,7 +15,6 @@
 #include "LOL_HUD.h"
 #include "LOL_GameState.h"
 #include "LOL_PlayerController.h"
-#include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "TimerManager.h"
 
@@ -187,9 +185,7 @@ void ULOL_StatComponent::InitializeStat()
 			if (Cast<ABaseChampion>(Owner))
 			{
 				CurrentGold = StartingGold;
-				CurrentEXP = 0.0f;
 				OnRep_CurrentGold();
-				OnRep_CurrentEXP();
 			}
 		}
 	}
@@ -431,16 +427,12 @@ void ULOL_StatComponent::AddEXP(float Amount)
 
 	CurrentEXP += Amount;
 
-	while (BaseStat.Level < 18 && CurrentEXP >= GetMaxEXP())
+	while (CurrentEXP >= MaxEXP)
 	{
-		CurrentEXP -= GetMaxEXP();
+		CurrentEXP -= MaxEXP;
 		BaseStat.Level++;
 
-		if (UChampion_SkillComponent* SkillComp =
-			GetOwner()->FindComponentByClass<UChampion_SkillComponent>())
-		{
-			SkillComp->AddSkillPointForChampionLevel(BaseStat.Level);
-		}
+		MaxEXP = 280.f + (BaseStat.Level - 1) * 100.f;
 
 		BaseStat.MaxHP += BaseStat.HPPerLevel;
 		BaseStat.HPRegen += BaseStat.HPRegenPerLevel;
@@ -465,7 +457,6 @@ void ULOL_StatComponent::AddEXP(float Amount)
 			break;
 		}
 	}
-	OnRep_CurrentEXP();
 }
 
 void ULOL_StatComponent::RecalculateAttackSpeed()
@@ -526,17 +517,6 @@ void ULOL_StatComponent::HandleRegeneration()
 
 void ULOL_StatComponent::OnRep_BaseStat()
 {
-	if (BaseStat.MoveSpeed > 0.0f)
-	{
-		if (ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner()))
-		{
-			if (UCharacterMovementComponent* Movement = OwnerCharacter->GetCharacterMovement())
-			{
-				Movement->MaxWalkSpeed = BaseStat.MoveSpeed;
-			}
-		}
-	}
-
 	if (OnStatChanged.IsBound())
 	{
 		OnStatChanged.Broadcast(BaseStat);

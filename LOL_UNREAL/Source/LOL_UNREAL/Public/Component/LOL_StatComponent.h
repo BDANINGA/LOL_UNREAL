@@ -209,12 +209,7 @@ public:
 
 	FORCEINLINE float GetGiveGold() const { return BaseStat.GiveGold; }
 	FORCEINLINE float GetGiveEXP() const { return BaseStat.GiveEXP; }
-	FORCEINLINE float GetMaxEXP() const
-	{
-		return BaseStat.Level >= 18
-			? 0.0f
-			: 280.0f + (BaseStat.Level - 1) * 100.0f;
-	}
+	FORCEINLINE float GetMaxEXP() const { return MaxEXP; }
 
 	void AddGold(float Amount);
 	bool SpendGold(float Amount);
@@ -260,6 +255,9 @@ protected:
 
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentGold)
 	float CurrentGold = 0;
+
+	UPROPERTY()
+	float MaxEXP = 280;
 
 	UFUNCTION()
 	void OnRep_BaseStat();

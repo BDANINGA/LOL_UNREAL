@@ -142,8 +142,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shop")
 	TArray<FName> ShopActorTags;
 private:
-	bool IsSkillLevelUpInputDown() const;
-	void HandleSkillInput(uint8 SkillKey, FName SkillName);
 	bool GetTargetAwareHitUnderCursor(FHitResult& OutHit) const;
 	bool IsClickableAttackTarget(AActor* TargetActor) const;
 	bool IsExpandedClickableAttackTarget(AActor* TargetActor) const;

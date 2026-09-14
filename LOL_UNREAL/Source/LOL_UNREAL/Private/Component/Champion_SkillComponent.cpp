@@ -6,12 +6,10 @@
 
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/DataTable.h"
-#include "Net/UnrealNetwork.h"
 
 UChampion_SkillComponent::UChampion_SkillComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
-    SetIsReplicatedByDefault(true);
 
     static ConstructorHelpers::FObjectFinder<UDataTable> DataTableAsset(TEXT("/Game/LOL_Data/Data_Champions/Data_ChampionSkill.Data_ChampionSkill"));
     if (DataTableAsset.Succeeded())
@@ -58,20 +56,11 @@ void UChampion_SkillComponent::InitializeSkills()
         if (FSkillData* Data = GetRow(TEXT("_E"))) E_Data = *Data;
         if (FSkillData* Data = GetRow(TEXT("_R"))) R_Data = *Data;
     }
-
-    if (Owner && Owner->HasAuthority() && AvailableSkillPoints <= 0 &&
-        QSkillLevel + WSkillLevel + ESkillLevel + RSkillLevel <= 0)
-    {
-        const int32 ChampionLevel = Owner->StatComponent
-            ? Owner->StatComponent->GetStat().Level
-            : 1;
-        AvailableSkillPoints = FMath::Clamp(ChampionLevel, 1, 18);
-    }
 }
 
 bool UChampion_SkillComponent::TryCastSkill(FName SkillName, int32 SkillLevel)
 {
-    if (!Owner) return false;
+    if (!Owner || SkillLevel <= 0) return false;
 
     FSkillData* SkillData = nullptr;
 
@@ -79,37 +68,20 @@ bool UChampion_SkillComponent::TryCastSkill(FName SkillName, int32 SkillLevel)
     if (SkillName == "W") SkillData = &W_Data;
     if (SkillName == "E") SkillData = &E_Data;
     if (SkillName == "R") SkillData = &R_Data;
-    if (!SkillData) return false;
-
-    const int32 LearnedSkillLevel = GetSkillLevel(SkillName);
-    if (LearnedSkillLevel <= 0) return false;
-
-    SkillLevel = LearnedSkillLevel;
 
     float CurrentTime = GetWorld()->GetTimeSeconds();
     if (CurrentTime < SkillData->CooldownEndTime) return false;
 
-    const int32 HighestDataIndex = FMath::Max(
-        0,
-        FMath::Min(
-            4,
-            FMath::Max(SkillData->ManaCost.Num(), SkillData->Cooldown.Num()) - 1
-        )
-    );
-    int32 SkillLevelIdx = FMath::Clamp(SkillLevel - 1, 0, HighestDataIndex);
+    int32 SkillLevelIdx = FMath::Clamp(SkillLevel - 1, 0, 4);
 
-    float Cost = SkillData->ManaCost.IsValidIndex(SkillLevelIdx)
-        ? SkillData->ManaCost[SkillLevelIdx]
-        : 0.0f;
+    float Cost = SkillData->ManaCost[SkillLevelIdx];
     float Mp = Owner->StatComponent->GetCurrentMP();
 
     if (Mp < Cost) return false;
 
     Owner->StatComponent->SetMP(Mp - Cost);
 
-    float BaseCooldown = SkillData->Cooldown.IsValidIndex(SkillLevelIdx)
-        ? SkillData->Cooldown[SkillLevelIdx]
-        : 0.0f;
+    float BaseCooldown = SkillData->Cooldown[SkillLevelIdx];
     float Haste = Owner->StatComponent->GetStat().AbilityHaste;
     float FinalCooldown = BaseCooldown * (100.f / (100.f + Haste));
 
@@ -136,7 +108,6 @@ int32 UChampion_SkillComponent::GetSkillLevelIndex(FName SkillName) const
 
 int32& UChampion_SkillComponent::GetMutableSkillLevel(FName SkillName)
 {
-    if (SkillName == "Q") return QSkillLevel;
     if (SkillName == "W") return WSkillLevel;
     if (SkillName == "E") return ESkillLevel;
     return RSkillLevel;

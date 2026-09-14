@@ -8,7 +8,6 @@
 
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
-#include "Net/UnrealNetwork.h"
 
 #include "BaseChampion.h"
 #include "Minion/BaseMinion.h"
@@ -18,8 +17,6 @@
 ABaseProjectile::ABaseProjectile()
 {
 	PrimaryActorTick.bCanEverTick = true;
-    bReplicates = true;
-    SetReplicateMovement(true);
 
 	CollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComp"));
 	CollisionComp->InitSphereRadius(15.0f);
@@ -49,7 +46,7 @@ void ABaseProjectile::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
-    if (HasAuthority() && bIsActive)
+    if (bIsActive)
     {
         if (!IsValid(CurrentTarget))
         {
@@ -112,7 +109,8 @@ void ABaseProjectile::Deactivate()
     CurrentTarget = nullptr;
     SetActorTickEnabled(false);
 
-    ApplyActiveState();
+    SetActorHiddenInGame(true);
+    CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     ProjectileMovement->StopMovementImmediately();
     ProjectileMovement->SetComponentTickEnabled(false);
 
@@ -129,7 +127,8 @@ void ABaseProjectile::Activate(FVector SpawnLocation, AActor* Target)
     SetActorTickEnabled(true);
 
     SetActorLocation(SpawnLocation);
-    ApplyActiveState();
+    SetActorHiddenInGame(false);
+    CollisionComp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 
     ProjectileMovement->SetUpdatedComponent(CollisionComp);
 
@@ -162,40 +161,21 @@ void ABaseProjectile::SetShooter(AActor* Actor)
 
 void ABaseProjectile::SetMesh(UStaticMesh* InMesh)
 {
-    ReplicatedMesh = InMesh;
-    ReplicatedMeshScale = FVector::OneVector;
-    ReplicatedMeshRelativeRotation = FRotator(0.0f, -90.0f, 0.0f);
-    ApplyProjectileVisual();
-}
-
-void ABaseProjectile::SetMeshTransform(FVector InScale, FRotator InRelativeRotation)
-{
-    ReplicatedMeshScale = InScale;
-    ReplicatedMeshRelativeRotation = InRelativeRotation;
-    ApplyProjectileVisual();
-}
-
-void ABaseProjectile::ApplyProjectileVisual()
-{
     if (NiagaraComp)
     {
         NiagaraComp->SetAsset(nullptr);
         NiagaraComp->SetVisibility(false);
     }
 
-    if (MeshComp && ReplicatedMesh)
+    if (MeshComp && InMesh)
     {
-        MeshComp->SetStaticMesh(ReplicatedMesh);
-        MeshComp->SetRelativeScale3D(ReplicatedMeshScale);
-        MeshComp->SetRelativeRotation(ReplicatedMeshRelativeRotation);
+        MeshComp->SetStaticMesh(InMesh);
         MeshComp->SetVisibility(true);
     }
 }
 
 void ABaseProjectile::SetNiagara(UNiagaraSystem* InNiagara)
 {
-    ReplicatedMesh = nullptr;
-
     if (MeshComp)
     {
         MeshComp->SetStaticMesh(nullptr);
@@ -207,30 +187,4 @@ void ABaseProjectile::SetNiagara(UNiagaraSystem* InNiagara)
         NiagaraComp->SetAsset(InNiagara);
         NiagaraComp->SetVisibility(true);
     }
-}
-
-void ABaseProjectile::OnRep_IsActive()
-{
-    ApplyActiveState();
-}
-
-void ABaseProjectile::OnRep_ProjectileVisual()
-{
-    ApplyProjectileVisual();
-}
-
-void ABaseProjectile::ApplyActiveState()
-{
-    SetActorHiddenInGame(!bIsActive);
-    CollisionComp->SetCollisionEnabled(bIsActive ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
-}
-
-void ABaseProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-    DOREPLIFETIME(ABaseProjectile, bIsActive);
-    DOREPLIFETIME(ABaseProjectile, ReplicatedMesh);
-    DOREPLIFETIME(ABaseProjectile, ReplicatedMeshScale);
-    DOREPLIFETIME(ABaseProjectile, ReplicatedMeshRelativeRotation);
 }
