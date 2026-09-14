@@ -149,7 +149,10 @@ public:
 
 	void ProcessMoveInput(FVector ClickLocation, AActor* TargetActor);
 	bool IsEnemyActor(AActor* TargetActor) const;
-	virtual bool IsMoveInputBlocked() const { return bIsRecalling; }
+	virtual bool IsMoveInputBlocked() const { return bIsRecalling || bIsCastingSkill; }
+	void BeginSkillCast(float CastTime);
+	void EndSkillCast();
+	bool IsCastingSkill() const { return bIsCastingSkill; }
 
 	void StartRecall();
 	void CancelRecall();
@@ -238,6 +241,9 @@ protected:
 	UPROPERTY(Replicated)
 	bool bIsRecalling = false;
 
+	UPROPERTY(Replicated)
+	bool bIsCastingSkill = false;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Recall")
 	float RecallDuration = 8.0f;
 
@@ -249,6 +255,9 @@ protected:
 
 	UPROPERTY()
 	FTimerHandle RecallTimerHandle;
+
+	UPROPERTY()
+	FTimerHandle SkillCastTimerHandle;
 
 	UPROPERTY()
 	class UNiagaraSystem* RecallEffectSystem = nullptr;

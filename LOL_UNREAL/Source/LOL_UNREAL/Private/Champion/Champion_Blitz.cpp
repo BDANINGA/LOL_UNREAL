@@ -239,6 +239,25 @@ void AChampion_Blitz::BeginPullTarget(ACharacter* Target, FVector SkillDirection
 {
     if (!HasAuthority() || !IsValidBlitzSkillTarget(Target)) return;
 
+    const FSkillData& QData = SkillComponent->GetQ_Data();
+    const float BaseDamage = QData.BaseDamage.IsValidIndex(0)
+        ? QData.BaseDamage[0]
+        : 0.0f;
+    const float AbilityPower = StatComponent
+        ? StatComponent->GetStat().AbilityPower
+        : 0.0f;
+    const float SkillDamage = BaseDamage + AbilityPower * Q_APRatio;
+
+    if (SkillDamage > 0.0f)
+    {
+        UGameplayStatics::ApplyDamage(
+            Target,
+            SkillDamage,
+            GetController(),
+            this,
+            ULOL_DamageMagic::StaticClass()
+        );
+    }
     GrabbedTarget = Target;
 
     PullDestination = GetActorLocation() + GetActorForwardVector().GetSafeNormal2D() * Q_PullDistance;

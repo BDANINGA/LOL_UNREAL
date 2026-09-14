@@ -257,6 +257,20 @@ void ULOL_UIComponent::UpdateMpFromStat(float NewMp)
         ChampWidgetObj->UpdateMP(NewMp / StatComp->GetStat().MaxMP);
     }
 }
+
+void ULOL_UIComponent::UpdateExpFromStat(float NewExp)
+{
+    if (!OwnerPawn) return;
+
+    ULOL_StatComponent* StatComp = OwnerPawn->FindComponentByClass<ULOL_StatComponent>();
+    if (!StatComp) return;
+
+    if (ULOL_ChampionWidget* ChampWidgetObj = Cast<ULOL_ChampionWidget>(ActorWidget->GetUserWidgetObject()))
+    {
+        ChampWidgetObj->UpdateEXP(NewExp, StatComp->GetMaxEXP());
+    }
+}
+
 void ULOL_UIComponent::UpdateLevel(const FChampionStat& CurrentStat)
 {
     if (ULOL_ChampionWidget* ChampWidgetObj = Cast<ULOL_ChampionWidget>(ActorWidget->GetUserWidgetObject()))

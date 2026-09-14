@@ -51,6 +51,12 @@ public:
     class UProgressBar* EXPProgressBar;
 
     UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* experiencebar;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "HUD|EXP")
+    class UPaperSprite* EXPProgressFillSprite;
+
+    UPROPERTY(meta = (BindWidgetOptional))
     class UButton* QLevelUpButton;
 
     UPROPERTY(meta = (BindWidgetOptional))
@@ -106,7 +112,13 @@ public:
     void SetAbilityHaste(float Value) { if (Txt_AH) Txt_AH->SetText(FText::AsNumber(Value)); }
     void SetCriticalRate(float Value) { if (Txt_Crit) Txt_Crit->SetText(FText::AsNumber(Value)); }
     void SetMoveSpeed(float Value) { if (Txt_MS) Txt_MS->SetText(FText::AsNumber(Value)); }
-    void SetLevel(float Value) { if (Txt_Level) Txt_Level->SetText(FText::AsNumber(Value)); }
+    void SetLevel(int32 Value)
+    {
+        if (Txt_Level)
+        {
+            Txt_Level->SetText(FText::AsNumber(FMath::Clamp(Value, 1, 18)));
+        }
+    }
 
     void UpdateHP(float NewHP, float MaxHP);
     void UpdateMP(float NewMP, float MaxMP);
@@ -141,6 +153,11 @@ protected:
     class UMaterialInstanceDynamic* SkillE_MID;
     UPROPERTY()
     class UMaterialInstanceDynamic* SkillR_MID;
+    UPROPERTY()
+    class UMaterialInstanceDynamic* EXP_MID;
+
+    UPROPERTY()
+    float CurrentEXPPercent = 0.0f;
 
     UPROPERTY()
     float SkillCoolLocalEndTimeQ;
@@ -226,6 +243,9 @@ protected:
     void CreateKillLogContainer();
     void RemoveKillLogEntry(class UUserWidget* Entry);
     void UpdateScoreboard();
+    void CacheEXPWidgets();
+    void ApplyEXPProgressBarStyle();
+    void ApplyEXPPercent(float Percent);
 
     virtual void NativeConstruct() override;
     virtual void NativeDestruct() override;

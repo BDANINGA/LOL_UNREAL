@@ -18,6 +18,10 @@
 #include "LOL_PlayerController.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Blueprint/UserWidget.h"
+#include "Blueprint/WidgetTree.h"
+#include "Components/TextBlock.h"
+#include "Components/WidgetComponent.h"
 #include "TimerManager.h"
 
 ULOL_StatComponent::ULOL_StatComponent()
@@ -178,13 +182,20 @@ void ULOL_StatComponent::InitializeStat()
 		}
 		if (FoundRow)
 		{
+			const bool bIsChampion = Cast<ABaseChampion>(Owner) != nullptr;
+			FChampionStat InitialStat = *FoundRow;
+			if (bIsChampion)
+			{
+				InitialStat.Level = 1;
+			}
+
 			LevelOneAttackSpeed = FoundRow->AttackSpeed;
-			SetStat(*FoundRow);
+			SetStat(InitialStat);
 			RecalculateAttackSpeed();
 			SetHP(BaseStat.MaxHP);
 			SetMP(BaseStat.MaxMP);
 
-			if (Cast<ABaseChampion>(Owner))
+			if (bIsChampion)
 			{
 				CurrentGold = StartingGold;
 				CurrentEXP = 0.0f;
@@ -578,6 +589,14 @@ float ULOL_StatComponent::ApplyDamage(float InDamage, EDamageType DamageType, AC
 		{
 			LifeCycle->RecordDamageFrom(Instigator);
 		}
+
+		if (Cast<ABaseChampion>(GetOwner()))
+		{
+			FVector Origin = FVector::ZeroVector;
+			FVector BoxExtent = FVector::ZeroVector;
+			GetOwner()->GetActorBounds(false, Origin, BoxExtent);
+			Multicast_ShowDamageText(ActualDamage, Origin + FVector(0.0f, 0.0f, BoxExtent.Z + 40.0f));
+		}
 	}
 
 	SetHP(CurrentHP - ActualDamage);
@@ -588,6 +607,56 @@ float ULOL_StatComponent::ApplyDamage(float InDamage, EDamageType DamageType, AC
 	}
 
 	return ActualDamage;
+}
+
+void ULOL_StatComponent::Multicast_ShowDamageText_Implementation(float DamageAmount, FVector WorldLocation)
+{
+	UWorld* World = GetWorld();
+	if (!World || DamageAmount <= 0.0f)
+	{
+		return;
+	}
+
+	static TSubclassOf<AActor> DamageFloaterClass =
+		LoadClass<AActor>(nullptr, TEXT("/Game/UI/bp_damagefloater.bp_damagefloater_C"));
+	if (!DamageFloaterClass)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Damage floater class not found. Expected /Game/UI/bp_damagefloater.bp_damagefloater_C"));
+		return;
+	}
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	AActor* DamageFloater = World->SpawnActor<AActor>(
+		DamageFloaterClass,
+		WorldLocation,
+		FRotator::ZeroRotator,
+		SpawnParams);
+	if (!DamageFloater)
+	{
+		return;
+	}
+
+	DamageFloater->SetLifeSpan(1.2f);
+
+	UWidgetComponent* WidgetComponent =
+		DamageFloater->FindComponentByClass<UWidgetComponent>();
+	UUserWidget* DamageWidget = WidgetComponent
+		? WidgetComponent->GetUserWidgetObject()
+		: nullptr;
+	if (!DamageWidget || !DamageWidget->WidgetTree)
+	{
+		return;
+	}
+
+	UTextBlock* DamageText =
+		Cast<UTextBlock>(DamageWidget->WidgetTree->FindWidget(TEXT("text_damage")));
+	if (DamageText)
+	{
+		DamageText->SetText(FText::AsNumber(FMath::RoundToInt(DamageAmount)));
+	}
 }
 
 float ULOL_StatComponent::CalculateReducedDamage(float RawDamage, EDamageType Type)

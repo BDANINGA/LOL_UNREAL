@@ -388,31 +388,33 @@ void ULOL_AttackComponent::ExecuteRangeAttackHit()
 
     bHitHappened = true;
     ABaseProjectile* Arrow = GetProjectileFromPool();
+    if (!Arrow)
+    {
+        ExecuteAttackHit();
+        return;
+    }
 
     if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
     {
-        if (Arrow)
+        if (Champion->ChampionResource.ProjectileMesh.Num() > 0 && Champion->ChampionResource.ProjectileMesh[0])
         {
-            if (Champion->ChampionResource.ProjectileMesh.Num() > 0 && Champion->ChampionResource.ProjectileMesh[0])
+            Arrow->SetShooter(Champion);
+            Arrow->SetMesh(Champion->ChampionResource.ProjectileMesh[0]);
+
+            if (Champion->GetChampionName() == TEXT("Ezreal"))
             {
-                Arrow->SetShooter(Champion);
-                Arrow->SetMesh(Champion->ChampionResource.ProjectileMesh[0]);
-
-                if (Champion->GetChampionName() == TEXT("Ezreal"))
-                {
-                    Arrow->SetMeshTransform(
-                        FVector(4.0f, 4.0f, 4.0f),
-                        FRotator(0.0f, -90.0f, 0.0f)
-                    );
-                }
+                Arrow->SetMeshTransform(
+                    FVector(4.0f, 4.0f, 4.0f),
+                    FRotator(0.0f, -90.0f, 0.0f)
+                );
             }
-
-            FVector SpawnLocation =
-                Champion->GetActorLocation() +
-                (Champion->GetActorForwardVector() * 80.f) +
-                FVector(0.0f, 0.0f, 80.0f);
-            Arrow->Activate(SpawnLocation, HitTarget);
         }
+
+        FVector SpawnLocation =
+            Champion->GetActorLocation() +
+            (Champion->GetActorForwardVector() * 80.f) +
+            FVector(0.0f, 0.0f, 80.0f);
+        Arrow->Activate(SpawnLocation, HitTarget);
     }
     else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
     {

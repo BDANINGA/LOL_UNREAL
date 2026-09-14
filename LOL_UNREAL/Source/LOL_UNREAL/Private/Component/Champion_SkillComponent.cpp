@@ -116,6 +116,7 @@ bool UChampion_SkillComponent::TryCastSkill(FName SkillName, int32 SkillLevel)
     SkillData->CooldownEndTime = CurrentTime + FinalCooldown;
 
     Client_UpdateHUDCooldown(SkillName, SkillData->CooldownEndTime, FinalCooldown);
+    Owner->BeginSkillCast(SkillData->CastTime);
 
     return true;
 }

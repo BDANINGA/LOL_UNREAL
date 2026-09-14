@@ -51,6 +51,9 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Skills")
     float Q_PullDistance = 100.0f;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Skills")
+    float Q_APRatio = 1.2f;
+
     FVector PullDestination;
 
     UPROPERTY()
