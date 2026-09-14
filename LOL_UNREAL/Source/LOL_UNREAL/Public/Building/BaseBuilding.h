@@ -19,6 +19,8 @@ public:
 
 	float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
+	virtual void OnBuildingDeath();
+
 protected:
 	virtual void BeginPlay() override;
 
