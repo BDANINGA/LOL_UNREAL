@@ -15,20 +15,23 @@
 
 ABaseBuilding::ABaseBuilding()
 {
-	PrimaryActorTick.bCanEverTick = false;
+    PrimaryActorTick.bCanEverTick = false;
 
-	CapsuleComponent = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CapsuleComponent"));
-	SetRootComponent(CapsuleComponent);
-	CapsuleComponent->SetCapsuleHalfHeight(150.f);
-	CapsuleComponent->SetCapsuleRadius(100.f);
-	CapsuleComponent->SetCollisionProfileName(TEXT("Pawn")); 
+    CapsuleComponent = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CapsuleComponent"));
+    SetRootComponent(CapsuleComponent);
 
-	StatComponent = CreateDefaultSubobject<ULOL_StatComponent>(TEXT("StatComponent"));
-	StateComponent = CreateDefaultSubobject<ULOL_StateComponent>(TEXT("StateComponent"));
-	AttackComponent = CreateDefaultSubobject<ULOL_AttackComponent>(TEXT("AttackComponent"));
-	LifeCycleComponent = CreateDefaultSubobject<ULOL_LifeCycleComponent>(TEXT("LifeCycleComponent"));
-	UIComponent = CreateDefaultSubobject<ULOL_UIComponent>(TEXT("UIComponent"));
-	VisionComponent = CreateDefaultSubobject<ULOL_VisionComponent>(TEXT("VisionComponent"));
+    CapsuleComponent->SetMobility(EComponentMobility::Movable);
+
+    CapsuleComponent->SetCapsuleHalfHeight(150.f);
+    CapsuleComponent->SetCapsuleRadius(100.f);
+    CapsuleComponent->SetCollisionProfileName(TEXT("Pawn"));
+
+    StatComponent = CreateDefaultSubobject<ULOL_StatComponent>(TEXT("StatComponent"));
+    StateComponent = CreateDefaultSubobject<ULOL_StateComponent>(TEXT("StateComponent"));
+    AttackComponent = CreateDefaultSubobject<ULOL_AttackComponent>(TEXT("AttackComponent"));
+    LifeCycleComponent = CreateDefaultSubobject<ULOL_LifeCycleComponent>(TEXT("LifeCycleComponent"));
+    UIComponent = CreateDefaultSubobject<ULOL_UIComponent>(TEXT("UIComponent"));
+    VisionComponent = CreateDefaultSubobject<ULOL_VisionComponent>(TEXT("VisionComponent"));
 }
 
 void ABaseBuilding::BeginPlay()
@@ -71,20 +74,35 @@ void ABaseBuilding::UpdateTeamVisual()
 	UTexture2D* TargetTexture = bIsEnemy ? EnemyTexture : AllyTexture;
 
 	UMeshComponent* TargetMeshComp = nullptr;
-	if (UStaticMeshComponent* StaticMesh = FindComponentByClass<UStaticMeshComponent>())
+	// =========================
+	// Static Mesh
+	// =========================
+	if (UStaticMeshComponent* StaticMesh =
+		FindComponentByClass<UStaticMeshComponent>())
 	{
-		TargetMeshComp = StaticMesh;
-	}
-	else if (USkeletalMeshComponent* SkeletalMesh = FindComponentByClass<USkeletalMeshComponent>())
-	{
-		TargetMeshComp = SkeletalMesh;
-	}
-	if (TargetMeshComp)
-	{
-		UMaterialInstanceDynamic* DynamicMaterial = TargetMeshComp->CreateDynamicMaterialInstance(0);
-		if (DynamicMaterial)
+		if (UMaterialInstanceDynamic* DynamicMaterial =
+			StaticMesh->CreateDynamicMaterialInstance(0))
 		{
-			DynamicMaterial->SetTextureParameterValue(FName("TeamTexture"), TargetTexture);
+			DynamicMaterial->SetTextureParameterValue(
+				FName("TeamTexture"),
+				TargetTexture
+			);
+		}
+	}
+
+	// =========================
+	// Skeletal Mesh
+	// =========================
+	if (USkeletalMeshComponent* SkeletalMesh =
+		FindComponentByClass<USkeletalMeshComponent>())
+	{
+		if (UMaterialInstanceDynamic* DynamicMaterial =
+			SkeletalMesh->CreateDynamicMaterialInstance(0))
+		{
+			DynamicMaterial->SetTextureParameterValue(
+				FName("TeamTexture"),
+				TargetTexture
+			);
 		}
 	}
 
@@ -113,4 +131,8 @@ float ABaseBuilding::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 	}
 
 	return ActualDamage;
+}
+
+void ABaseBuilding::OnBuildingDeath()
+{
 }

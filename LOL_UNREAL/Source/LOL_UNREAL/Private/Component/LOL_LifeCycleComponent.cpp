@@ -10,6 +10,8 @@
 #include "LOL_GameModeBase.h"
 #include "LOL_GameState.h"
 #include "LOL_PlayerState.h"
+#include "Building/BaseBuilding.h"
+#include "Building/Building_Turret.h"
 #include "JungleMonster/BaseJungleMonster.h"
 #include "Minion/BaseMinion.h"
 
@@ -424,6 +426,13 @@ void ULOL_LifeCycleComponent::Multicast_OnDeath_Implementation()
 	OwnerPawn->GetComponents<UPrimitiveComponent>(PrimitiveComps);
 	for (UPrimitiveComponent* Comp : PrimitiveComps)
 	{
+		if (ABuilding_Turret* Turret = Cast<ABuilding_Turret>(OwnerPawn))
+		{
+			if (Comp == Turret->GetDestructionMesh())
+			{
+				continue;
+			}
+		}
 		if (!InitialCollisionStates.Contains(Comp))
 		{
 			InitialCollisionStates.Add(Comp, Comp->GetCollisionEnabled());
@@ -431,7 +440,13 @@ void ULOL_LifeCycleComponent::Multicast_OnDeath_Implementation()
 		Comp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 
-	if (ULOL_UIComponent* UIComp = OwnerPawn->FindComponentByClass<ULOL_UIComponent>())
+	if (ABaseBuilding* Building = Cast<ABaseBuilding>(OwnerPawn))
+	{
+		Building->OnBuildingDeath();
+	}
+
+	if (ULOL_UIComponent* UIComp =
+		OwnerPawn->FindComponentByClass<ULOL_UIComponent>())
 	{
 		UIComp->GetActorWidget()->SetVisibility(false);
 	}

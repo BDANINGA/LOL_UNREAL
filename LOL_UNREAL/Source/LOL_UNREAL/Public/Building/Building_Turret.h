@@ -14,9 +14,15 @@ public:
 	class UNiagaraSystem* GetAllyProjectileNiagara() { return  AllyProjectileNiagara; };
 	class UNiagaraSystem* GetEnemyProjectileNiagara() { return  EnemyProjectileNiagara; };
 
+	virtual void OnBuildingDeath() override;
+	USkeletalMeshComponent* GetDestructionMesh() const;
+
 private:
 	UPROPERTY(EditAnywhere, Category = "Mesh")
 	TObjectPtr<class UStaticMeshComponent> BuildingMesh;
+
+	UPROPERTY(EditAnywhere, Category = "Mesh")
+	TObjectPtr<class USkeletalMeshComponent> DestructionMesh;
 
 	UPROPERTY(EditAnywhere, Category = "Projectile")
 	class UNiagaraSystem* AllyProjectileNiagara;
