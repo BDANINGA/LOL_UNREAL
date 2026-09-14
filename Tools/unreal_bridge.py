@@ -18,7 +18,8 @@ def normalized(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["status", "exec"])
+    parser.add_argument("action", choices=["status", "exec", "list"])
+    parser.add_argument("--node-id", help="Explicit editor node when multiple instances are open")
     parser.add_argument("--file", type=Path, help="UTF-8 Python script to execute in the editor")
     parser.add_argument("--engine", type=Path, default=DEFAULT_ENGINE)
     parser.add_argument("--timeout", type=float, default=8)
@@ -39,9 +40,14 @@ def main():
             matches = [node for node in session.remote_nodes
                        if node.get("project_root")
                        and normalized(node["project_root"]) == normalized(PROJECT)]
-            if matches:
+            if args.node_id:
+                matches = [node for node in matches if node["node_id"] == args.node_id]
+            if matches and args.action != "list":
                 break
             time.sleep(0.2)
+        if args.action == "list":
+            print(json.dumps(matches, ensure_ascii=False, indent=2))
+            return 0
         if len(matches) != 1:
             raise RuntimeError("Expected one LOL_UNREAL editor, found %d. Open the project with Python Remote Execution enabled." % len(matches))
         session.open_command_connection(matches[0]["node_id"])
