@@ -75,10 +75,24 @@ void AVisionManager::RegisterActor(AActor* Actor)
 	if (State->HasStatusTag(LOLTags::Team_Blue))
 	{
 		BlueActors.AddUnique(Actor);
+
+		UE_LOG(LogTemp, Warning,
+			TEXT("Vision Register BLUE: %s"),
+			*Actor->GetName());
 	}
 	else if (State->HasStatusTag(LOLTags::Team_Red))
 	{
 		RedActors.AddUnique(Actor);
+
+		UE_LOG(LogTemp, Warning,
+			TEXT("Vision Register RED: %s"),
+			*Actor->GetName());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("Vision Register FAILED - No Team: %s"),
+			*Actor->GetName());
 	}
 }
 void AVisionManager::UnregisterActor(AActor* Actor)
@@ -157,6 +171,11 @@ void AVisionManager::UpdateFoW()
 				break;
 			}
 		}
+
+		UE_LOG(LogTemp, Warning,
+			TEXT("FoW Actor: %s | Visible: %s"),
+			*Enemy->GetName(),
+			bVisible ? TEXT("TRUE") : TEXT("FALSE"));
 
 		Enemy->SetActorHiddenInGame(!bVisible);
 	}

@@ -5,6 +5,8 @@
 #include "LOL_GameState.h"
 #include "LOL_PlayerState.h"
 
+#include "VisionManager/VisionManager.h"
+
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_StateComponent.h"
 
@@ -681,6 +683,23 @@ void ALOL_GameModeBase::SpawnNextMinion()
                         }
                     }
                     
+                    for (AActor* Point : SelectedPoints)
+                    {
+                        if (Point)
+                        {
+                            SpawnedMinion->PathPoints.Add(Point->GetActorLocation());
+                        }
+                    }
+
+                    if (AVisionManager* VisionManager =
+                        Cast<AVisionManager>(
+                            UGameplayStatics::GetActorOfClass(
+                                GetWorld(),
+                                AVisionManager::StaticClass())))
+                    {
+                        VisionManager->RegisterActor(SpawnedMinion);
+                    }
+
                     for (AActor* Point : SelectedPoints)
                     {
                         if (Point)

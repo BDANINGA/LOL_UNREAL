@@ -78,16 +78,6 @@ void ABaseMinion::BeginPlay()
 		UIComponent->UpdateHpFromStat(StatComponent->GetCurrentHP());
 	}
 
-	AVisionManager* Manager =
-		Cast<AVisionManager>(
-			UGameplayStatics::GetActorOfClass(
-				GetWorld(),
-				AVisionManager::StaticClass()));
-
-	if (Manager)
-	{
-		Manager->RegisterActor(this);
-	}
 	UpdateTeamVisual();
 }
 
