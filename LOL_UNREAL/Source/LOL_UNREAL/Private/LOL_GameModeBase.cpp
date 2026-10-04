@@ -9,6 +9,7 @@
 
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_StateComponent.h"
+#include "Component/LOL_VisionComponent.h"
 
 #include "Champion/Champion_Alistar.h"
 #include "Champion/Champion_Vayne.h"
@@ -111,14 +112,6 @@ UClass* ALOL_GameModeBase::GetDefaultPawnClassForController_Implementation(ACont
         PlayerController->SetSelectedChampionClass(ChampionClass);
     }
 
-    UE_LOG(
-        LogTemp,
-        Log,
-        TEXT("Resolved selected champion. Player=%s ChampionID=%d Class=%s"),
-        *GetNameSafe(InController),
-        static_cast<int32>(SelectedChampion),
-        *GetNameSafe(ChampionClass));
-
     return ChampionClass;
 }
 
@@ -147,14 +140,6 @@ AActor* ALOL_GameModeBase::ChoosePlayerStart_Implementation(AController* Player)
             It->PlayerStartTag == DesiredTeamAlias ||
             It->PlayerStartTag == DesiredPlayerStartAlias)
         {
-            UE_LOG(
-                LogTemp,
-                Log,
-                TEXT("Selected PlayerStart by PlayerStartTag. Player=%s TeamID=%d Start=%s Tag=%s"),
-                *GetNameSafe(Player),
-                TeamID,
-                *It->GetName(),
-                *It->PlayerStartTag.ToString());
             return *It;
         }
     }
@@ -166,25 +151,9 @@ AActor* ALOL_GameModeBase::ChoosePlayerStart_Implementation(AController* Player)
             It->ActorHasTag(DesiredTeamAlias) ||
             It->ActorHasTag(DesiredPlayerStartAlias))
         {
-            UE_LOG(
-                LogTemp,
-                Log,
-                TEXT("Selected PlayerStart by legacy Actor Tag. Player=%s TeamID=%d Start=%s Team=%s"),
-                *GetNameSafe(Player),
-                TeamID,
-                *It->GetName(),
-                *DesiredTeamTag.ToString());
             return *It;
         }
     }
-
-    UE_LOG(
-        LogTemp,
-        Warning,
-        TEXT("No matching PlayerStart. Player=%s TeamID=%d RequiredTag=%s"),
-        *GetNameSafe(Player),
-        TeamID,
-        *DesiredTeamTag.ToString());
     return Super::ChoosePlayerStart_Implementation(Player);
 }
 
@@ -226,15 +195,21 @@ APawn* ALOL_GameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewPla
                 Champion->TeamId = 1;
                 Champion->StateComponent->AddStatusTag(LOLTags::Team_Red);
             }
+            if (Champion->VisionComponent)
+            {
+                AVisionManager* VisionManager =
+                    Cast<AVisionManager>(
+                        UGameplayStatics::GetActorOfClass(
+                            GetWorld(),
+                            AVisionManager::StaticClass()
+                        )
+                    );
 
-            UE_LOG(
-                LogTemp,
-                Log,
-                TEXT("Applied player team. Player=%s TeamID=%d Champion=%s Team=%s"),
-                *GetNameSafe(NewPlayer),
-                PlayerState ? PlayerState->TeamID : 0,
-                *GetNameSafe(Champion),
-                bIsBlueTeam ? TEXT("Blue") : TEXT("Red"));
+                if (VisionManager)
+                {
+                    VisionManager->RegisterVisionComponent(Champion->VisionComponent);
+                }
+            }
         }
     }
 
@@ -255,10 +230,6 @@ void ALOL_GameModeBase::BeginPlay()
             &ALOL_GameModeBase::StartMinionWave,
             3.0f,
             false);
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("Minion waves disabled because lane paths could not be initialized."));
     }
 }
 
@@ -326,21 +297,12 @@ bool ALOL_GameModeBase::InitializeMinionLanePaths()
             if (BlueNexus)
             {
                 BlueNexus->Tags.AddUnique(FName("BlueNexus"));
-                UE_LOG(
-                    LogTemp,
-                    Log,
-                    TEXT("Registered BlueNexus tag from BlueTeam PlayerStart distance. Nexus=%s"),
-                    *BlueNexus->GetName());
             }
         }
     }
 
     if (!BlueNexus)
     {
-        UE_LOG(
-            LogTemp,
-            Error,
-            TEXT("Blue Nexus was not found. Add the BlueTeam or BlueNexus actor tag to the blue Nexus."));
         return false;
     }
 
@@ -392,26 +354,11 @@ bool ALOL_GameModeBase::InitializeLanePath(
 
     if (OutBluePath.Num() < 2)
     {
-        UE_LOG(
-            LogTemp,
-            Error,
-            TEXT("Lane path needs at least two points. Tag=%s Count=%d"),
-            *LaneTag.ToString(),
-            OutBluePath.Num());
         return false;
     }
 
     OutRedPath = OutBluePath;
     Algo::Reverse(OutRedPath);
-
-    UE_LOG(
-        LogTemp,
-        Log,
-        TEXT("Lane path initialized. Tag=%s Points=%d BlueStartDistance=%.0f RedStartDistance=%.0f"),
-        *LaneTag.ToString(),
-        OutBluePath.Num(),
-        FVector::Dist2D(BlueNexusLocation, OutBluePath[0]->GetActorLocation()),
-        FVector::Dist2D(BlueNexusLocation, OutRedPath[0]->GetActorLocation()));
 
     return true;
 }
@@ -491,17 +438,6 @@ void ALOL_GameModeBase::SpawnJungleMonsters()
                     SpawnTarget->Tags.AddUnique(MonsterRowName);
                 }
             }
-
-            if (MonsterTaggedTargets.Num() > 0)
-            {
-                UE_LOG(
-                    LogTemp,
-                    Log,
-                    TEXT("Registered jungle monster tag. CampTag=%s MonsterTag=%s Targets=%d"),
-                    *CampTag.ToString(),
-                    *MonsterRowName.ToString(),
-                    MonsterTaggedTargets.Num());
-            }
         }
 
         SpawnJungleMonsterAtTag(MonsterRowName, MonsterRowName);
@@ -526,13 +462,6 @@ void ALOL_GameModeBase::SpawnJungleMonsterAtTag(FName TargetTag, FName MonsterRo
 
     if (SpawnTargets.Num() == 0)
     {
-        UE_LOG(
-            LogTemp,
-            Warning,
-            TEXT("Jungle monster spawn target not found. Tag=%s Monster=%s"),
-            *TargetTag.ToString(),
-            *MonsterRowName.ToString()
-        );
         return;
     }
 
@@ -647,12 +576,6 @@ void ALOL_GameModeBase::SpawnNextMinion()
                     !IsValid(SelectedPoints[0]) ||
                     !IsValid(SelectedPoints[1]))
                 {
-                    UE_LOG(
-                        LogTemp,
-                        Error,
-                        TEXT("Skipping minion spawn because lane path is invalid. PathIndex=%d Points=%d"),
-                        i,
-                        SelectedPoints.Num());
                     continue;
                 }
 
@@ -682,14 +605,6 @@ void ALOL_GameModeBase::SpawnNextMinion()
                             SpawnedMinion->StateComponent->AddStatusTag(LOLTags::Team_Red);
                         }
                     }
-                    
-                    for (AActor* Point : SelectedPoints)
-                    {
-                        if (Point)
-                        {
-                            SpawnedMinion->PathPoints.Add(Point->GetActorLocation());
-                        }
-                    }
 
                     if (AVisionManager* VisionManager =
                         Cast<AVisionManager>(
@@ -697,6 +612,12 @@ void ALOL_GameModeBase::SpawnNextMinion()
                                 GetWorld(),
                                 AVisionManager::StaticClass())))
                     {
+                        if (ULOL_VisionComponent* VisionComp =
+                            SpawnedMinion->FindComponentByClass<ULOL_VisionComponent>())
+                        {
+                            VisionManager->RegisterVisionComponent(VisionComp);
+                        }
+
                         VisionManager->RegisterActor(SpawnedMinion);
                     }
 

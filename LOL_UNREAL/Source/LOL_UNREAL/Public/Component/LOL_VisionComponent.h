@@ -21,4 +21,7 @@ protected:
 public:	
 	UPROPERTY()
 	float VisionRadius = 1000.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision")
+	bool bAffectedByFogOfWar = true;
 };

@@ -10,6 +10,7 @@
 #include "Minion/BaseMinion.h"
 #include "JungleMonster/BaseJungleMonster.h"
 #include "Camera.h"
+#include "VisionManager/VisionManager.h"
 
 #include "Widget/LOL_CursorWidget.h"
 
@@ -197,6 +198,18 @@ void ALOL_PlayerController::PlayerTick(float DeltaTime)
 	{
 		UpdateCursorSelection();
 		FreeCameraEdgeScroll(DeltaTime);
+
+		AVisionManager* VisionManager =
+			Cast<AVisionManager>(
+				UGameplayStatics::GetActorOfClass(
+					GetWorld(),
+					AVisionManager::StaticClass()
+				)
+			);
+
+		if (!VisionManager)
+			return;
+		VisionManager->UpdateFoW();
 	}
 
 	FreeCameraEdgeScroll(DeltaTime);
@@ -456,7 +469,6 @@ void ALOL_PlayerController::OnToggleShop()
 
 	if (!ShopWidget)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Shop widget class is not set. Expected /Game/UI/wbp_shop.wbp_shop_C"));
 		return;
 	}
 
@@ -493,7 +505,6 @@ void ALOL_PlayerController::SelectShopItem(FName ItemName)
 	}
 
 	SelectedShopItemName = ItemName;
-	UE_LOG(LogTemp, Log, TEXT("Shop item selected. Item=%s"), *SelectedShopItemName.ToString());
 }
 
 void ALOL_PlayerController::SelectInventoryItem(int32 ItemSlotIndex)

@@ -1,5 +1,8 @@
 // 상태 컴포넌트 (게임플레이 태그)
 #include "Component/LOL_StateComponent.h"
+#include "Component/LOL_VisionComponent.h"
+#include "VisionManager/VisionManager.h"
+#include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 
 ULOL_StateComponent::ULOL_StateComponent()
@@ -66,4 +69,28 @@ void ULOL_StateComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 void ULOL_StateComponent::OnRep_StatusTags()
 {
 	OnStateTagsChanged.Broadcast();
+
+	AActor* OwnerActor = GetOwner();
+
+	if (!IsValid(OwnerActor))
+		return;
+
+	AVisionManager* VisionManager =
+		Cast<AVisionManager>(
+			UGameplayStatics::GetActorOfClass(
+				GetWorld(),
+				AVisionManager::StaticClass()));
+
+	if (!VisionManager)
+		return;
+
+	// 시야 컴포넌트 등록
+	if (ULOL_VisionComponent* VisionComponent =
+		OwnerActor->FindComponentByClass<ULOL_VisionComponent>())
+	{
+		VisionManager->RegisterVisionComponent(VisionComponent);
+	}
+
+	// 시야 대상 액터 등록
+	VisionManager->RegisterActor(OwnerActor);
 }

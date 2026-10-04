@@ -12,8 +12,7 @@
 
 AVisionManager::AVisionManager()
 {
-	PrimaryActorTick.bCanEverTick = true;
-	PrimaryActorTick.TickInterval = 0.05f;
+	PrimaryActorTick.bCanEverTick = false;
 }
 
 void AVisionManager::BeginPlay()
@@ -28,31 +27,34 @@ void AVisionManager::BeginPlay()
 void AVisionManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	UpdateFoW();
 }
 
 void AVisionManager::RegisterVisionComponent(ULOL_VisionComponent* Component)
 {
-	if (!Component)
-		return;
+    if (!IsValid(Component))
+        return;
 
-	ULOL_StateComponent* State =
-		Component->GetOwner()->FindComponentByClass<ULOL_StateComponent>();
+    ULOL_StateComponent* State =
+        Component->GetOwner()
+        ? Component->GetOwner()->FindComponentByClass<ULOL_StateComponent>()
+        : nullptr;
 
-	if (!State)
-	{
-		return;
-	}
-		
+    if (!State)
+    {
+        return;
+    }
 
-	if (State->HasStatusTag(LOLTags::Team_Blue))
-	{
-		BlueVisionComponents.AddUnique(Component);
-	}
-	else if (State->HasStatusTag(LOLTags::Team_Red))
-	{
-		RedVisionComponents.AddUnique(Component);
-	}
+    BlueVisionComponents.Remove(Component);
+    RedVisionComponents.Remove(Component);
+
+    if (State->HasStatusTag(LOLTags::Team_Blue))
+    {
+        BlueVisionComponents.AddUnique(Component);
+    }
+    else if (State->HasStatusTag(LOLTags::Team_Red))
+    {
+        RedVisionComponents.AddUnique(Component);
+    }
 }
 
 void AVisionManager::UnregisterVisionComponent(ULOL_VisionComponent* Component)
@@ -63,37 +65,26 @@ void AVisionManager::UnregisterVisionComponent(ULOL_VisionComponent* Component)
 
 void AVisionManager::RegisterActor(AActor* Actor)
 {
-	if (!IsValid(Actor))
-		return;
+	if(!IsValid(Actor))
+        return;
 
-	ULOL_StateComponent* State =
-		Actor->FindComponentByClass<ULOL_StateComponent>();
+    ULOL_StateComponent* State =
+        Actor->FindComponentByClass<ULOL_StateComponent>();
 
-	if (!State)
-		return;
+    if (!State)
+        return;
 
-	if (State->HasStatusTag(LOLTags::Team_Blue))
-	{
-		BlueActors.AddUnique(Actor);
+    BlueActors.Remove(Actor);
+    RedActors.Remove(Actor);
 
-		UE_LOG(LogTemp, Warning,
-			TEXT("Vision Register BLUE: %s"),
-			*Actor->GetName());
-	}
-	else if (State->HasStatusTag(LOLTags::Team_Red))
-	{
-		RedActors.AddUnique(Actor);
-
-		UE_LOG(LogTemp, Warning,
-			TEXT("Vision Register RED: %s"),
-			*Actor->GetName());
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning,
-			TEXT("Vision Register FAILED - No Team: %s"),
-			*Actor->GetName());
-	}
+    if (State->HasStatusTag(LOLTags::Team_Blue))
+    {
+        BlueActors.AddUnique(Actor);
+    }
+    else if (State->HasStatusTag(LOLTags::Team_Red))
+    {
+        RedActors.AddUnique(Actor);
+    }
 }
 void AVisionManager::UnregisterActor(AActor* Actor)
 {
@@ -103,80 +94,174 @@ void AVisionManager::UnregisterActor(AActor* Actor)
 
 void AVisionManager::UpdateFoW()
 {
-	if (!FoWRenderTarget || !VisionBrushMID) return;
 
-	UKismetRenderingLibrary::ClearRenderTarget2D(this, FoWRenderTarget, FLinearColor::Black);
-	FVector2D MapSize = MapMaxBounds - MapMinBounds;
+    UWorld* World = GetWorld();
 
-	APlayerController* LocalPC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
-	if (!LocalPC) return;
+    if (!World)
+        return;
 
-	AActor* LocalPlayerPawn = LocalPC->GetPawn();
-	if (!LocalPlayerPawn) return;
+    APlayerController* LocalPC =
+        UGameplayStatics::GetPlayerController(World, 0);
 
-	ULOL_StateComponent* LocalPlayerState =
-		LocalPlayerPawn->FindComponentByClass<ULOL_StateComponent>();
-	if (!LocalPlayerState) return;
+    if (!LocalPC)
+        return;
 
-	const TArray<ULOL_VisionComponent*>* ActiveVisionComponents = nullptr;
-	const TArray<AActor*>* EnemyActors = nullptr;
+    if (!LocalPC->IsLocalController())
+        return;
 
-	if (LocalPlayerState->HasStatusTag(LOLTags::Team_Blue))
-	{
-		ActiveVisionComponents = &BlueVisionComponents;
-		EnemyActors = &RedActors;
-	}
-	else if (LocalPlayerState->HasStatusTag(LOLTags::Team_Red))
-	{
-		ActiveVisionComponents = &RedVisionComponents;
-		EnemyActors = &BlueActors;
-	}
+    if (!FoWRenderTarget || !VisionBrushMID)
+        return;
 
-	for (ULOL_VisionComponent* VisionComp : *ActiveVisionComponents)
-	{
-		if (!IsValid(VisionComp)) continue;
+    FVector2D MapSize = MapMaxBounds - MapMinBounds;
 
-		FVector WorldLoc = VisionComp->GetOwner()->GetActorLocation();
+    if (MapSize.X <= 0.f || MapSize.Y <= 0.f)
+        return;
 
-		float U = (WorldLoc.X - MapMinBounds.X) / MapSize.X;
-		float V = (WorldLoc.Y - MapMinBounds.Y) / MapSize.Y;
+    AActor* LocalPlayerPawn = LocalPC->GetPawn();
 
-		VisionBrushMID->SetVectorParameterValue(FName("DrawPosition"), FLinearColor(U, V, 0.0f, 1.0f));
+    if (!LocalPlayerPawn)
+        return;
 
-		float RadiusUV = VisionComp->VisionRadius / FMath::Max(MapSize.X, MapSize.Y);
-		VisionBrushMID->SetScalarParameterValue(FName("VisionRadius"), RadiusUV);
+    ULOL_StateComponent* LocalPlayerState =
+        LocalPlayerPawn->FindComponentByClass<ULOL_StateComponent>();
 
-		UKismetRenderingLibrary::DrawMaterialToRenderTarget(this, FoWRenderTarget, VisionBrushMID);
-	}
+    if (!LocalPlayerState)
+        return;
 
-	for (AActor* Enemy : *EnemyActors)
-	{
-		if (!IsValid(Enemy))
-			continue;
+    const TArray<ULOL_VisionComponent*>* ActiveVisionComponents = nullptr;
+    const TArray<AActor*>* AllyActors = nullptr;
+    const TArray<AActor*>* EnemyActors = nullptr;
 
-		bool bVisible = false;
+    if (LocalPlayerState->HasStatusTag(LOLTags::Team_Blue))
+    {
+        ActiveVisionComponents = &BlueVisionComponents;
+        AllyActors = &BlueActors;
+        EnemyActors = &RedActors;
+    }
+    else if (LocalPlayerState->HasStatusTag(LOLTags::Team_Red))
+    {
 
-		for (ULOL_VisionComponent* VisionComp : *ActiveVisionComponents)
-		{
-			if (!IsValid(VisionComp))
-				continue;
+        ActiveVisionComponents = &RedVisionComponents;
+        AllyActors = &RedActors;
+        EnemyActors = &BlueActors;
+    }
 
-			float Dist = FVector::Dist(
-				VisionComp->GetOwner()->GetActorLocation(),
-				Enemy->GetActorLocation());
+    if (!ActiveVisionComponents)
+        return;
 
-			if (Dist <= VisionComp->VisionRadius)
-			{
-				bVisible = true;
-				break;
-			}
-		}
+    // --------------------------------------------------
+    // 1. Fog of War RenderTarget 초기화
+    // --------------------------------------------------
 
-		UE_LOG(LogTemp, Warning,
-			TEXT("FoW Actor: %s | Visible: %s"),
-			*Enemy->GetName(),
-			bVisible ? TEXT("TRUE") : TEXT("FALSE"));
+    UKismetRenderingLibrary::ClearRenderTarget2D(
+        this,
+        FoWRenderTarget,
+        FLinearColor::Black
+    );
 
-		Enemy->SetActorHiddenInGame(!bVisible);
-	}
+    // --------------------------------------------------
+    // 2. 현재 팀의 시야 그리기
+    // --------------------------------------------------
+
+    for (ULOL_VisionComponent* VisionComp : *ActiveVisionComponents)
+    {
+        if (!IsValid(VisionComp))
+            continue;
+
+        AActor* VisionOwner = VisionComp->GetOwner();
+
+        if (!IsValid(VisionOwner))
+            continue;
+
+        FVector WorldLoc = VisionOwner->GetActorLocation();
+
+        float U =
+            (WorldLoc.X - MapMinBounds.X) / MapSize.X;
+
+        float V =
+            (WorldLoc.Y - MapMinBounds.Y) / MapSize.Y;
+
+        U = FMath::Clamp(U, 0.f, 1.f);
+        V = FMath::Clamp(V, 0.f, 1.f);
+
+        VisionBrushMID->SetVectorParameterValue(
+            FName("DrawPosition"),
+            FLinearColor(U, V, 0.f, 1.f)
+        );
+
+        float RadiusUV =
+            VisionComp->VisionRadius /
+            FMath::Max(MapSize.X, MapSize.Y);
+
+        VisionBrushMID->SetScalarParameterValue(
+            FName("VisionRadius"),
+            RadiusUV
+        );
+
+        UKismetRenderingLibrary::DrawMaterialToRenderTarget(
+            this,
+            FoWRenderTarget,
+            VisionBrushMID
+        );
+    }
+
+    // --------------------------------------------------
+    // 3. 아군은 항상 보이게
+    // --------------------------------------------------
+
+    if (AllyActors)
+    {
+        for (AActor* Ally : *AllyActors)
+        {
+            if (!IsValid(Ally))
+                continue;
+
+            Ally->SetActorHiddenInGame(false);
+        }
+    }
+
+    // --------------------------------------------------
+    // 4. 적군은 시야 안에서만 보이게
+    // --------------------------------------------------
+
+    if (EnemyActors)
+    {
+        for (AActor* Enemy : *EnemyActors)
+        {
+            if (!IsValid(Enemy))
+                continue;
+
+            if (Cast<ABaseBuilding>(Enemy))
+            {
+                Enemy->SetActorHiddenInGame(false);
+                continue;
+            }
+
+            bool bVisible = false;
+
+            for (ULOL_VisionComponent* VisionComp : *ActiveVisionComponents)
+            {
+                if (!IsValid(VisionComp))
+                    continue;
+
+                AActor* VisionOwner = VisionComp->GetOwner();
+
+                if (!IsValid(VisionOwner))
+                    continue;
+
+                const float Dist = FVector::Dist(
+                    VisionOwner->GetActorLocation(),
+                    Enemy->GetActorLocation()
+                );
+
+                if (Dist <= VisionComp->VisionRadius)
+                {
+                    bVisible = true;
+                    break;
+                }
+            }
+
+            Enemy->SetActorHiddenInGame(!bVisible);
+        }
+    }
 }

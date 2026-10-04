@@ -11,13 +11,6 @@ void ULOL_VisionComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	GetWorld()->GetTimerManager().SetTimerForNextTick([this]()
-		{
-			if (AVisionManager* Manager = Cast<AVisionManager>(UGameplayStatics::GetActorOfClass(GetWorld(), AVisionManager::StaticClass())))
-			{
-				Manager->RegisterVisionComponent(this);
-			}
-		});
 }
 
 void ULOL_VisionComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)

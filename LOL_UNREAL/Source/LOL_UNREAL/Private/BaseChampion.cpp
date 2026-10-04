@@ -4,7 +4,6 @@
 #include "LOL_GameModeBase.h"
 #include "LOL_PlayerController.h"
 #include "LOL_HUD.h"
-#include "VisionManager/VisionManager.h"
 
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
@@ -165,16 +164,6 @@ void ABaseChampion::BeginPlay()
 				}
 			}
 		}
-	}
-	AVisionManager* Manager =
-		Cast<AVisionManager>(
-			UGameplayStatics::GetActorOfClass(
-				GetWorld(),
-				AVisionManager::StaticClass()));
-
-	if (Manager)
-	{
-		Manager->RegisterActor(this);
 	}
 }
 

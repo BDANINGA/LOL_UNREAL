@@ -28,6 +28,8 @@ public:
 	void RegisterActor(AActor* Actor);
 	void UnregisterActor(AActor* Actor);
 
+	void UpdateFoW();
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|Render")
 	UTextureRenderTarget2D* FoWRenderTarget;
 
@@ -53,6 +55,4 @@ private:
 
 	UPROPERTY()
 	UMaterialInstanceDynamic* VisionBrushMID;
-
-	void UpdateFoW();
 };
