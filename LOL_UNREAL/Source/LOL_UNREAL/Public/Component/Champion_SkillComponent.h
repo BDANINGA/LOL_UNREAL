@@ -64,6 +64,8 @@ public:
     void Server_LevelUpSkill(FName SkillName);
 
     class ABaseChampion* Owner;
+
+    void DebugResetCooldowns();
     
 protected:
 	virtual void BeginPlay() override;

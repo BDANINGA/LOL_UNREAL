@@ -182,4 +182,39 @@ private:
 	bool bShopButtonsBound = false;
 
 	FString LastCursorState;
+
+	// Debug
+	void DebugRecover();
+	void DebugLevelUp();
+	void DebugAddGold();
+	void DebugTeleport();
+	void DebugResetSkillCooldown();
+	void DebugKill();
+	void DebugRespawn();
+	void DebugTestVision();
+	void DebugResetGame();
+
+	UFUNCTION(Server, Reliable)
+	void Server_DebugRecover();
+
+	UFUNCTION(Server, Reliable)
+	void Server_DebugLevelUp();
+
+	UFUNCTION(Server, Reliable)
+	void Server_DebugAddGold();
+
+	UFUNCTION(Server, Reliable)
+	void Server_DebugTeleport(const FVector& Location);
+
+	UFUNCTION(Server, Reliable)
+	void Server_DebugResetSkillCooldown();
+
+	UFUNCTION(Server, Reliable)
+	void Server_DebugKill();
+
+	UFUNCTION(Server, Reliable)
+	void Server_DebugRespawn();
+
+	/*UFUNCTION(Server, Reliable)
+	void Server_DebugResetGame();*/
 };

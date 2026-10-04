@@ -271,3 +271,21 @@ void UChampion_SkillComponent::GetLifetimeReplicatedProps(
     DOREPLIFETIME(UChampion_SkillComponent, RSkillLevel);
     DOREPLIFETIME(UChampion_SkillComponent, AvailableSkillPoints);
 }
+void UChampion_SkillComponent::DebugResetCooldowns()
+{
+    if (!Owner || !Owner->HasAuthority())
+        return;
+
+    const float CurrentTime = GetWorld()->GetTimeSeconds();
+
+    Q_Data.CooldownEndTime = CurrentTime;
+    W_Data.CooldownEndTime = CurrentTime;
+    E_Data.CooldownEndTime = CurrentTime;
+    R_Data.CooldownEndTime = CurrentTime;
+
+    // HUD도 즉시 갱신
+    Client_UpdateHUDCooldown("Q", CurrentTime, 0.f);
+    Client_UpdateHUDCooldown("W", CurrentTime, 0.f);
+    Client_UpdateHUDCooldown("E", CurrentTime, 0.f);
+    Client_UpdateHUDCooldown("R", CurrentTime, 0.f);
+}

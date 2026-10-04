@@ -17,6 +17,7 @@
 #include "Component/LOL_StateComponent.h"
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_UIComponent.h"
+#include "Component/LOL_LifeCycleComponent.h"
 #include "Component/Champion_SkillComponent.h"
 #include "GamePlayTag/LOL_GamePlayTags.h"
 #include "Item/LOL_ItemData.h"
@@ -221,6 +222,16 @@ void ALOL_PlayerController::SetupInputComponent()
 	InputComponent->BindKey(EKeys::P, IE_Pressed, this, &ALOL_PlayerController::OnToggleShop);
 	InputComponent->BindKey(EKeys::B, IE_Pressed, this, &ALOL_PlayerController::OnRecall);
 	InputComponent->BindKey(EKeys::Escape, IE_Pressed, this, &ALOL_PlayerController::OnQuitGame);
+
+	InputComponent->BindKey(EKeys::F1, IE_Pressed, this, &ALOL_PlayerController::DebugRecover);
+	InputComponent->BindKey(EKeys::F2, IE_Pressed, this, &ALOL_PlayerController::DebugLevelUp);
+	InputComponent->BindKey(EKeys::F3, IE_Pressed, this, &ALOL_PlayerController::DebugAddGold);
+	InputComponent->BindKey(EKeys::F4, IE_Pressed, this, &ALOL_PlayerController::DebugTeleport);
+	InputComponent->BindKey(EKeys::F5, IE_Pressed, this, &ALOL_PlayerController::DebugResetSkillCooldown);
+	InputComponent->BindKey(EKeys::F6, IE_Pressed, this, &ALOL_PlayerController::DebugKill);
+	InputComponent->BindKey(EKeys::F7, IE_Pressed, this, &ALOL_PlayerController::DebugRespawn);
+	InputComponent->BindKey(EKeys::F8, IE_Pressed, this, &ALOL_PlayerController::DebugTestVision);
+	InputComponent->BindKey(EKeys::F9, IE_Pressed, this, &ALOL_PlayerController::DebugResetGame);
 }
 
 void ALOL_PlayerController::OnQuitGame()
@@ -1297,4 +1308,191 @@ void ALOL_PlayerController::ChangeCursorType(FString NewStateName)
 		MyCursorWidget->SwitchCursorState(NewStateName);
 		LastCursorState = NewStateName;
 	}
+}
+
+
+void ALOL_PlayerController::DebugRecover()
+{
+	if (!MyChampion)
+	{
+		return;
+	}
+
+	if (!HasAuthority())
+	{
+		Server_DebugRecover();
+		return;
+	}
+
+	if (MyChampion->StatComponent)
+	{
+		MyChampion->StatComponent->SetHP(
+			MyChampion->StatComponent->GetStat().MaxHP
+		);
+
+		MyChampion->StatComponent->SetMP(
+			MyChampion->StatComponent->GetStat().MaxMP
+		);
+	}
+}
+void ALOL_PlayerController::Server_DebugRecover_Implementation()
+{
+	DebugRecover();
+}
+void ALOL_PlayerController::DebugLevelUp()
+{
+	if (!MyChampion || !MyChampion->StatComponent)
+	{
+		return;
+	}
+
+	if (!HasAuthority())
+	{
+		Server_DebugLevelUp();
+		return;
+	}
+
+	ULOL_StatComponent* Stat = MyChampion->StatComponent;
+
+	if (Stat->GetStat().Level < 18)
+	{
+		Stat->AddEXP(Stat->GetMaxEXP());
+	}
+}
+void ALOL_PlayerController::Server_DebugLevelUp_Implementation()
+{
+	DebugLevelUp();
+}
+void ALOL_PlayerController::DebugAddGold()
+{
+	if (!MyChampion || !MyChampion->StatComponent)
+	{
+		return;
+	}
+
+	if (!HasAuthority())
+	{
+		Server_DebugAddGold();
+		return;
+	}
+
+	MyChampion->StatComponent->AddGold(5000.f);
+}
+void ALOL_PlayerController::Server_DebugAddGold_Implementation()
+{
+	DebugAddGold();
+}
+void ALOL_PlayerController::DebugTeleport()
+{
+	if (!MyChampion)
+	{
+		return;
+	}
+
+	FHitResult HitResult;
+
+	if (!GetHitResultUnderCursor(
+		ECC_Visibility,
+		false,
+		HitResult))
+	{
+		return;
+	}
+	HitResult.ImpactPoint.Z += 50.f;
+	if (!HasAuthority())
+	{
+		Server_DebugTeleport(HitResult.ImpactPoint);
+		return;
+	}
+
+	MyChampion->TeleportTo(
+		HitResult.ImpactPoint,
+		MyChampion->GetActorRotation()
+	);
+}
+void ALOL_PlayerController::Server_DebugTeleport_Implementation(const FVector& Location)
+{
+	if (!MyChampion)
+	{
+		return;
+	}
+
+	MyChampion->TeleportTo(
+		Location,
+		MyChampion->GetActorRotation()
+	);
+}
+void ALOL_PlayerController::DebugResetSkillCooldown()
+{
+	if (!MyChampion || !MyChampion->SkillComponent)
+		return;
+
+	if (!HasAuthority())
+	{
+		Server_DebugResetSkillCooldown();
+		return;
+	}
+
+	MyChampion->SkillComponent->DebugResetCooldowns();
+}
+void ALOL_PlayerController::Server_DebugResetSkillCooldown_Implementation()
+{
+	DebugResetSkillCooldown();
+}
+void ALOL_PlayerController::DebugKill()
+{
+	if (!MyChampion || !MyChampion->StatComponent)
+	{
+		return;
+	}
+
+	if (!HasAuthority())
+	{
+		Server_DebugKill();
+		return;
+	}
+
+	MyChampion->StatComponent->SetHP(0.f);
+}
+void ALOL_PlayerController::Server_DebugKill_Implementation()
+{
+	DebugKill();
+}
+void ALOL_PlayerController::DebugRespawn()
+{
+	if (!MyChampion)
+	{
+		return;
+	}
+
+	if (!HasAuthority())
+	{
+		Server_DebugRespawn();
+		return;
+	}
+
+	if (MyChampion->LifeCycleComponent)
+	{
+		MyChampion->LifeCycleComponent->Respawn();
+	}
+}
+void ALOL_PlayerController::Server_DebugRespawn_Implementation()
+{
+	DebugRespawn();
+}
+void ALOL_PlayerController::DebugTestVision()
+{
+	UE_LOG(
+		LogTemp,
+		Warning,
+		TEXT("[DEBUG] F8 - Vision Test is not implemented yet.")
+	);
+}
+void ALOL_PlayerController::DebugResetGame()
+{
+	UE_LOG(
+		LogTemp,
+		Warning,
+		TEXT("[DEBUG] F9 - Reset Game is not implemented yet.")
+	);
 }
