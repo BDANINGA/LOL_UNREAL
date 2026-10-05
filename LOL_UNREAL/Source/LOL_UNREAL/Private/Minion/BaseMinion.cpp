@@ -1,5 +1,6 @@
 // 미니언 기본 뼈대
 #include "Minion/BaseMinion.h"
+#include "BaseChampion.h"
 #include "Minion/LOL_MinionAIController.h"
 
 #include "BaseChampion.h"
@@ -39,6 +40,8 @@ ABaseMinion::ABaseMinion()
 
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.f);
 	GetCapsuleComponent()->SetCollisionProfileName(TEXT("Pawn"));
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_GameTraceChannel2, ECR_Ignore);
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 
 	static ConstructorHelpers::FObjectFinder<UDataTable> ResourceDataAssetTable(TEXT("/Game/LOL_Data/Data_Minions/Data_MinionResource.Data_MinionResource"));
@@ -115,6 +118,20 @@ float ABaseMinion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEven
 	if (StateComponent && SourceState && !SourceState->IsEnemy(StateComponent))
 	{
 		return 0.0f;
+	}
+
+	ABaseChampion* SourceChampion = EventInstigator
+		? Cast<ABaseChampion>(EventInstigator->GetPawn())
+		: nullptr;
+	if (!SourceChampion)
+	{
+		SourceChampion = Cast<ABaseChampion>(DamageCauser);
+	}
+	if (SourceChampion)
+	{
+		DamageAmount = SourceChampion->ModifyOutgoingDamage(
+			DamageAmount,
+			DamageEvent.DamageTypeClass);
 	}
 
 	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);

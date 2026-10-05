@@ -50,7 +50,7 @@ public:
     UPROPERTY(meta = (BindWidgetOptional))
     class UProgressBar* EXPProgressBar;
 
-    UPROPERTY(meta = (BindWidgetOptional))
+    UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "HUD|EXP")
     class UImage* experiencebar;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "HUD|EXP")
@@ -154,6 +154,10 @@ protected:
     UPROPERTY()
     class UMaterialInstanceDynamic* SkillR_MID;
     UPROPERTY()
+    class UMaterialInstanceDynamic* SummonerSpell1_MID;
+    UPROPERTY()
+    class UMaterialInstanceDynamic* SummonerSpell2_MID;
+    UPROPERTY()
     class UMaterialInstanceDynamic* EXP_MID;
 
     UPROPERTY()
@@ -179,6 +183,30 @@ protected:
     float SkillCoolLocalEndTimeP;
     UPROPERTY()
     float SkillCoolEndTimeP;
+
+    UPROPERTY()
+    float SummonerSpell1CoolLocalEndTime = 0.0f;
+    UPROPERTY()
+    float SummonerSpell1CoolEndTime = 0.0f;
+    UPROPERTY()
+    float SummonerSpell2CoolLocalEndTime = 0.0f;
+    UPROPERTY()
+    float SummonerSpell2CoolEndTime = 0.0f;
+
+    UPROPERTY(Transient)
+    class UImage* SummonerSpell1Image = nullptr;
+
+    UPROPERTY(Transient)
+    class UImage* SummonerSpell2Image = nullptr;
+
+    UPROPERTY()
+    class UTexture2D* ExhaustIcon = nullptr;
+
+    UPROPERTY()
+    class UTexture2D* FlashIcon = nullptr;
+
+    UPROPERTY()
+    class UMaterialInterface* SkillCooldownMaterial = nullptr;
 
     UPROPERTY()
     TArray<class UImage*> CachedItemSlotImages;
@@ -235,6 +263,7 @@ protected:
     int32 MaxKillLogEntries = 5;
 
     void CacheItemSlotImages();
+    void CacheSummonerSpellWidgets();
     void CacheScoreboardTextBlocks();
     void CacheSkillLevelUpButtons();
     void UpdateSkillLevelUpButtonStates();

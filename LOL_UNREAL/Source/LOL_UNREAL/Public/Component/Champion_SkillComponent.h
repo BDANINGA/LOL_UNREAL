@@ -29,7 +29,7 @@ public:
     TArray<float> Duration; // CC기 또는 효과 지속시간
 
     UPROPERTY(EditAnywhere)
-    float CastTime; // 선딜레이 (단일값)
+    float CastTime = 0.0f; // 선딜레이 (단일값)
 
     UPROPERTY(EditAnywhere)
     TArray<float> SecondaryValue; // 넉백 거리, 피해 감소율 등 특수 수치

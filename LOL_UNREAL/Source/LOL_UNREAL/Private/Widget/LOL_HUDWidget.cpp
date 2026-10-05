@@ -16,6 +16,7 @@
 #include "Component/Champion_SkillComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Materials/MaterialInterface.h"
 #include "PaperSprite.h"
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
@@ -36,6 +37,27 @@ ULOL_HUDWidget::ULOL_HUDWidget(const FObjectInitializer& ObjectInitializer)
     {
         EXPProgressFillSprite = EXPProgressFillSpriteFinder.Object;
     }
+
+    static ConstructorHelpers::FObjectFinder<UTexture2D> ExhaustIconFinder(
+        TEXT("/Game/LOL_Data/Data_SummonerSpell/summoners_spell_exaust.summoners_spell_exaust"));
+    if (ExhaustIconFinder.Succeeded())
+    {
+        ExhaustIcon = ExhaustIconFinder.Object;
+    }
+
+    static ConstructorHelpers::FObjectFinder<UTexture2D> FlashIconFinder(
+        TEXT("/Game/LOL_Data/Data_SummonerSpell/summoners_spell_flash.summoners_spell_flash"));
+    if (FlashIconFinder.Succeeded())
+    {
+        FlashIcon = FlashIconFinder.Object;
+    }
+
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> CooldownMaterialFinder(
+        TEXT("/Game/UI/HUD/M_skillcooldown.M_skillcooldown"));
+    if (CooldownMaterialFinder.Succeeded())
+    {
+        SkillCooldownMaterial = CooldownMaterialFinder.Object;
+    }
 }
 
 void ULOL_HUDWidget::NativeConstruct()
@@ -46,6 +68,8 @@ void ULOL_HUDWidget::NativeConstruct()
     if (SkillW_Image) SkillW_MID = SkillW_Image->GetDynamicMaterial();
     if (SkillE_Image) SkillE_MID = SkillE_Image->GetDynamicMaterial();
     if (SkillR_Image) SkillR_MID = SkillR_Image->GetDynamicMaterial();
+
+    CacheSummonerSpellWidgets();
 
     CacheItemSlotImages();
     CacheScoreboardTextBlocks();
@@ -143,6 +167,24 @@ void ULOL_HUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
         }
 
         SkillR_MID->SetScalarParameterValue(TEXT("Cooldown"), CooldownPercent);
+    }
+
+    const float CurrentTime = GetWorld()->GetTimeSeconds();
+    if (SummonerSpell1_MID)
+    {
+        const float RemainingTime = SummonerSpell1CoolLocalEndTime - CurrentTime;
+        const float CooldownPercent = RemainingTime > 0.0f && SummonerSpell1CoolEndTime > 0.0f
+            ? FMath::Clamp(RemainingTime / SummonerSpell1CoolEndTime, 0.0f, 1.0f)
+            : 0.0f;
+        SummonerSpell1_MID->SetScalarParameterValue(TEXT("Cooldown"), CooldownPercent);
+    }
+    if (SummonerSpell2_MID)
+    {
+        const float RemainingTime = SummonerSpell2CoolLocalEndTime - CurrentTime;
+        const float CooldownPercent = RemainingTime > 0.0f && SummonerSpell2CoolEndTime > 0.0f
+            ? FMath::Clamp(RemainingTime / SummonerSpell2CoolEndTime, 0.0f, 1.0f)
+            : 0.0f;
+        SummonerSpell2_MID->SetScalarParameterValue(TEXT("Cooldown"), CooldownPercent);
     }
 
     UpdateScoreboard();
@@ -760,6 +802,28 @@ FReply ULOL_HUDWidget::NativeOnMouseButtonDown(
             return FReply::Handled();
         }
 
+        if (SummonerSpell1Image &&
+            SummonerSpell1Image->GetCachedGeometry().IsUnderLocation(ScreenPosition))
+        {
+            if (ALOL_PlayerController* PlayerController =
+                Cast<ALOL_PlayerController>(GetOwningPlayer()))
+            {
+                PlayerController->OnSummonerSpell1();
+                return FReply::Handled();
+            }
+        }
+
+        if (SummonerSpell2Image &&
+            SummonerSpell2Image->GetCachedGeometry().IsUnderLocation(ScreenPosition))
+        {
+            if (ALOL_PlayerController* PlayerController =
+                Cast<ALOL_PlayerController>(GetOwningPlayer()))
+            {
+                PlayerController->OnSummonerSpell2();
+                return FReply::Handled();
+            }
+        }
+
         for (int32 SlotIndex = 0; SlotIndex < CachedItemSlotImages.Num(); ++SlotIndex)
         {
             UImage* SlotImage = CachedItemSlotImages[SlotIndex];
@@ -840,6 +904,56 @@ void ULOL_HUDWidget::CacheItemSlotImages()
     }
 }
 
+void ULOL_HUDWidget::CacheSummonerSpellWidgets()
+{
+    if (!WidgetTree)
+    {
+        return;
+    }
+
+    SummonerSpell1Image = Cast<UImage>(WidgetTree->FindWidget(TEXT("spell1")));
+    SummonerSpell2Image = Cast<UImage>(WidgetTree->FindWidget(TEXT("spell2")));
+
+    if (!SummonerSpell1Image)
+    {
+        SummonerSpell1Image = Cast<UImage>(WidgetTree->FindWidget(TEXT("spell1_slot")));
+    }
+    if (!SummonerSpell2Image)
+    {
+        SummonerSpell2Image = Cast<UImage>(WidgetTree->FindWidget(TEXT("spell2_slot")));
+    }
+
+    auto InitializeSpellImage = [this](
+        UImage* SpellImage,
+        UTexture2D* Icon,
+        UMaterialInstanceDynamic*& OutMID)
+    {
+        if (!SpellImage || !Icon)
+        {
+            return;
+        }
+
+        if (SkillCooldownMaterial)
+        {
+            SpellImage->SetBrushFromMaterial(SkillCooldownMaterial);
+            OutMID = SpellImage->GetDynamicMaterial();
+        }
+
+        if (OutMID)
+        {
+            OutMID->SetTextureParameterValue(TEXT("SkillIcon"), Icon);
+            OutMID->SetScalarParameterValue(TEXT("Cooldown"), 0.0f);
+        }
+        else
+        {
+            SpellImage->SetBrushFromTexture(Icon, false);
+        }
+    };
+
+    InitializeSpellImage(SummonerSpell1Image, ExhaustIcon, SummonerSpell1_MID);
+    InitializeSpellImage(SummonerSpell2Image, FlashIcon, SummonerSpell2_MID);
+}
+
 void ULOL_HUDWidget::SetSkillCooldown(FName SkillName, float CoolLocalEndTime, float CoolEndTime)
 {
     if (SkillName == "Q")
@@ -866,6 +980,16 @@ void ULOL_HUDWidget::SetSkillCooldown(FName SkillName, float CoolLocalEndTime, f
     {
         SkillCoolLocalEndTimeP = CoolLocalEndTime;
         SkillCoolEndTimeP = CoolEndTime;
+    }
+    else if (SkillName == "Spell1")
+    {
+        SummonerSpell1CoolLocalEndTime = CoolLocalEndTime;
+        SummonerSpell1CoolEndTime = CoolEndTime;
+    }
+    else if (SkillName == "Spell2")
+    {
+        SummonerSpell2CoolLocalEndTime = CoolLocalEndTime;
+        SummonerSpell2CoolEndTime = CoolEndTime;
     }
 }
 

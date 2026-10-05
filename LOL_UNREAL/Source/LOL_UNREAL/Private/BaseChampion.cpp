@@ -30,6 +30,7 @@
 
 #include "GamePlayTag/LOL_GamePlayTags.h"
 #include "Component/Champion_SkillComponent.h"
+#include "Component/LOL_SummonerSpellComponent.h"
 
 #include "Building/BaseBuilding.h"
 #include "UObject/ConstructorHelpers.h"
@@ -61,6 +62,7 @@ ABaseChampion::ABaseChampion()
 
 	// Skill
 	SkillComponent = CreateDefaultSubobject<UChampion_SkillComponent>(TEXT("SkillComponent"));
+	SummonerSpellComponent = CreateDefaultSubobject<ULOL_SummonerSpellComponent>(TEXT("SummonerSpellComponent"));
 
 	static ConstructorHelpers::FObjectFinder<UDataTable> ResourceDataAssetTable(TEXT("/Game/LOL_Data/Data_Champions/Data_ChampionResource.Data_ChampionResource"));
 	if (ResourceDataAssetTable.Succeeded()) DataTable = ResourceDataAssetTable.Object;
@@ -71,6 +73,8 @@ ABaseChampion::ABaseChampion()
 	GetCapsuleComponent()->InitCapsuleSize(60.f, 130.f);
 	GetCapsuleComponent()->SetCollisionProfileName(TEXT("Pawn"));
 	GetCapsuleComponent()->SetCollisionObjectType(ECC_GameTraceChannel2);
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_GameTraceChannel2, ECR_Block);
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 
 	AttackRangeSphere = CreateDefaultSubobject<USphereComponent>(TEXT("AttackRangeSphere"));
@@ -317,6 +321,20 @@ float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 		return 0.0f;
 	}
 
+	ABaseChampion* SourceChampion = EventInstigator
+		? Cast<ABaseChampion>(EventInstigator->GetPawn())
+		: nullptr;
+	if (!SourceChampion)
+	{
+		SourceChampion = Cast<ABaseChampion>(DamageCauser);
+	}
+	if (SourceChampion)
+	{
+		DamageAmount = SourceChampion->ModifyOutgoingDamage(
+			DamageAmount,
+			DamageEvent.DamageTypeClass);
+	}
+
 	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 	if (StatComponent)
 	{
@@ -341,6 +359,20 @@ float ABaseChampion::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 	}
 
 	return ActualDamage;
+}
+
+float ABaseChampion::ModifyOutgoingDamage(
+	float DamageAmount,
+	TSubclassOf<UDamageType> DamageTypeClass) const
+{
+	if (DamageTypeClass == ULOL_DamageTrueDamage::StaticClass())
+	{
+		return DamageAmount;
+	}
+
+	return DamageAmount * (SummonerSpellComponent
+		? SummonerSpellComponent->GetOutgoingDamageMultiplier()
+		: 1.0f);
 }
 void ABaseChampion::OnEnemyEnterRange(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {

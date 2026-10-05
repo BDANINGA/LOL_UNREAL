@@ -125,8 +125,19 @@ void ULOL_AttackComponent::UpdateAttackLogic()
     }
 
     float Distance = FMath::Max(0.f, OwnerPawn->GetDistanceTo(CombatTarget) - TargetRadius);
+    float AttackRange = StatComp->GetStat().AttackRange;
+    if (const ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(OwnerPawn))
+    {
+        if (JungleMonster->IsStationaryMonster())
+        {
+            AttackRange = FMath::Max(
+                AttackRange,
+                JungleMonster->GetStationaryAttackRange());
+        }
+    }
+
     // 사거리 안이면 공격
-    if (Distance <= StatComp->GetStat().AttackRange)
+    if (Distance <= AttackRange)
     {
         MoveComp->StopMovement();
 

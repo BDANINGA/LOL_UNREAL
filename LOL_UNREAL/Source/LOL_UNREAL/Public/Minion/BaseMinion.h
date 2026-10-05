@@ -13,34 +13,34 @@ struct FMinionResourceData : public FTableRowBase
 
 public:
 	UPROPERTY(EditAnywhere, Category = "Mesh")
-	USkeletalMesh* Mesh;
+	USkeletalMesh* Mesh = nullptr;
 
 	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* Portrait;
+	UTexture2D* Portrait = nullptr;
 
 	UPROPERTY(EditAnywhere, Category = "ABP")
-	TSubclassOf<UAnimInstance> AnimBlueprint;
+	TSubclassOf<UAnimInstance> AnimBlueprint = nullptr;
 
 	UPROPERTY(EditAnywhere, Category = "AM")
 	TArray<UAnimMontage*> AttackMontage;
 
 	UPROPERTY(EditAnywhere, Category = "Projectile")
-	class UNiagaraSystem* AllyProjectileNiagara;
+	class UNiagaraSystem* AllyProjectileNiagara = nullptr;
 
 	UPROPERTY(EditAnywhere, Category = "Projectile")
-	class UNiagaraSystem* EnemyProjectileNiagara;
+	class UNiagaraSystem* EnemyProjectileNiagara = nullptr;
 
 	UPROPERTY(EditAnywhere, Category = "Material")
-	UTexture2D* AllyTexture;
+	UTexture2D* AllyTexture = nullptr;
 
 	UPROPERTY(EditAnywhere, Category = "Material")
-	UTexture2D* EnemyTexture;
+	UTexture2D* EnemyTexture = nullptr;
 
 	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* AllyHPBarImage;
+	UTexture2D* AllyHPBarImage = nullptr;
 
 	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* EnemyHPBarImage;
+	UTexture2D* EnemyHPBarImage = nullptr;
 };
 
 UCLASS()
