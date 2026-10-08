@@ -136,5 +136,49 @@ void Build()
     UE_LOG(LogTemp, Display, TEXT("Ezreal Q trail asset saved: %d"), bSaved);
 }
 static FAutoConsoleCommand BuildCommand(TEXT("LOL.Ezreal.BuildQTrail"), TEXT("Rebuild the authored Q trail asset (editor only)."), FConsoleCommandDelegate::CreateStatic(&Build));
+
+void BuildRTrail()
+{
+    UMaterialInterface* Material = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Level/ezreal/FX/M_EzrealQTrail.M_EzrealQTrail"));
+    if (!Material) return;
+    const FString Path = TEXT("/Game/Level/ezreal/FX/R/P_EzrealRTrail");
+    UPackage* Package = CreatePackage(*Path);
+    Package->FullyLoad();
+    auto* System = FindObject<UParticleSystem>(Package, TEXT("P_EzrealRTrail"));
+    if (!System) System = NewObject<UParticleSystem>(Package, TEXT("P_EzrealRTrail"), RF_Public | RF_Standalone);
+    System->Modify();
+    System->Emitters.Reset();
+    System->LODDistances = {0.f};
+    System->LODSettings.SetNum(1);
+    System->bUseFixedRelativeBoundingBox = false;
+    AddEmitter(System, Material, TEXT("BarrageGoldSparks"), 200.f, FVector(1.f, 0.57f, 0.12f), 8.f);
+    AddEmitter(System, Material, TEXT("BarrageArcaneMotes"), 85.f, FVector(0.06f, 0.6f, 1.f), 5.f);
+    for (UParticleEmitter* Emitter : System->Emitters)
+    {
+        UParticleLODLevel* LOD = Emitter->LODLevels[0];
+        for (UParticleModule* M : LOD->Modules)
+        {
+            if (auto* Location = Cast<UParticleModuleLocation>(M))
+                Location->StartLocation.Distribution = VectorRange(Location, FVector(-90.f, -260.f, -9.f), FVector(-40.f, 260.f, 9.f));
+            if (auto* Velocity = Cast<UParticleModuleVelocity>(M))
+                Velocity->StartVelocity.Distribution = VectorRange(Velocity, FVector(-170.f, -35.f, -15.f), FVector(-55.f, 35.f, 45.f));
+            if (auto* Life = Cast<UParticleModuleLifetime>(M))
+            {
+                auto* Range = Cast<UDistributionFloatUniform>(Life->Lifetime.Distribution);
+                Range->Min = 0.12f; Range->Max = 0.3f;
+            }
+        }
+    }
+    System->UpdateAllModuleLists();
+    System->BuildEmitters();
+    System->PostEditChange();
+    Package->MarkPackageDirty();
+    FSavePackageArgs Args;
+    Args.TopLevelFlags = RF_Public | RF_Standalone;
+    const FString Filename = FPackageName::LongPackageNameToFilename(Path, FPackageName::GetAssetPackageExtension());
+    const bool bSaved = UPackage::SavePackage(Package, System, *Filename, Args);
+    UE_LOG(LogTemp, Display, TEXT("Ezreal R trail asset saved: %d"), bSaved);
+}
+static FAutoConsoleCommand BuildRCommand(TEXT("LOL.Ezreal.BuildRTrail"), TEXT("Rebuild the R wave trail asset (editor only)."), FConsoleCommandDelegate::CreateStatic(&BuildRTrail));
 }
 #endif

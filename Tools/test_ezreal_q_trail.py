@@ -12,7 +12,11 @@ champ=u.GameplayStatics.get_all_actors_of_class(world,u.Champion_Ezreal)[0]
 champ.set_editor_property('bEnableQTrail',True)
 champ.set_actor_hidden_in_game(True)
 champ.set_actor_enable_collision(False)
-def emitters(): return u.GameplayStatics.get_all_actors_of_class(world,u.Emitter)
+def emitters():
+    # R has its own effect now; this regression checks only the Q template.
+    template=u.load_asset('/Game/Level/ezreal/FX/P_EzrealQTrail')
+    return [a for a in u.GameplayStatics.get_all_actors_of_class(world,u.Emitter)
+            if a.get_component_by_class(u.ParticleSystemComponent).get_editor_property('template')==template]
 def fire(kind):
     champ.call_method('Multicast_SpawnEzrealProjectile',(kind,u.Vector(-550,0,120),u.Vector(650,0,120),1.5,60.0,0.0,None,False))
 def missiles():
@@ -48,7 +52,7 @@ def tick(dt):
             champ.set_editor_property('bEnableQTrail',False)
             fire(0)
             assert len(emitters())==0,'Trail toggle ignored'
-            result['w_r_and_disabled_q_without_trail']=True
+            result['w_r_and_disabled_q_without_q_trail']=True
             champ.set_editor_property('bEnableQTrail',True)
             fire(0)
             assert len(emitters())==1

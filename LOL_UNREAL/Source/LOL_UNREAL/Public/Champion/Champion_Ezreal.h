@@ -108,6 +108,24 @@ protected:
     UPROPERTY()
     TObjectPtr<class UStaticMesh> RProjectileMesh;
 
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ezreal | R VFX")
+    TObjectPtr<class UMaterialInterface> RWaveMaterial;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ezreal | R VFX")
+    TObjectPtr<class UParticleSystem> RTrailEffect;
+
+    UPROPERTY()
+    TObjectPtr<class UStaticMesh> RWavePlane;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | R VFX")
+    bool bEnableRWaveEffect = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | R VFX", meta = (ClampMin = "100", ClampMax = "1200"))
+    float RWaveWidth = 600.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | R VFX", meta = (ClampMin = "0", ClampMax = "4"))
+    float RWaveIntensity = 1.f;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
     float QProjectileSpeed = 800.0f;
 
