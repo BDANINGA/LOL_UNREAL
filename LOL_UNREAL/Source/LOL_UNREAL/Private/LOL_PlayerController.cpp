@@ -12,6 +12,7 @@
 #include "Camera.h"
 
 #include "Widget/LOL_CursorWidget.h"
+#include "Widget/LOL_QuitConfirmWidget.h"
 
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_StateComponent.h"
@@ -183,6 +184,16 @@ void ALOL_PlayerController::OnPossess(APawn* InPawn)
 	MyChampion = Cast<ABaseChampion>(InPawn);
 }
 
+void ALOL_PlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (QuitConfirmWidget)
+	{
+		QuitConfirmWidget->RemoveFromParent();
+		QuitConfirmWidget = nullptr;
+	}
+	Super::EndPlay(EndPlayReason);
+}
+
 void ALOL_PlayerController::OnRep_Pawn()
 {
 	Super::OnRep_Pawn();
@@ -230,12 +241,53 @@ void ALOL_PlayerController::OnQuitGame()
 		return;
 	}
 
-	UKismetSystemLibrary::QuitGame(
-		this,
-		this,
-		EQuitPreference::Quit,
-		false
-	);
+	if (QuitConfirmWidget)
+	{
+		CancelQuitGame();
+		return;
+	}
+
+	QuitConfirmWidget = CreateWidget<ULOL_QuitConfirmWidget>(this, ULOL_QuitConfirmWidget::StaticClass());
+	if (!QuitConfirmWidget)
+	{
+		return;
+	}
+	bMouseCursorBeforeQuitDialog = bShowMouseCursor;
+	QuitConfirmWidget->AddToViewport(10000);
+	bShowMouseCursor = true;
+	ChangeCursorType(TEXT("Normal"));
+	FInputModeUIOnly InputMode;
+	InputMode.SetWidgetToFocus(QuitConfirmWidget->TakeWidget());
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::LockAlways);
+	SetInputMode(InputMode);
+	QuitConfirmWidget->FocusCancelButton();
+}
+
+void ALOL_PlayerController::CancelQuitGame()
+{
+	if (!QuitConfirmWidget)
+	{
+		return;
+	}
+	QuitConfirmWidget->RemoveFromParent();
+	QuitConfirmWidget = nullptr;
+	bShowMouseCursor = bMouseCursorBeforeQuitDialog;
+	FInputModeGameAndUI InputMode;
+	if (ShopWidget && ShopWidget->IsInViewport())
+	{
+		InputMode.SetWidgetToFocus(ShopWidget->TakeWidget());
+	}
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::LockAlways);
+	InputMode.SetHideCursorDuringCapture(false);
+	SetInputMode(InputMode);
+}
+
+void ALOL_PlayerController::ConfirmQuitGame()
+{
+	if (IsLocalController() && QuitConfirmWidget)
+	{
+		UKismetSystemLibrary::QuitGame(this, this, EQuitPreference::Quit, false);
+	}
 }
 
 void ALOL_PlayerController::OnRecall()
@@ -317,6 +369,7 @@ void ALOL_PlayerController::OnToggleCamera()
 
 void ALOL_PlayerController::FreeCameraEdgeScroll(float DeltaTime)
 {
+	if (QuitConfirmWidget) return;
 	if (!CameraAnchor || CameraAnchor->IsLocked()) return;
 
 	int32 ViewportSizeX, ViewportSizeY;
@@ -761,6 +814,7 @@ void ALOL_PlayerController::Server_SellItem_Implementation(int32 ItemSlotIndex)
 
 void ALOL_PlayerController::UpdateCursorSelection()
 {
+	if (QuitConfirmWidget) return;
 	if (!IsLocalController() || !MyCursorWidget) return;
 	if (!MyChampion) return;
 

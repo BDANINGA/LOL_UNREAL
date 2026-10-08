@@ -55,7 +55,11 @@ public:
 	void OnAKey();
 	void OnToggleShop();
 	void OnRecall();
+	UFUNCTION(BlueprintCallable, Category = "UI")
 	void OnQuitGame();
+
+	void CancelQuitGame();
+	void ConfirmQuitGame();
 
 	void OnToggleCamera();
 	void FreeCameraEdgeScroll(float DeltaTime);
@@ -95,6 +99,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void PlayerTick(float DeltaTime) override;
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnRep_Pawn() override;
@@ -166,6 +171,11 @@ private:
 
 	UPROPERTY()
 	class UUserWidget* ShopWidget;
+
+	UPROPERTY(Transient)
+	class ULOL_QuitConfirmWidget* QuitConfirmWidget = nullptr;
+
+	bool bMouseCursorBeforeQuitDialog = true;
 
 	UPROPERTY()
 	TArray<ULOL_ShopButtonBinding*> ShopButtonBindings;
