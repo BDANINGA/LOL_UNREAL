@@ -1,0 +1,28 @@
+"""Create a soft additive spark material; then run LOL.Ezreal.BuildQTrail in the editor."""
+import unreal as u
+path='/Game/Level/ezreal/FX'
+tools=u.AssetToolsHelpers.get_asset_tools()
+mat=u.load_asset(path+'/M_EzrealQTrail') if u.EditorAssetLibrary.does_asset_exist(path+'/M_EzrealQTrail') else tools.create_asset('M_EzrealQTrail',path,u.Material,u.MaterialFactoryNew())
+lib=u.MaterialEditingLibrary
+lib.delete_all_material_expressions(mat)
+mat.set_editor_property('blend_mode',u.BlendMode.BLEND_ADDITIVE)
+mat.set_editor_property('shading_model',u.MaterialShadingModel.MSM_UNLIT)
+mat.set_editor_property('two_sided',True)
+lib.set_material_usage(mat,u.MaterialUsage.MATUSAGE_PARTICLE_SPRITES)
+def node(cls,x,y): return lib.create_material_expression(mat,cls,x,y)
+def connect(a,out,b,slot): assert lib.connect_material_expressions(a,out,b,slot)
+uv=node(u.MaterialExpressionTextureCoordinate,-700,200)
+center=node(u.MaterialExpressionConstant2Vector,-700,350);center.set_editor_property('r',.5);center.set_editor_property('g',.5)
+distance=node(u.MaterialExpressionDistance,-510,200);connect(uv,'',distance,'A');connect(center,'',distance,'B')
+radius=node(u.MaterialExpressionMultiply,-340,200);radius.set_editor_property('const_b',2.0);connect(distance,'',radius,'A')
+invert=node(u.MaterialExpressionOneMinus,-170,200);connect(radius,'',invert,'')
+clamp=node(u.MaterialExpressionSaturate,0,200);connect(invert,'',clamp,'')
+soft=node(u.MaterialExpressionPower,150,200);soft.set_editor_property('const_exponent',2.5);connect(clamp,'',soft,'Base')
+particle=node(u.MaterialExpressionParticleColor,-340,-100)
+glow=node(u.MaterialExpressionMultiply,0,-100);glow.set_editor_property('const_b',5.0);connect(particle,'RGB',glow,'A')
+opacity=node(u.MaterialExpressionMultiply,330,200);connect(soft,'',opacity,'A');connect(particle,'A',opacity,'B')
+assert lib.connect_material_property(glow,'',u.MaterialProperty.MP_EMISSIVE_COLOR)
+assert lib.connect_material_property(opacity,'',u.MaterialProperty.MP_OPACITY)
+lib.recompile_material(mat)
+assert u.EditorAssetLibrary.save_loaded_asset(mat,False)
+print('Saved',mat.get_path_name())

@@ -1,4 +1,6 @@
 #include "Champion/Champion_Ezreal.h"
+#include "Champion/Projectile/EzrealQTrailComponent.h"
+#include "Particles/ParticleSystem.h"
 
 #include "Component/LOL_StatComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -23,6 +25,13 @@ AChampion_Ezreal::AChampion_Ezreal()
     ChampionName = TEXT("Ezreal");
     SetChampionData(ChampionName);
     StateComponent->AddStatusTag(LOLTags::Champion_Ranged);
+
+    static ConstructorHelpers::FObjectFinder<UParticleSystem> QTrailAsset(
+        TEXT("/Game/Level/ezreal/FX/P_EzrealQTrail.P_EzrealQTrail"));
+    if (QTrailAsset.Succeeded())
+    {
+        QTrailEffect = QTrailAsset.Object;
+    }
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> AttackProjectileMeshAsset(
         TEXT("/Game/Level/ezreal/ezreal_tex/ezreal_attack.ezreal_attack"));
@@ -749,6 +758,14 @@ void AChampion_Ezreal::SpawnEzrealProjectileVisual(
     ProjectileMovement->Activate(true);
 
     ProjectileActor->SetLifeSpan(FMath::Max(TravelTime + 0.1f, 0.2f));
+
+    if (ProjectileType == 0 && bEnableQTrail && QTrailEffect && GetNetMode() != NM_DedicatedServer)
+    {
+        UEzrealQTrailComponent* Trail = NewObject<UEzrealQTrailComponent>(ProjectileActor, TEXT("EzrealQTrail"));
+        ProjectileActor->AddInstanceComponent(Trail);
+        Trail->RegisterComponent();
+        Trail->InitializeTrail(QTrailEffect, QTrailScale, FMath::Max(TravelTime + 0.1f, 0.2f));
+    }
 
     if (bUseOverlapDamage)
     {
