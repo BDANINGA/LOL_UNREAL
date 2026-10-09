@@ -69,6 +69,7 @@ ABaseChampion::ABaseChampion()
 	// 캡슐 컴포넌트의 콜리전 설정
 	GetCapsuleComponent()->InitCapsuleSize(60.f, 130.f);
 	GetCapsuleComponent()->SetCollisionProfileName(TEXT("Pawn"));
+	GetCapsuleComponent()->SetCollisionObjectType(ECC_GameTraceChannel2);
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 
 	AttackRangeSphere = CreateDefaultSubobject<USphereComponent>(TEXT("AttackRangeSphere"));
@@ -136,6 +137,7 @@ void ABaseChampion::BeginPlay()
 
 		StatComponent->OnHpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateHpFromStat);
 		StatComponent->OnMpChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateMpFromStat);
+		StatComponent->OnEXPChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateExpFromStat);
 		StatComponent->OnStatChanged.AddUObject(UIComponent, &ULOL_UIComponent::UpdateLevel);
 		//StatComponent->OnHpZero.AddDynamic(LifeCycleComponent, &ULOL_LifeCycleComponent::Server_HandleDeath);
 		
@@ -144,6 +146,8 @@ void ABaseChampion::BeginPlay()
 
 		UIComponent->UpdateHpFromStat(StatComponent->GetCurrentHP());
 		UIComponent->UpdateMpFromStat(StatComponent->GetCurrentMP());
+		UIComponent->UpdateExpFromStat(0.0f);
+		UIComponent->UpdateLevel(StatComponent->GetStat());
 		if (IsLocallyControlled())
 		{
 			APlayerController* PC = Cast<APlayerController>(GetController());
@@ -356,6 +360,7 @@ void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(ABaseChampion, MinionKillCount);
 	DOREPLIFETIME(ABaseChampion, bIsSilenced);
 	DOREPLIFETIME(ABaseChampion, bIsRecalling);
+	DOREPLIFETIME(ABaseChampion, bIsCastingSkill);
 }
 
 void ABaseChampion::Server_ExecuteAttackHit_Implementation()
@@ -416,6 +421,48 @@ void ABaseChampion::ProcessMoveInput(FVector ClickLocation, AActor* TargetActor)
 
 	Server_ProcessMoveInput(ClickLocation, TargetActor, bIsPressA);
 }
+
+void ABaseChampion::BeginSkillCast(float CastTime)
+{
+	if (!HasAuthority() || CastTime <= 0.0f)
+	{
+		return;
+	}
+
+	bIsCastingSkill = true;
+
+	if (MoveComponent)
+	{
+		MoveComponent->StopMovement();
+		MoveComponent->bIsSearchAttack = false;
+	}
+
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->StopMovementImmediately();
+	}
+
+	GetWorldTimerManager().ClearTimer(SkillCastTimerHandle);
+	GetWorldTimerManager().SetTimer(
+		SkillCastTimerHandle,
+		this,
+		&ABaseChampion::EndSkillCast,
+		CastTime,
+		false
+	);
+}
+
+void ABaseChampion::EndSkillCast()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	bIsCastingSkill = false;
+	GetWorldTimerManager().ClearTimer(SkillCastTimerHandle);
+}
+
 void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation, AActor* TargetActor, bool bIsSearch)
 {
 	if (bIsRecalling)

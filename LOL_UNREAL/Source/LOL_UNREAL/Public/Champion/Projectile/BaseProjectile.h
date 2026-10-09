@@ -56,6 +56,7 @@ private:
 
     void ApplyActiveState();
     void ApplyProjectileVisual();
+    bool TryApplyHit(AActor* OtherActor);
 
     UPROPERTY()
     AActor* Shooter;

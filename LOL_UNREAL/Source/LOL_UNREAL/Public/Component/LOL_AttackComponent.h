@@ -41,6 +41,7 @@ public:
 
 	void SetCombatTarget(AActor* Target);
 	bool IsValidAttackTarget(AActor* Target) const;
+	bool IsRangedBasicAttacker() const;
 
 	FTimerHandle AttackTimerHandle;
 	FTimerHandle AttackHitTimerHandle;
@@ -77,4 +78,5 @@ private:
 	
 	
 	bool bHitHappened = false;
+	bool bWaitingForProjectileHit = false;
 };

@@ -15,6 +15,8 @@
 #include "BaseChampion.h"
 #include "Component/Champion_SkillComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "PaperSprite.h"
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -26,6 +28,13 @@ ULOL_HUDWidget::ULOL_HUDWidget(const FObjectInitializer& ObjectInitializer)
     if (KillLogWidgetFinder.Succeeded())
     {
         KillLogWidgetClass = KillLogWidgetFinder.Class;
+    }
+
+    static ConstructorHelpers::FObjectFinder<UPaperSprite> EXPProgressFillSpriteFinder(
+        TEXT("/Script/Paper2D.PaperSprite'/Game/UI/HUD/tex/clarity_hudatlasupdate_Sprite_278.clarity_hudatlasupdate_Sprite_278'"));
+    if (EXPProgressFillSpriteFinder.Succeeded())
+    {
+        EXPProgressFillSprite = EXPProgressFillSpriteFinder.Object;
     }
 }
 
@@ -41,35 +50,16 @@ void ULOL_HUDWidget::NativeConstruct()
     CacheItemSlotImages();
     CacheScoreboardTextBlocks();
     CacheSkillLevelUpButtons();
+    CacheEXPWidgets();
     CreateKillLogContainer();
-
-    if (!EXPProgressBar && WidgetTree)
-    {
-        const TArray<FName> EXPProgressBarNames = {
-            TEXT("EXPProgressBar"),
-            TEXT("ExpProgressBar"),
-            TEXT("ExperienceBar"),
-            TEXT("experiencebar"),
-            TEXT("ExperienceProgressBar"),
-            TEXT("exp_progressbar"),
-            TEXT("exp_progress"),
-            TEXT("EXP")
-        };
-
-        for (const FName& WidgetName : EXPProgressBarNames)
-        {
-            EXPProgressBar = Cast<UProgressBar>(WidgetTree->FindWidget(WidgetName));
-            if (EXPProgressBar)
-            {
-                break;
-            }
-        }
-    }
 
     if (EXPProgressBar)
     {
-        EXPProgressBar->SetPercent(0.0f);
+        ApplyEXPProgressBarStyle();
     }
+    ApplyEXPPercent(0.0f);
+
+    SetLevel(1);
 
     if (ALOL_GameState* GameState = GetWorld()
         ? GetWorld()->GetGameState<ALOL_GameState>()
@@ -95,6 +85,8 @@ void ULOL_HUDWidget::NativeDestruct()
 void ULOL_HUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
     Super::NativeTick(MyGeometry, InDeltaTime);
+
+    ApplyEXPPercent(CurrentEXPPercent);
 
     if (SkillQ_MID)
     {
@@ -404,48 +396,10 @@ void ULOL_HUDWidget::CacheSkillLevelUpButtons()
 
     if (!QLevelUpWidget && !WLevelUpWidget && !ELevelUpWidget && !RLevelUpWidget)
     {
-        TArray<UWidget*> AutoNamedLevelUpWidgets;
-        const TArray<FName> AutoNamedButtonNames = {
-            TEXT("Button_0"),
-            TEXT("Button_1"),
-            TEXT("Button_2"),
-            TEXT("Button_3")
-        };
-
-        for (const FName& ButtonName : AutoNamedButtonNames)
-        {
-            if (UWidget* Widget = WidgetTree->FindWidget(ButtonName))
-            {
-                AutoNamedLevelUpWidgets.AddUnique(Widget);
-            }
-        }
-
-        auto GetWidgetSortX = [](const UWidget* Widget)
-        {
-            if (const UCanvasPanelSlot* CanvasSlot =
-                Widget ? Cast<UCanvasPanelSlot>(Widget->Slot) : nullptr)
-            {
-                return CanvasSlot->GetPosition().X;
-            }
-
-            return Widget
-                ? Widget->GetRenderTransform().Translation.X
-                : 0.0f;
-        };
-
-        AutoNamedLevelUpWidgets.Sort(
-            [&GetWidgetSortX](const UWidget& Left, const UWidget& Right)
-            {
-                return GetWidgetSortX(&Left) < GetWidgetSortX(&Right);
-            });
-
-        if (AutoNamedLevelUpWidgets.Num() >= 4)
-        {
-            QLevelUpWidget = AutoNamedLevelUpWidgets[0];
-            WLevelUpWidget = AutoNamedLevelUpWidgets[1];
-            ELevelUpWidget = AutoNamedLevelUpWidgets[2];
-            RLevelUpWidget = AutoNamedLevelUpWidgets[3];
-        }
+        QLevelUpWidget = WidgetTree->FindWidget(TEXT("Button_0"));
+        WLevelUpWidget = WidgetTree->FindWidget(TEXT("Button_1"));
+        ELevelUpWidget = WidgetTree->FindWidget(TEXT("Button_2"));
+        RLevelUpWidget = WidgetTree->FindWidget(TEXT("Button_3"));
     }
 
     QLevelUpButton = Cast<UButton>(QLevelUpWidget);
@@ -607,12 +561,85 @@ void ULOL_HUDWidget::UpdateMP(float NewMP, float MaxMP)
 
 void ULOL_HUDWidget::UpdateEXP(float NewEXP, float MaxEXP)
 {
+    const float Percent = MaxEXP > 0.0f
+        ? FMath::Clamp(NewEXP / MaxEXP, 0.0f, 1.0f)
+        : 0.0f;
+    ApplyEXPPercent(Percent);
+}
+
+void ULOL_HUDWidget::CacheEXPWidgets()
+{
+    if (!WidgetTree)
+    {
+        return;
+    }
+
+    if (!EXPProgressBar)
+    {
+        const TArray<FName> EXPProgressBarNames = {
+            TEXT("EXPProgressBar"),
+            TEXT("ExpProgressBar"),
+            TEXT("ExperienceBar"),
+            TEXT("ExperienceProgressBar"),
+            TEXT("exp_progressbar"),
+            TEXT("exp_progress"),
+            TEXT("EXP")
+        };
+
+        for (const FName& WidgetName : EXPProgressBarNames)
+        {
+            EXPProgressBar = Cast<UProgressBar>(WidgetTree->FindWidget(WidgetName));
+            if (EXPProgressBar)
+            {
+                break;
+            }
+        }
+    }
+
+    if (!experiencebar)
+    {
+        experiencebar = Cast<UImage>(WidgetTree->FindWidget(TEXT("experiencebar")));
+    }
+
+    if (experiencebar)
+    {
+        EXP_MID = experiencebar->GetDynamicMaterial();
+    }
+}
+
+void ULOL_HUDWidget::ApplyEXPProgressBarStyle()
+{
+    if (!EXPProgressBar || !EXPProgressFillSprite)
+    {
+        return;
+    }
+
+    FProgressBarStyle Style = EXPProgressBar->GetWidgetStyle();
+    Style.FillImage.SetResourceObject(EXPProgressFillSprite);
+    Style.FillImage.DrawAs = ESlateBrushDrawType::Image;
+    Style.FillImage.Tiling = ESlateBrushTileType::NoTile;
+    Style.FillImage.Mirroring = ESlateBrushMirrorType::NoMirror;
+
+    EXPProgressBar->SetWidgetStyle(Style);
+    EXPProgressBar->SetBarFillType(EProgressBarFillType::LeftToRight);
+}
+
+void ULOL_HUDWidget::ApplyEXPPercent(float Percent)
+{
+    CurrentEXPPercent = FMath::Clamp(Percent, 0.0f, 1.0f);
+
     if (EXPProgressBar)
     {
-        const float Percent = MaxEXP > 0.0f
-            ? FMath::Clamp(NewEXP / MaxEXP, 0.0f, 1.0f)
-            : 0.0f;
-        EXPProgressBar->SetPercent(Percent);
+        EXPProgressBar->SetPercent(CurrentEXPPercent);
+    }
+
+    if (EXP_MID)
+    {
+        EXP_MID->SetScalarParameterValue(TEXT("newexpratio"), CurrentEXPPercent);
+        EXP_MID->SetScalarParameterValue(TEXT("Percent"), CurrentEXPPercent);
+        EXP_MID->SetScalarParameterValue(TEXT("percent"), CurrentEXPPercent);
+        EXP_MID->SetScalarParameterValue(TEXT("Progress"), CurrentEXPPercent);
+        EXP_MID->SetScalarParameterValue(TEXT("Ratio"), CurrentEXPPercent);
     }
 }
 

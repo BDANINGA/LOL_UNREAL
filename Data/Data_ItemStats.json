@@ -239,9 +239,9 @@
     "BonusPhysicalPenetrationPercent": 0.0,
     "BonusMagicPenetrationPercent": 0.0,
     "RecipeItems": [
-    "Dagger",
-    "Dagger",
-    "Boots"
+      "Dagger",
+      "Dagger",
+      "Boots"
     ]
   },
   {
@@ -262,7 +262,10 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "Boots"
+    ]
   },
   {
     "Name": "SorcerersShoes",
@@ -282,7 +285,10 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.18
+    "BonusMagicPenetrationPercent": 0.18,
+    "RecipeItems": [
+      "Boots"
+    ]
   },
   {
     "Name": "PlatedSteelcaps",
@@ -302,7 +308,11 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "Boots",
+      "ClothArmor"
+    ]
   },
   {
     "Name": "MercurysTreads",
@@ -322,7 +332,11 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "Boots",
+      "NullMagicMantle"
+    ]
   },
   {
     "Name": "Kindlegem",
@@ -342,7 +356,10 @@
     "BonusAbilityHaste": 10.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "RubyCrystal"
+    ]
   },
   {
     "Name": "Sheen",
@@ -362,7 +379,10 @@
     "BonusAbilityHaste": 10.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "GlowingMote"
+    ]
   },
   {
     "Name": "ClothArmor",
@@ -413,7 +433,7 @@
     "BonusMaxMP": 0.0,
     "BonusAttackDamage": 0.0,
     "BonusAbilityPower": 0.0,
-    "BonusAttackSpeed": 0.30,
+    "BonusAttackSpeed": 0.3,
     "BonusArmor": 0.0,
     "BonusSpellBlock": 0.0,
     "BonusMoveSpeed": 4.0,
@@ -422,7 +442,11 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "LongSword",
+      "Dagger"
+    ]
   },
   {
     "Name": "ForbiddenIdol",
@@ -442,7 +466,10 @@
     "BonusAbilityHaste": 10.0,
     "BonusHealShieldPower": 0.08,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "GlowingMote"
+    ]
   },
   {
     "Name": "GlowingMote",
@@ -502,7 +529,11 @@
     "BonusAbilityHaste": 10.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "GiantsBelt",
+      "Kindlegem"
+    ]
   },
   {
     "Name": "KnightsVow",
@@ -522,7 +553,11 @@
     "BonusAbilityHaste": 10.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "GiantsBelt",
+      "ClothArmor"
+    ]
   },
   {
     "Name": "ZekesConvergence",
@@ -542,7 +577,11 @@
     "BonusAbilityHaste": 10.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "GiantsBelt",
+      "NegatronCloak"
+    ]
   },
   {
     "Name": "Thornmail",
@@ -562,7 +601,11 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "GiantsBelt",
+      "ClothArmor"
+    ]
   },
   {
     "Name": "BlackCleaver",
@@ -582,7 +625,12 @@
     "BonusAbilityHaste": 20.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "GiantsBelt",
+      "Pickaxe",
+      "Kindlegem"
+    ]
   },
   {
     "Name": "SteraksGage",
@@ -602,7 +650,12 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "Pickaxe",
+      "BFSword",
+      "Kindlegem"
+    ]
   },
   {
     "Name": "MikaelsBlessing",
@@ -622,7 +675,11 @@
     "BonusAbilityHaste": 15.0,
     "BonusHealShieldPower": 0.12,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "NullMagicMantle",
+      "ForbiddenIdol"
+    ]
   },
   {
     "Name": "Stridebreaker",
@@ -642,7 +699,11 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "Pickaxe",
+      "Kindlegem"
+    ]
   },
   {
     "Name": "ForceOfNature",
@@ -662,7 +723,12 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "GiantsBelt",
+      "NegatronCloak",
+      "NullMagicMantle"
+    ]
   },
   {
     "Name": "JakShoTheProtean",
@@ -682,7 +748,12 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "GiantsBelt",
+      "NegatronCloak",
+      "ClothArmor"
+    ]
   },
   {
     "Name": "IcebornGauntlet",
@@ -702,7 +773,12 @@
     "BonusAbilityHaste": 15.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "RubyCrystal",
+      "Sheen",
+      "Kindlegem"
+    ]
   },
   {
     "Name": "VoidStaff",
@@ -722,7 +798,11 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.40
+    "BonusMagicPenetrationPercent": 0.4,
+    "RecipeItems": [
+      "BlastingWand",
+      "NeedlesslyLargeRod"
+    ]
   },
   {
     "Name": "RabadonsDeathcap",
@@ -742,7 +822,10 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "NeedlesslyLargeRod"
+    ]
   },
   {
     "Name": "Stormsurge",
@@ -762,7 +845,12 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "BlastingWand",
+      "AmplifyingTome",
+      "NeedlesslyLargeRod"
+    ]
   },
   {
     "Name": "Shadowflame",
@@ -782,7 +870,11 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "BlastingWand",
+      "NeedlesslyLargeRod"
+    ]
   },
   {
     "Name": "CosmicDrive",
@@ -802,7 +894,11 @@
     "BonusAbilityHaste": 25.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "NeedlesslyLargeRod",
+      "Kindlegem"
+    ]
   },
   {
     "Name": "LordDominiksRegards",
@@ -822,7 +918,11 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.35,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "LongSword",
+      "BFSword"
+    ]
   },
   {
     "Name": "InfinityEdge",
@@ -842,7 +942,11 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "Pickaxe",
+      "BFSword"
+    ]
   },
   {
     "Name": "GuinsoosRageblade",
@@ -862,7 +966,11 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "LongSword",
+      "Pickaxe"
+    ]
   },
   {
     "Name": "KrakenSlayer",
@@ -882,7 +990,10 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "Pickaxe"
+    ]
   },
   {
     "Name": "TrinityForce",
@@ -893,7 +1004,7 @@
     "BonusMaxMP": 0.0,
     "BonusAttackDamage": 36.0,
     "BonusAbilityPower": 0.0,
-    "BonusAttackSpeed": 0.30,
+    "BonusAttackSpeed": 0.3,
     "BonusArmor": 0.0,
     "BonusSpellBlock": 0.0,
     "BonusMoveSpeed": 4.0,
@@ -902,7 +1013,12 @@
     "BonusAbilityHaste": 15.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "BFSword",
+      "Sheen",
+      "Kindlegem"
+    ]
   },
   {
     "Name": "SunderedSky",
@@ -922,7 +1038,11 @@
     "BonusAbilityHaste": 15.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "BFSword",
+      "Kindlegem"
+    ]
   },
   {
     "Name": "Bloodthirster",
@@ -942,8 +1062,10 @@
     "BonusAbilityHaste": 0.0,
     "BonusHealShieldPower": 0.0,
     "BonusPhysicalPenetrationPercent": 0.0,
-    "BonusMagicPenetrationPercent": 0.0
+    "BonusMagicPenetrationPercent": 0.0,
+    "RecipeItems": [
+      "BFSword",
+      "VampiricScepter"
+    ]
   }
-
-
 ]

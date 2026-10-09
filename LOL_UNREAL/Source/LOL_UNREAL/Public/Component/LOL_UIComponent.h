@@ -18,6 +18,7 @@ public:
 
 	void UpdateHpFromStat(float NewHp);
 	void UpdateMpFromStat(float NewMp);
+	void UpdateExpFromStat(float NewExp);
 
 	void UpdateLevel(const struct FChampionStat& CurrentStat);
 

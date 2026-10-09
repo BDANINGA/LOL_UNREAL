@@ -192,6 +192,9 @@ public:
 
 	float ApplyDamage(float InDagame, EDamageType DamageType, AController* Instigator, AActor* Causer);
 
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_ShowDamageText(float DamageAmount, FVector WorldLocation);
+
 	void SetHP(float NewHP);
 	void SetMP(float NewMP);
 	void SetStat(FChampionStat NewStat);
