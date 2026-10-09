@@ -18,7 +18,7 @@ def emitters():
     return [a for a in u.GameplayStatics.get_all_actors_of_class(world,u.Emitter)
             if a.get_component_by_class(u.ParticleSystemComponent).get_editor_property('template')==template]
 def fire(kind):
-    champ.call_method('Multicast_SpawnEzrealProjectile',(kind,u.Vector(-550,0,120),u.Vector(650,0,120),1.5,60.0,0.0,None,False))
+    champ.call_method('Multicast_SpawnEzrealProjectile',(kind,u.Vector(-550,0,120),u.Vector(650,0,120),1.5,60.0,0.0,None,False,-1))
 def missiles():
     return [a for a in u.GameplayStatics.get_all_actors_of_class(world,u.Actor) if a.get_component_by_class(u.EzrealQTrailComponent)]
 fire(0)
