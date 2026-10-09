@@ -195,6 +195,15 @@ public:
 	UFUNCTION(NetMulticast, Unreliable)
 	void Multicast_ShowDamageText(float DamageAmount, FVector WorldLocation);
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|Hit VFX")
+	TObjectPtr<class UParticleSystem> HitImpactEffect;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat|Hit VFX")
+	bool bEnableHitImpact = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat|Hit VFX", meta = (ClampMin = "0.1", ClampMax = "3.0"))
+	float HitImpactScale = 1.f;
+
 	void SetHP(float NewHP);
 	void SetMP(float NewMP);
 	void SetStat(FChampionStat NewStat);
@@ -292,6 +301,9 @@ protected:
 	class UDataTable* BuildingStatDataTable;
 
 private:
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_PlayHitImpact(FVector WorldLocation);
+
 	void RecalculateAttackSpeed();
 	void RemoveTimedOffensiveStatBonus();
 

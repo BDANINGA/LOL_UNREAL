@@ -23,11 +23,17 @@
 #include "Components/TextBlock.h"
 #include "Components/WidgetComponent.h"
 #include "TimerManager.h"
+#include "Kismet/GameplayStatics.h"
+#include "Particles/ParticleSystem.h"
+#include "Components/SkeletalMeshComponent.h"
 
 ULOL_StatComponent::ULOL_StatComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
+
+	static ConstructorHelpers::FObjectFinder<UParticleSystem> HitImpactAsset(TEXT("/Game/VFX/HitImpact/P_HitImpact.P_HitImpact"));
+	if (HitImpactAsset.Succeeded()) HitImpactEffect = HitImpactAsset.Object;
 
 	static ConstructorHelpers::FObjectFinder<UDataTable> ChampionStatTableObject(TEXT("/Game/LOL_Data/Data_Champions/Data_ChampionStats.Data_ChampionStats"));
 	if (ChampionStatTableObject.Succeeded())
@@ -585,6 +591,21 @@ float ULOL_StatComponent::ApplyDamage(float InDamage, EDamageType DamageType, AC
 
 	if (ActualDamage > 0.0f)
 	{
+		// All attacks share this accepted-damage path. Only the server emits the RPC.
+		// Play before death handlers can hide/destroy the victim of a lethal hit.
+		if (GetOwnerRole() == ROLE_Authority && bEnableHitImpact && HitImpactEffect)
+		{
+			FVector ImpactLocation = GetOwner()->GetActorLocation();
+			if (const ACharacter* Character = Cast<ACharacter>(GetOwner()))
+			{
+				if (Character->GetMesh() && Character->GetMesh()->GetSkeletalMeshAsset())
+				{
+					ImpactLocation = Character->GetMesh()->Bounds.Origin;
+				}
+			}
+			Multicast_PlayHitImpact(ImpactLocation);
+		}
+
 		if (ULOL_LifeCycleComponent* LifeCycle = GetOwner()->FindComponentByClass<ULOL_LifeCycleComponent>())
 		{
 			LifeCycle->RecordDamageFrom(Instigator);
@@ -607,6 +628,19 @@ float ULOL_StatComponent::ApplyDamage(float InDamage, EDamageType DamageType, AC
 	}
 
 	return ActualDamage;
+}
+
+void ULOL_StatComponent::Multicast_PlayHitImpact_Implementation(FVector WorldLocation)
+{
+	if (!GetWorld() || GetNetMode() == NM_DedicatedServer || !HitImpactEffect ||
+		!bEnableHitImpact || !GetOwner() || GetOwner()->IsHidden())
+	{
+		return;
+	}
+
+	// Independent one-shot: stays at the impact position and auto-cleans after death.
+	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HitImpactEffect, WorldLocation,
+		FRotator::ZeroRotator, FVector(FMath::Clamp(HitImpactScale, 0.1f, 3.f)), true);
 }
 
 void ULOL_StatComponent::Multicast_ShowDamageText_Implementation(float DamageAmount, FVector WorldLocation)
