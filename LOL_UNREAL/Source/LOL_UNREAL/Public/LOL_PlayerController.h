@@ -104,13 +104,13 @@ public:
 	void MoveCameraToMinimapUV(const FVector2D& UV);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Bounds")
-	FVector2D MinimapWorldMin = FVector2D(-10000.f, -8000.f);
+	FVector2D MinimapWorldMin = FVector2D(-4350.f, -8320.f);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Bounds")
-	FVector2D MinimapWorldMax = FVector2D(10000.f, 8000.f);
+	FVector2D MinimapWorldMax = FVector2D(8650.f, 4680.f);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Bounds")
-	bool bInvertMinimapY = true;
+	bool bInvertMinimapY = false;
 
 protected:
 	virtual void BeginPlay() override;

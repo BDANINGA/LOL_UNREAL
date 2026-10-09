@@ -172,8 +172,8 @@ void ALOL_PlayerController::MoveCameraToMinimapUV(const FVector2D& UV)
 	// 4. 기존 카메라 높이 유지
 	FVector NewLocation = CameraActor->GetActorLocation();
 
-	NewLocation.X = WorldX;
-	NewLocation.Y = WorldY;
+	NewLocation.X = WorldX - 200.0f;
+	NewLocation.Y = WorldY + 200.0f;
 
 	// 5. 카메라 즉시 이동
 	CameraActor->SetActorLocation(
@@ -181,14 +181,6 @@ void ALOL_PlayerController::MoveCameraToMinimapUV(const FVector2D& UV)
 		false,
 		nullptr,
 		ETeleportType::TeleportPhysics
-	);
-
-	UE_LOG(
-		LogTemp,
-		Log,
-		TEXT("[Minimap] Camera moved to X=%.1f, Y=%.1f"),
-		WorldX,
-		WorldY
 	);
 }
 
