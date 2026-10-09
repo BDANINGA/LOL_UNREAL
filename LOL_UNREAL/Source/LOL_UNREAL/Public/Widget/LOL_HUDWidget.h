@@ -105,7 +105,7 @@ public:
     UTextBlock* Txt_Level;
 
     UPROPERTY(meta = (BindWidgetOptional))
-    TObjectPtr<UImage> Minimap_Image = nullptr;
+    TObjectPtr<UImage> MiniMap = nullptr;
 
     void SetAttackDamage(float Value) { if (Txt_AD) Txt_AD->SetText(FText::AsNumber(Value)); }
     void SetAbilityPower(float Value) { if (Txt_AP) Txt_AP->SetText(FText::AsNumber(Value)); }
