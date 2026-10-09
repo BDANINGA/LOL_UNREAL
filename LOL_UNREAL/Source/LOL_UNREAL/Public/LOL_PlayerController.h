@@ -93,6 +93,18 @@ public:
 	UFUNCTION(Client, Reliable)
 	void Client_OnInventoryChanged(const TArray<FName>& ItemNames);
 
+	UFUNCTION(BlueprintCallable, Category = "Minimap")
+	void MoveCameraToMinimapUV(const FVector2D& UV);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Bounds")
+	FVector2D MinimapWorldMin = FVector2D(-10000.f, -8000.f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Bounds")
+	FVector2D MinimapWorldMax = FVector2D(10000.f, 8000.f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Minimap|Bounds")
+	bool bInvertMinimapY = true;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void PlayerTick(float DeltaTime) override;

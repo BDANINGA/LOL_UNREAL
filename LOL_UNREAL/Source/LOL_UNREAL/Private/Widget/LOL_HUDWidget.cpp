@@ -709,6 +709,40 @@ FReply ULOL_HUDWidget::NativeOnMouseButtonDown(
     {
         const FVector2D ScreenPosition = InMouseEvent.GetScreenSpacePosition();
 
+        if (Minimap_Image &&
+            Minimap_Image->GetVisibility() == ESlateVisibility::Visible &&
+            Minimap_Image->GetCachedGeometry()
+            .IsUnderLocation(ScreenPosition))
+        {
+            const FGeometry Geometry =
+                Minimap_Image->GetCachedGeometry();
+
+            // 화면 좌표 -> 미니맵 내부 좌표
+            const FVector2D LocalPosition =
+                Geometry.AbsoluteToLocal(ScreenPosition);
+
+            const FVector2D MinimapSize =
+                Geometry.GetLocalSize();
+
+            if (MinimapSize.X > 0.f && MinimapSize.Y > 0.f)
+            {
+                // 내부 좌표 -> 0~1 UV 좌표
+                const FVector2D UV(
+                    LocalPosition.X / MinimapSize.X,
+                    LocalPosition.Y / MinimapSize.Y
+                );
+
+                if (ALOL_PlayerController* PC =
+                    Cast<ALOL_PlayerController>(GetOwningPlayer()))
+                {
+                    PC->MoveCameraToMinimapUV(UV);
+                }
+            }
+
+            // 미니맵 클릭을 챔피언 이동이나 다른 UI에 전달하지 않음
+            return FReply::Handled();
+        }
+
         auto TryClickSkillLevelUpWidget =
             [this, ScreenPosition](UWidget* Widget, FName SkillName)
         {

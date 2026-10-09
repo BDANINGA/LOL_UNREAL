@@ -98,6 +98,9 @@ public:
     UPROPERTY(meta = (BindWidget))
     UTextBlock* Txt_Level;
 
+    UPROPERTY(meta = (BindWidgetOptional))
+    TObjectPtr<UImage> Minimap_Image = nullptr;
+
     void SetAttackDamage(float Value) { if (Txt_AD) Txt_AD->SetText(FText::AsNumber(Value)); }
     void SetAbilityPower(float Value) { if (Txt_AP) Txt_AP->SetText(FText::AsNumber(Value)); }
     void SetArmor(float Value) { if (Txt_Armor) Txt_Armor->SetText(FText::AsNumber(Value)); }

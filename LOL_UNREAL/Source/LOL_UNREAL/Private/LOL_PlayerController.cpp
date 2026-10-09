@@ -139,6 +139,57 @@ void ALOL_PlayerController::GetLifetimeReplicatedProps(
 	DOREPLIFETIME(ALOL_PlayerController, SelectedChampionClass);
 }
 
+void ALOL_PlayerController::MoveCameraToMinimapUV(const FVector2D& UV)
+{
+	// 1. 현재 카메라의 View Target 확인
+	AActor* CameraActor = GetViewTarget();
+
+	// 2. UV 범위 제한
+	const float U = FMath::Clamp(UV.X, 0.0f, 1.0f);
+
+	float V = FMath::Clamp(UV.Y, 0.0f, 1.0f);
+
+	if (bInvertMinimapY)
+	{
+		V = 1.0f - V;
+	}
+
+	// 3. 미니맵 좌표를 월드 좌표로 변환
+	const float WorldX = FMath::Lerp(
+		MinimapWorldMin.X,
+		MinimapWorldMax.X,
+		U
+	);
+
+	const float WorldY = FMath::Lerp(
+		MinimapWorldMin.Y,
+		MinimapWorldMax.Y,
+		V
+	);
+
+	// 4. 기존 카메라 높이 유지
+	FVector NewLocation = CameraActor->GetActorLocation();
+
+	NewLocation.X = WorldX;
+	NewLocation.Y = WorldY;
+
+	// 5. 카메라 즉시 이동
+	CameraActor->SetActorLocation(
+		NewLocation,
+		false,
+		nullptr,
+		ETeleportType::TeleportPhysics
+	);
+
+	UE_LOG(
+		LogTemp,
+		Log,
+		TEXT("[Minimap] Camera moved to X=%.1f, Y=%.1f"),
+		WorldX,
+		WorldY
+	);
+}
+
 void ALOL_PlayerController::BeginPlay()
 {
 	Super::BeginPlay();
