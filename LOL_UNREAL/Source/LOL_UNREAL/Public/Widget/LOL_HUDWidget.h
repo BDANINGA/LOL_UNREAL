@@ -50,7 +50,7 @@ public:
     UPROPERTY(meta = (BindWidgetOptional))
     class UProgressBar* EXPProgressBar;
 
-    UPROPERTY(meta = (BindWidgetOptional))
+    UPROPERTY(BlueprintReadOnly, Category = "HUD|EXP", meta = (BindWidgetOptional))
     class UImage* experiencebar;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "HUD|EXP")

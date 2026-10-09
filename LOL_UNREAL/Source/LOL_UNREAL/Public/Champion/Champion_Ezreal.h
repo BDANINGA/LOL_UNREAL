@@ -93,11 +93,38 @@ protected:
     UPROPERTY()
     TObjectPtr<class UStaticMesh> QProjectileMesh;
 
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ezreal | Q Trail")
+    TObjectPtr<class UParticleSystem> QTrailEffect;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Q Trail")
+    bool bEnableQTrail = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Q Trail", meta = (ClampMin = "0.1", ClampMax = "4.0"))
+    float QTrailScale = 1.0f;
+
     UPROPERTY()
     TObjectPtr<class UStaticMesh> WProjectileMesh;
 
     UPROPERTY()
     TObjectPtr<class UStaticMesh> RProjectileMesh;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ezreal | R VFX")
+    TObjectPtr<class UMaterialInterface> RWaveMaterial;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ezreal | R VFX")
+    TObjectPtr<class UParticleSystem> RTrailEffect;
+
+    UPROPERTY()
+    TObjectPtr<class UStaticMesh> RWavePlane;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | R VFX")
+    bool bEnableRWaveEffect = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | R VFX", meta = (ClampMin = "100", ClampMax = "1200"))
+    float RWaveWidth = 600.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | R VFX", meta = (ClampMin = "0", ClampMax = "4"))
+    float RWaveIntensity = 1.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
     float QProjectileSpeed = 800.0f;

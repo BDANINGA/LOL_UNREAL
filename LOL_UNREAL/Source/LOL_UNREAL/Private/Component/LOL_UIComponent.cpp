@@ -28,8 +28,8 @@ ULOL_UIComponent::ULOL_UIComponent()
     static ConstructorHelpers::FClassFinder<UUserWidget> MinionRef(TEXT("/Game/UI/minion_widget/WBP_MinionWidget.WBP_MinionWidget_C"));
     if (MinionRef.Succeeded()) MinionWidgetClass = MinionRef.Class;
 
-    static ConstructorHelpers::FClassFinder<UUserWidget> JungleMonsterRef(TEXT("/Game/UI/minion_widget/minion_hp_enemy.minion_hp_enemy_C"));
-    if (JungleMonsterRef.Succeeded()) JungleMonsterWidgetClass = JungleMonsterRef.Class;
+    // Jungle monsters use the same HP widget; their color and layout are set in BeginPlay.
+    JungleMonsterWidgetClass = MinionWidgetClass;
 
     RangeIndicator = CreateDefaultSubobject<UDecalComponent>(TEXT("RangeIndicator"));
     RangeIndicator->SetRelativeLocation(FVector(0.f, 0.f, -90.f)); 

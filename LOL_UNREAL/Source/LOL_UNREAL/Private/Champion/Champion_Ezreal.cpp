@@ -1,4 +1,8 @@
 #include "Champion/Champion_Ezreal.h"
+#include "Champion/Projectile/EzrealQTrailComponent.h"
+#include "Champion/Projectile/EzrealRVisualComponent.h"
+#include "Materials/MaterialInterface.h"
+#include "Particles/ParticleSystem.h"
 
 #include "Component/LOL_StatComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -23,6 +27,20 @@ AChampion_Ezreal::AChampion_Ezreal()
     ChampionName = TEXT("Ezreal");
     SetChampionData(ChampionName);
     StateComponent->AddStatusTag(LOLTags::Champion_Ranged);
+
+    static ConstructorHelpers::FObjectFinder<UParticleSystem> QTrailAsset(
+        TEXT("/Game/Level/ezreal/FX/P_EzrealQTrail.P_EzrealQTrail"));
+    if (QTrailAsset.Succeeded())
+    {
+        QTrailEffect = QTrailAsset.Object;
+    }
+
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> RPlaneAsset(TEXT("/Engine/BasicShapes/Plane.Plane"));
+    if (RPlaneAsset.Succeeded()) RWavePlane = RPlaneAsset.Object;
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> RMaterialAsset(TEXT("/Game/Level/ezreal/FX/R/M_EzrealRWave.M_EzrealRWave"));
+    if (RMaterialAsset.Succeeded()) RWaveMaterial = RMaterialAsset.Object;
+    static ConstructorHelpers::FObjectFinder<UParticleSystem> RTrailAsset(TEXT("/Game/Level/ezreal/FX/R/P_EzrealRTrail.P_EzrealRTrail"));
+    if (RTrailAsset.Succeeded()) RTrailEffect = RTrailAsset.Object;
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> AttackProjectileMeshAsset(
         TEXT("/Game/Level/ezreal/ezreal_tex/ezreal_attack.ezreal_attack"));
@@ -750,6 +768,22 @@ void AChampion_Ezreal::SpawnEzrealProjectileVisual(
 
     ProjectileActor->SetLifeSpan(FMath::Max(TravelTime + 0.1f, 0.2f));
 
+    if (ProjectileType == 2 && bEnableRWaveEffect && RWaveMaterial && RWavePlane && GetNetMode() != NM_DedicatedServer)
+    {
+        UEzrealRVisualComponent* Wave = NewObject<UEzrealRVisualComponent>(ProjectileActor, TEXT("EzrealRWave"));
+        ProjectileActor->AddInstanceComponent(Wave);
+        Wave->RegisterComponent();
+        Wave->InitializeVisual(MeshComponent, RWavePlane, RWaveMaterial, RTrailEffect, TravelTime, RWaveWidth, RWaveIntensity);
+    }
+
+    if (ProjectileType == 0 && bEnableQTrail && QTrailEffect && GetNetMode() != NM_DedicatedServer)
+    {
+        UEzrealQTrailComponent* Trail = NewObject<UEzrealQTrailComponent>(ProjectileActor, TEXT("EzrealQTrail"));
+        ProjectileActor->AddInstanceComponent(Trail);
+        Trail->RegisterComponent();
+        Trail->InitializeTrail(QTrailEffect, QTrailScale, FMath::Max(TravelTime + 0.1f, 0.2f));
+    }
+
     if (bUseOverlapDamage)
     {
         FEzrealProjectileDamageData ProjectileDamageData;
@@ -762,7 +796,7 @@ void AChampion_Ezreal::SpawnEzrealProjectileVisual(
     FTimerHandle CleanupTimerHandle;
     GetWorldTimerManager().SetTimer(
         CleanupTimerHandle,
-        FTimerDelegate::CreateLambda(
+        FTimerDelegate::CreateWeakLambda(this,
             [this, ProjectileActor]()
             {
                 ActiveProjectiles.Remove(ProjectileActor);
