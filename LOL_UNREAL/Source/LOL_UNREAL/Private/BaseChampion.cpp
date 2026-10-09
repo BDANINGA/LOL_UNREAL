@@ -393,6 +393,7 @@ void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(ABaseChampion, bIsSilenced);
 	DOREPLIFETIME(ABaseChampion, bIsRecalling);
 	DOREPLIFETIME(ABaseChampion, bIsCastingSkill);
+	DOREPLIFETIME(ABaseChampion, bKnockupCollisionSuppressed);
 }
 
 void ABaseChampion::Server_ExecuteAttackHit_Implementation()
@@ -630,6 +631,61 @@ void ABaseChampion::SetIsKnockedBack(bool bInKnockback)
 {
 	// 실제 로직 (예: 변수 업데이트)
 	bIsKnockedBack = bInKnockback;
+}
+
+void ABaseChampion::SuppressChampionCollisionUntilLanding()
+{
+	if (!HasAuthority()) return;
+
+	bKnockupCollisionSuppressed = true;
+	OnRep_KnockupCollisionSuppressed();
+	ForceNetUpdate();
+}
+
+void ABaseChampion::OnRep_KnockupCollisionSuppressed()
+{
+	UCapsuleComponent* Capsule = GetCapsuleComponent();
+	if (!Capsule) return;
+
+	if (bKnockupCollisionSuppressed && !bKnockupCollisionOverrideApplied)
+	{
+		PreKnockupChampionResponse = Capsule->GetCollisionResponseToChannel(ECC_GameTraceChannel2);
+		PreKnockupPawnResponse = Capsule->GetCollisionResponseToChannel(ECC_Pawn);
+		bKnockupCollisionOverrideApplied = true;
+		// Keep hit queries and terrain collision, but prevent champion depenetration in the air.
+		Capsule->SetCollisionResponseToChannel(ECC_GameTraceChannel2, ECR_Overlap);
+		// Character meshes use Pawn even though champion capsules use Champion.
+		Capsule->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+		if (USkeletalMeshComponent* ChampionMesh = GetMesh())
+		{
+			PreKnockupMeshChampionResponse = ChampionMesh->GetCollisionResponseToChannel(ECC_GameTraceChannel2);
+			ChampionMesh->SetCollisionResponseToChannel(ECC_GameTraceChannel2, ECR_Overlap);
+		}
+	}
+	else if (!bKnockupCollisionSuppressed && bKnockupCollisionOverrideApplied)
+	{
+		bKnockupCollisionOverrideApplied = false;
+		Capsule->SetCollisionResponseToChannel(ECC_GameTraceChannel2, PreKnockupChampionResponse);
+		Capsule->SetCollisionResponseToChannel(ECC_Pawn, PreKnockupPawnResponse);
+		if (USkeletalMeshComponent* ChampionMesh = GetMesh())
+		{
+			ChampionMesh->SetCollisionResponseToChannel(ECC_GameTraceChannel2, PreKnockupMeshChampionResponse);
+		}
+	}
+}
+
+void ABaseChampion::OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode)
+{
+	Super::OnMovementModeChanged(PrevMovementMode, PreviousCustomMode);
+
+	if (HasAuthority() && bKnockupCollisionSuppressed && PrevMovementMode == MOVE_Falling &&
+		GetCharacterMovement() && !GetCharacterMovement()->IsFalling())
+	{
+		// Restore on actual landing (or interrupted falling), not a fixed airborne timer.
+		bKnockupCollisionSuppressed = false;
+		OnRep_KnockupCollisionSuppressed();
+		ForceNetUpdate();
+	}
 }
 
 void ABaseChampion::Multicast_PlayMontage_Implementation(UAnimMontage* AnimMontage, float InplayRate)

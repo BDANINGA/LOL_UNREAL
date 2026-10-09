@@ -150,6 +150,7 @@ void AChampion_Alistar::Server_Skill_Q_Implementation()
         // ?¤í„´ + ?ì–´ë³??íƒœ ì²˜ë¦¬
         if (ABaseChampion* Champ = Cast<ABaseChampion>(Target))
         {
+            Champ->SuppressChampionCollisionUntilLanding();
             Champ->SetIsKnockedBack(true);
             Champ->ApplyStun(2.0f);
 

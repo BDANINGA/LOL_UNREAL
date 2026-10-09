@@ -197,6 +197,8 @@ public:
 	void FinishKnockback() { bIsKnockedBack = false; }
 	
 	void SetIsKnockedBack(bool bInKnockback);
+	void SuppressChampionCollisionUntilLanding();
+	virtual void OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode = 0) override;
 
 	virtual void OnBasicAttackHit(ACharacter* Target) {};
 
@@ -231,6 +233,18 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
+	UPROPERTY(ReplicatedUsing = OnRep_KnockupCollisionSuppressed)
+	bool bKnockupCollisionSuppressed = false;
+
+	UFUNCTION()
+	void OnRep_KnockupCollisionSuppressed();
+
+	bool bKnockupCollisionOverrideApplied = false;
+	ECollisionResponse PreKnockupChampionResponse = ECR_Block;
+	ECollisionResponse PreKnockupPawnResponse = ECR_Block;
+	ECollisionResponse PreKnockupMeshChampionResponse = ECR_Block;
+
 	virtual void PossessedBy(AController* NewController) override;
 
 	virtual void Tick(float DeltaTime) override;
