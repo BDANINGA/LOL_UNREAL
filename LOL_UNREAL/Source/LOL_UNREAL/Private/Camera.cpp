@@ -55,7 +55,9 @@ void ACamera::MoveAnchor(FVector Direction, float DeltaTime)
 	if (!bIsLocked)
 	{
 		FVector NewLocation = GetActorLocation() + (Direction * CameraMoveSpeed * DeltaTime);
-		SetActorLocation(NewLocation);
+		if (NewLocation.X >= -3950.f && NewLocation.X <= 8250.f && NewLocation.Y >= -7920.f && NewLocation.Y <= 4280.f) {
+			SetActorLocation(NewLocation);
+		}
 	}
 }
 
