@@ -778,13 +778,13 @@ FReply ULOL_HUDWidget::NativeOnMouseButtonDown(
     {
         const FVector2D ScreenPosition = InMouseEvent.GetScreenSpacePosition();
 
-        if (Minimap_Image &&
-            Minimap_Image->GetVisibility() == ESlateVisibility::Visible &&
-            Minimap_Image->GetCachedGeometry()
+        if (MiniMap &&
+            MiniMap->GetVisibility() == ESlateVisibility::Visible &&
+            MiniMap->GetCachedGeometry()
             .IsUnderLocation(ScreenPosition))
         {
             const FGeometry Geometry =
-                Minimap_Image->GetCachedGeometry();
+                MiniMap->GetCachedGeometry();
 
             // 화면 좌표 -> 미니맵 내부 좌표
             const FVector2D LocalPosition =

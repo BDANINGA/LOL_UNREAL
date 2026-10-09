@@ -300,6 +300,7 @@ void ALOL_PlayerController::SetupInputComponent()
 	InputComponent->BindKey(EKeys::D, IE_Pressed, this, &ALOL_PlayerController::OnSummonerSpell1);
 	InputComponent->BindKey(EKeys::F, IE_Pressed, this, &ALOL_PlayerController::OnSummonerSpell2);
 	InputComponent->BindKey(EKeys::Escape, IE_Pressed, this, &ALOL_PlayerController::OnQuitGame);
+	InputComponent->BindKey(EKeys::Y, IE_Pressed, this, &ALOL_PlayerController::OnToggleCameraLock);
 
 	InputComponent->BindKey(EKeys::F1, IE_Pressed, this, &ALOL_PlayerController::DebugRecover);
 	InputComponent->BindKey(EKeys::F2, IE_Pressed, this, &ALOL_PlayerController::DebugLevelUp);
@@ -445,6 +446,20 @@ void ALOL_PlayerController::OnToggleCamera()
 	}
 }
 
+void ALOL_PlayerController::OnToggleCameraLock()
+{
+	if (!CameraAnchor)
+	{
+		return;
+	}
+	const bool bNewLock = !CameraAnchor->IsLocked();
+	CameraAnchor->SetCameraLock(bNewLock);
+	if (bNewLock)
+	{
+		CameraAnchor->SetFollowTarget(GetPawn());
+	}
+}
+
 void ALOL_PlayerController::FreeCameraEdgeScroll(float DeltaTime)
 {
 	if (QuitConfirmWidget) return;
@@ -457,7 +472,7 @@ void ALOL_PlayerController::FreeCameraEdgeScroll(float DeltaTime)
 	if (GetMousePosition(MouseX, MouseY))
 	{
 		FVector MoveDir = FVector::ZeroVector;
-		float EdgeThreshold = 10.0f; // 가장자리 인식 범위
+		float EdgeThreshold = 2.0f; // 가장자리 인식 범위
 
 		// 8방향 체크 로직
 		if (MouseX <= EdgeThreshold) MoveDir.X = -1; // 왼쪽

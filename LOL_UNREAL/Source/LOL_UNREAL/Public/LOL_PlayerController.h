@@ -64,6 +64,7 @@ public:
 	void ConfirmQuitGame();
 
 	void OnToggleCamera();
+	void OnToggleCameraLock();
 	void FreeCameraEdgeScroll(float DeltaTime);
 	virtual void AcknowledgePossession(APawn* P) override;
 	void InitCameraAnchor(APawn* TargetPawn);
