@@ -24,10 +24,14 @@ void ULOL_CursorWidget::SwitchCursorState(FString StateName)
         if (SelectedSprite)
         {
             CursorImage->SetBrushFromAtlasInterface(SelectedSprite);
-            if (StateName != "Normal" || StateName != "NormalFriendly") 
+            if (StateName != "Normal" && StateName != "NormalFriendly") {
+                CursorImage->SetRenderScale(FVector2D(0.5f, 0.5f));
                 CursorImage->SetRenderTransformPivot(FVector2D(0.5f, 0.5f));
-            else
-                CursorImage->SetRenderTransformPivot(FVector2D(1.0f, 1.0f));
+            }
+            else {
+                CursorImage->SetRenderScale(FVector2D(0.3f, 0.3f));
+                CursorImage->SetRenderTransformPivot(FVector2D(0.5f, 0.5f));
+            }
         }
     }
 }
