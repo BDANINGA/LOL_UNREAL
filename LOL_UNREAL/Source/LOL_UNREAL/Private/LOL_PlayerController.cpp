@@ -21,6 +21,7 @@
 #include "Component/LOL_UIComponent.h"
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/Champion_SkillComponent.h"
+#include "Component/LOL_SummonerSpellComponent.h"
 #include "GamePlayTag/LOL_GamePlayTags.h"
 #include "Item/LOL_ItemData.h"
 
@@ -113,10 +114,10 @@ ALOL_PlayerController::ALOL_PlayerController()
 	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> FXAsset1(TEXT("/Game/UI/Cursor/Indicator/FX_AttackIndicator.FX_AttackIndicator"));
 	if (FXAsset1.Succeeded()) AClickFX = FXAsset1.Object;
 
-	ItemDataTable = LoadObject<UDataTable>(nullptr, TEXT("/Game/LOL_Data/Data_Items/Data_ItemStats.Data_ItemStats"));
+	ItemDataTable = LoadObject<UDataTable>(nullptr, TEXT("/Game/LOL_Data/Data_Champions/Data_ItemStats.Data_ItemStats"));
 	if (!ItemDataTable)
 	{
-		ItemDataTable = LoadObject<UDataTable>(nullptr, TEXT("/Game/LOL_Data/Data_Champions/Data_ItemStats.Data_ItemStats"));
+		ItemDataTable = LoadObject<UDataTable>(nullptr, TEXT("/Game/LOL_Data/Data_Items/Data_ItemStats.Data_ItemStats"));
 	}
 
 	ShopActorTags.Add(FName("Shop"));
@@ -296,6 +297,8 @@ void ALOL_PlayerController::SetupInputComponent()
 
 	InputComponent->BindKey(EKeys::P, IE_Pressed, this, &ALOL_PlayerController::OnToggleShop);
 	InputComponent->BindKey(EKeys::B, IE_Pressed, this, &ALOL_PlayerController::OnRecall);
+	InputComponent->BindKey(EKeys::D, IE_Pressed, this, &ALOL_PlayerController::OnSummonerSpell1);
+	InputComponent->BindKey(EKeys::F, IE_Pressed, this, &ALOL_PlayerController::OnSummonerSpell2);
 	InputComponent->BindKey(EKeys::Escape, IE_Pressed, this, &ALOL_PlayerController::OnQuitGame);
 
 	InputComponent->BindKey(EKeys::F1, IE_Pressed, this, &ALOL_PlayerController::DebugRecover);
@@ -519,6 +522,44 @@ void ALOL_PlayerController::OnSkillE()
 void ALOL_PlayerController::OnSkillR()
 {
 	HandleSkillInput('r', TEXT("R"));
+}
+
+void ALOL_PlayerController::OnSummonerSpell1()
+{
+	ABaseChampion* Champion = MyChampion ? MyChampion : Cast<ABaseChampion>(GetPawn());
+	if (!Champion || !Champion->SummonerSpellComponent)
+	{
+		return;
+	}
+
+	FHitResult HitResult;
+	if (!GetTargetAwareHitUnderCursor(HitResult))
+	{
+		return;
+	}
+
+	ABaseChampion* TargetChampion = Cast<ABaseChampion>(HitResult.GetActor());
+	if (!TargetChampion || !Champion->IsEnemyActor(TargetChampion))
+	{
+		return;
+	}
+
+	Champion->SummonerSpellComponent->CastExhaust(TargetChampion);
+}
+
+void ALOL_PlayerController::OnSummonerSpell2()
+{
+	ABaseChampion* Champion = MyChampion ? MyChampion : Cast<ABaseChampion>(GetPawn());
+	if (!Champion || !Champion->SummonerSpellComponent)
+	{
+		return;
+	}
+
+	FHitResult HitResult;
+	if (GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
+	{
+		Champion->SummonerSpellComponent->CastFlash(HitResult.ImpactPoint);
+	}
 }
 
 bool ALOL_PlayerController::IsSkillLevelUpInputDown() const

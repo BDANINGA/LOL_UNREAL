@@ -1,4 +1,5 @@
 #include "JungleMonster/BaseJungleMonster.h"
+#include "BaseChampion.h"
 
 #include "Component/LOL_AttackComponent.h"
 #include "Component/LOL_LifeCycleComponent.h"
@@ -226,6 +227,20 @@ float ABaseJungleMonster::TakeDamage(float DamageAmount, FDamageEvent const& Dam
 	if (StateComponent && SourceState && !SourceState->IsEnemy(StateComponent))
 	{
 		return 0.0f;
+	}
+
+	ABaseChampion* SourceChampion = EventInstigator
+		? Cast<ABaseChampion>(EventInstigator->GetPawn())
+		: nullptr;
+	if (!SourceChampion)
+	{
+		SourceChampion = Cast<ABaseChampion>(DamageCauser);
+	}
+	if (SourceChampion)
+	{
+		DamageAmount = SourceChampion->ModifyOutgoingDamage(
+			DamageAmount,
+			DamageEvent.DamageTypeClass);
 	}
 
 	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);

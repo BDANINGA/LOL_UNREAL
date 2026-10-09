@@ -71,6 +71,7 @@ public:
 	FVector GetSpawnLocation() const { return SpawnLocation; }
 	FRotator GetSpawnRotation() const { return SpawnRotation; }
 	bool IsStationaryMonster() const { return bStationaryMonster; }
+	float GetStationaryAttackRange() const { return StationaryAttackRange; }
 	void InitializeJungleMonster(FName RowName);
 	void SetJungleMonsterData(FName RowName);
 	void ApplyCrowdControl(float Duration);
@@ -104,6 +105,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "JungleMonster|Leash")
 	float StationaryResetHealDelay = 3.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "JungleMonster|Combat", meta = (ClampMin = "0.0"))
+	float StationaryAttackRange = 955.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "JungleMonster|Movement", meta = (ClampMin = "0.1", ClampMax = "1.0"))
 	float ChaseMoveSpeedMultiplier = 0.75f;

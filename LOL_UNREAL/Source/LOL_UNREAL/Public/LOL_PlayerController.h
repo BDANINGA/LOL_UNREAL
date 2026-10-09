@@ -52,6 +52,8 @@ public:
 	void OnSkillW();
 	void OnSkillE();
 	void OnSkillR();
+	void OnSummonerSpell1();
+	void OnSummonerSpell2();
 	void OnAKey();
 	void OnToggleShop();
 	void OnRecall();

@@ -13,28 +13,28 @@ struct FChampionResourceData : public FTableRowBase
 
 public:
 	UPROPERTY(EditAnywhere, Category = "Mesh")
-	USkeletalMesh* Mesh;
+	USkeletalMesh* Mesh = nullptr;
 
 	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* Portrait;
+	UTexture2D* Portrait = nullptr;
 	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* Portrait_Circle;
+	UTexture2D* Portrait_Circle = nullptr;
 	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* Portrait_Loading;
+	UTexture2D* Portrait_Loading = nullptr;
 
 	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* SkillP_Image;
+	UTexture2D* SkillP_Image = nullptr;
 	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* SkillQ_Image;
+	UTexture2D* SkillQ_Image = nullptr;
 	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* SkillW_Image;
+	UTexture2D* SkillW_Image = nullptr;
 	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* SkillE_Image;
+	UTexture2D* SkillE_Image = nullptr;
 	UPROPERTY(EditAnywhere, Category = "UI")
-	UTexture2D* SkillR_Image;
+	UTexture2D* SkillR_Image = nullptr;
 
 	UPROPERTY(EditAnywhere, Category = "ABP")
-	TSubclassOf<UAnimInstance> AnimBlueprint;
+	TSubclassOf<UAnimInstance> AnimBlueprint = nullptr;
 
 	UPROPERTY(EditAnywhere, Category = "AM")
 	TArray<UAnimMontage*> AttackMontage;
@@ -92,6 +92,9 @@ public:
 	// 스킬 컴포넌트
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|Champion")
 	class UChampion_SkillComponent* SkillComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components|Champion")
+	class ULOL_SummonerSpellComponent* SummonerSpellComponent;
 
 	// 데이터테이블 연결 관련
 	UDataTable* DataTable;
@@ -216,6 +219,7 @@ public:
 	virtual bool CanCastWhileStunned(uint8 skilltype) const { return false; }
 
 	float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+	float ModifyOutgoingDamage(float DamageAmount, TSubclassOf<class UDamageType> DamageTypeClass) const;
 
 	//침묵
 	void ApplySilence(float Duration);

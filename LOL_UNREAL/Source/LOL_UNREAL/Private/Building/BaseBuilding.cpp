@@ -1,5 +1,6 @@
 #include "Building/BaseBuilding.h"
 #include "BaseChampion.h"
+#include "BaseChampion.h"
 
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_StateComponent.h"
@@ -114,6 +115,20 @@ void ABaseBuilding::UpdateTeamVisual()
 }
 float ABaseBuilding::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
+	ABaseChampion* SourceChampion = EventInstigator
+		? Cast<ABaseChampion>(EventInstigator->GetPawn())
+		: nullptr;
+	if (!SourceChampion)
+	{
+		SourceChampion = Cast<ABaseChampion>(DamageCauser);
+	}
+	if (SourceChampion)
+	{
+		DamageAmount = SourceChampion->ModifyOutgoingDamage(
+			DamageAmount,
+			DamageEvent.DamageTypeClass);
+	}
+
 	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
 	if (StatComponent)
