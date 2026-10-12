@@ -33,6 +33,7 @@ AChampion_Ezreal::AChampion_Ezreal()
     if (QTrailAsset.Succeeded())
     {
         QTrailEffect = QTrailAsset.Object;
+        WTrailEffect = QTrailAsset.Object;
     }
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> RPlaneAsset(TEXT("/Engine/BasicShapes/Plane.Plane"));
@@ -41,6 +42,11 @@ AChampion_Ezreal::AChampion_Ezreal()
     if (RMaterialAsset.Succeeded()) RWaveMaterial = RMaterialAsset.Object;
     static ConstructorHelpers::FObjectFinder<UParticleSystem> RTrailAsset(TEXT("/Game/Level/ezreal/FX/R/P_EzrealRTrail.P_EzrealRTrail"));
     if (RTrailAsset.Succeeded()) RTrailEffect = RTrailAsset.Object;
+
+    static ConstructorHelpers::FObjectFinder<UParticleSystem> EDepartureAsset(TEXT("/Game/Level/ezreal/FX/E/P_EzrealEDeparture.P_EzrealEDeparture"));
+    if (EDepartureAsset.Succeeded()) EDepartureEffect = EDepartureAsset.Object;
+    static ConstructorHelpers::FObjectFinder<UParticleSystem> EArrivalAsset(TEXT("/Game/Level/ezreal/FX/E/P_EzrealEArrival.P_EzrealEArrival"));
+    if (EArrivalAsset.Succeeded()) EArrivalEffect = EArrivalAsset.Object;
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> AttackProjectileMeshAsset(
         TEXT("/Game/Level/ezreal/ezreal_tex/ezreal_attack.ezreal_attack"));
@@ -357,7 +363,13 @@ void AChampion_Ezreal::Server_Skill_E_Implementation(FVector TargetLocation)
         );
     }
 
-    SetActorLocation(BlinkLocation, false, nullptr, ETeleportType::TeleportPhysics);
+    const FVector DepartureLocation = GetActorLocation();
+    const bool bMoved = SetActorLocation(BlinkLocation, false, nullptr, ETeleportType::TeleportPhysics);
+    if (bMoved && !DepartureLocation.Equals(GetActorLocation(), 1.f))
+    {
+        // Send actual server positions; clients may not have received the new transform yet.
+        Multicast_PlayBlinkEffect(DepartureLocation, GetActorLocation());
+    }
 
     const float DamageRadius = 650.0f;
 
@@ -412,6 +424,18 @@ void AChampion_Ezreal::Server_Skill_E_Implementation(FVector TargetLocation)
             ULOL_DamageMagic::StaticClass()
         );
     }
+}
+
+void AChampion_Ezreal::Multicast_PlayBlinkEffect_Implementation(FVector DepartureLocation, FVector ArrivalLocation)
+{
+    if (!GetWorld() || GetNetMode() == NM_DedicatedServer || !bEnableBlinkEffect || IsHidden()) return;
+
+    const FVector Scale(FMath::Clamp(BlinkEffectScale, 0.1f, 3.f));
+    // Independent world-space bursts keep fading after the champion has moved away.
+    if (EDepartureEffect)
+        UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), EDepartureEffect, DepartureLocation, FRotator::ZeroRotator, Scale, true);
+    if (EArrivalEffect)
+        UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), EArrivalEffect, ArrivalLocation, FRotator::ZeroRotator, Scale, true);
 }
 
 void AChampion_Ezreal::Server_Skill_R_Implementation(FVector TargetLocation)
@@ -776,12 +800,26 @@ void AChampion_Ezreal::SpawnEzrealProjectileVisual(
         Wave->InitializeVisual(MeshComponent, RWavePlane, RWaveMaterial, RTrailEffect, TravelTime, RWaveWidth, RWaveIntensity);
     }
 
-    if (ProjectileType == 0 && bEnableQTrail && QTrailEffect && GetNetMode() != NM_DedicatedServer)
+    // Q and W share the trail's lifetime handling, with independent per-skill settings.
+    UParticleSystem* FlightTrail = nullptr;
+    float FlightTrailScale = 1.f;
+    if (ProjectileType == 0 && bEnableQTrail)
     {
-        UEzrealQTrailComponent* Trail = NewObject<UEzrealQTrailComponent>(ProjectileActor, TEXT("EzrealQTrail"));
+        FlightTrail = QTrailEffect;
+        FlightTrailScale = QTrailScale;
+    }
+    else if (ProjectileType == 1 && bEnableWTrail)
+    {
+        FlightTrail = WTrailEffect;
+        FlightTrailScale = WTrailScale;
+    }
+    if (FlightTrail && GetNetMode() != NM_DedicatedServer)
+    {
+        const FName TrailName = ProjectileType == 0 ? TEXT("EzrealQTrail") : TEXT("EzrealWTrail");
+        UEzrealQTrailComponent* Trail = NewObject<UEzrealQTrailComponent>(ProjectileActor, TrailName);
         ProjectileActor->AddInstanceComponent(Trail);
         Trail->RegisterComponent();
-        Trail->InitializeTrail(QTrailEffect, QTrailScale, FMath::Max(TravelTime + 0.1f, 0.2f));
+        Trail->InitializeTrail(FlightTrail, FlightTrailScale, FMath::Max(TravelTime + 0.1f, 0.2f));
     }
 
     if (bUseOverlapDamage)

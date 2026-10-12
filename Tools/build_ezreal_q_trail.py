@@ -1,4 +1,4 @@
-"""Run in a compiled editor after create_ezreal_q_material.py to author the Q-only trail."""
+"""Run in a compiled editor to rebuild the shared Q/W trail using its existing material."""
 import unreal as u
 from pathlib import Path
 world=u.get_editor_subsystem(u.UnrealEditorSubsystem).get_editor_world()

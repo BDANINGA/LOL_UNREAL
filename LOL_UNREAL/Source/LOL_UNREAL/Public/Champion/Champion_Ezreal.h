@@ -44,6 +44,9 @@ protected:
     UFUNCTION(NetMulticast, Reliable)
     void Multicast_PlayEzrealSkillMontage(UAnimMontage* Montage, float PlayRate, FRotator NewRotation);
 
+    UFUNCTION(NetMulticast, Unreliable)
+    void Multicast_PlayBlinkEffect(FVector DepartureLocation, FVector ArrivalLocation);
+
     UFUNCTION(NetMulticast, Reliable)
     void Multicast_SpawnEzrealProjectile(
         uint8 ProjectileType,
@@ -104,6 +107,27 @@ protected:
 
     UPROPERTY()
     TObjectPtr<class UStaticMesh> WProjectileMesh;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ezreal | W Trail")
+    TObjectPtr<class UParticleSystem> WTrailEffect;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | W Trail")
+    bool bEnableWTrail = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | W Trail", meta = (ClampMin = "0.1", ClampMax = "4.0"))
+    float WTrailScale = 0.8f;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ezreal | E VFX")
+    TObjectPtr<class UParticleSystem> EDepartureEffect;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ezreal | E VFX")
+    TObjectPtr<class UParticleSystem> EArrivalEffect;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | E VFX")
+    bool bEnableBlinkEffect = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | E VFX", meta = (ClampMin = "0.1", ClampMax = "3.0"))
+    float BlinkEffectScale = 1.f;
 
     UPROPERTY()
     TObjectPtr<class UStaticMesh> RProjectileMesh;

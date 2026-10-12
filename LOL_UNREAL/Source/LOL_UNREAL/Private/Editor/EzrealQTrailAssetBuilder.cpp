@@ -63,17 +63,17 @@ void AddEmitter(UParticleSystem* System, UMaterialInterface* Material, FName Nam
 
     auto* Lifetime = Module<UParticleModuleLifetime>(System);
     auto* LifeRange = NewObject<UDistributionFloatUniform>(Lifetime);
-    LifeRange->Min = 0.18f; LifeRange->Max = 0.42f;
+    LifeRange->Min = 0.24f; LifeRange->Max = 0.52f;
     Lifetime->Lifetime.Distribution = LifeRange;
     LOD->Modules.Add(Lifetime);
 
     auto* Location = Module<UParticleModuleLocation>(System);
-    Location->StartLocation.Distribution = VectorRange(Location, FVector(-28, -7, -7), FVector(-12, 7, 7));
+    Location->StartLocation.Distribution = VectorRange(Location, FVector(-28, -10, -10), FVector(-12, 10, 10));
     LOD->Modules.Add(Location);
 
     auto* Velocity = Module<UParticleModuleVelocity>(System);
     Velocity->bInWorldSpace = false;
-    Velocity->StartVelocity.Distribution = VectorRange(Velocity, FVector(-100, -75, -60), FVector(-25, 75, 60));
+    Velocity->StartVelocity.Distribution = VectorRange(Velocity, FVector(-120, -95, -75), FVector(-30, 95, 75));
     LOD->Modules.Add(Velocity);
 
     auto* InitialSize = Module<UParticleModuleSize>(System);
@@ -123,8 +123,8 @@ void Build()
     System->LODSettings.SetNum(1);
     System->WarmupTime = 0.0f;
     System->bUseFixedRelativeBoundingBox = false;
-    AddEmitter(System, Material, TEXT("ArcaneGold"), 150.0f, FVector(1.0f, 0.58f, 0.12f), 10.0f);
-    AddEmitter(System, Material, TEXT("CyanSparks"), 55.0f, FVector(0.12f, 0.7f, 1.0f), 6.0f);
+    AddEmitter(System, Material, TEXT("ArcaneGold"), 400.0f, FVector(1.0f, 0.58f, 0.12f), 13.0f);
+    AddEmitter(System, Material, TEXT("CyanSparks"), 150.0f, FVector(0.12f, 0.7f, 1.0f), 8.0f);
     System->UpdateAllModuleLists();
     System->BuildEmitters();
     System->PostEditChange();
