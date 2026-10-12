@@ -1,0 +1,5 @@
+newmtl Core
+Kd 1 0.8 0.4
+
+newmtl Energy
+Kd 0.1 0.7 1

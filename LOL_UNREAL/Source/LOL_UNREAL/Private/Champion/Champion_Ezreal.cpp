@@ -49,7 +49,7 @@ AChampion_Ezreal::AChampion_Ezreal()
     if (EArrivalAsset.Succeeded()) EArrivalEffect = EArrivalAsset.Object;
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> AttackProjectileMeshAsset(
-        TEXT("/Game/Level/ezreal/ezreal_tex/ezreal_attack.ezreal_attack"));
+        TEXT("/Game/Level/ezreal/FX/Missiles/SM_EzrealBasicBolt.SM_EzrealBasicBolt"));
     if (AttackProjectileMeshAsset.Succeeded())
     {
         if (!ChampionResource.ProjectileMesh.IsValidIndex(0))
@@ -60,7 +60,7 @@ AChampion_Ezreal::AChampion_Ezreal()
     }
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> QProjectileMeshAsset(
-        TEXT("/Game/Level/ezreal/ezreal_tex/ezreal_q_missile.ezreal_q_missile"));
+        TEXT("/Game/Level/ezreal/FX/Missiles/SM_EzrealMysticShot.SM_EzrealMysticShot"));
     if (QProjectileMeshAsset.Succeeded())
     {
         QProjectileMesh = QProjectileMeshAsset.Object;
@@ -605,7 +605,7 @@ UStaticMesh* AChampion_Ezreal::GetEzrealProjectileMesh(uint8 ProjectileType)
         {
             QProjectileMesh = LoadObject<UStaticMesh>(
                 nullptr,
-                TEXT("/Game/Level/ezreal/ezreal_tex/ezreal_q_missile.ezreal_q_missile")
+                TEXT("/Game/Level/ezreal/FX/Missiles/SM_EzrealMysticShot.SM_EzrealMysticShot")
             );
         }
         return QProjectileMesh.Get();
