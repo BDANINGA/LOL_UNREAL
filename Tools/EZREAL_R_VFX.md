@@ -1,7 +1,8 @@
 # Ezreal R wave
 
-The R projectile now uses a gold crescent with a narrow ivory leading rim,
-animated cyan wake fragments, and world-space gold/cyan particles. It briefly
+The R projectile uses a gold crescent with a narrow ivory leading rim,
+braided cyan inner ribbons, a fine secondary gold arc, animated cyan wake
+fragments, and world-space gold/cyan particles. It briefly
 brightens on release and fades near its existing expiry time. The particle tail
 drains after projectile destruction instead of disappearing in one frame.
 
@@ -18,7 +19,7 @@ the engine Plane mesh, and Cascade particles; no downloaded game assets.
 - The R particle template reuses the existing soft spark material `M_EzrealQTrail`;
   editing that shared material also affects Q, so duplicate it for R-specific changes.
 - Collision radius, movement speed, travel time, damage, penetration, and cast
-  timing are unchanged. Q/W visuals are unchanged.
+  timing are unchanged. The 2026-10-13 art revision matches the new Q/W/AA palette.
 
 `UEzrealRVisualComponent` owns the cosmetic material and particle tail. It is
 created on each rendering client by the existing projectile multicast and is

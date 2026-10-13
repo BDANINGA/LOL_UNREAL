@@ -29,6 +29,11 @@ fire(kind)
 assert len(emitters())==1
 assert len(missiles())==1
 missile=missiles()[0]
+if kind == 1:
+    mesh = missile.get_component_by_class(u.StaticMeshComponent)
+    assert mesh.static_mesh.get_name() == 'SM_EzrealEssenceFlux'
+    assert mesh.get_forward_vector().x > 0.99
+    assert missile.get_component_by_class(u.SphereComponent).get_unscaled_sphere_radius() == 60.0
 start=u.GameplayStatics.get_time_seconds(world)
 result={'spawned_'+skill.lower()+'_trail':True}; state={'phase':0}
 output=Path(u.Paths.project_dir(),'Saved/DesignBackups/Ezreal'+skill+'TrailTest.json')

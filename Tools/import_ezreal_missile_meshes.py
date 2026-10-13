@@ -6,7 +6,7 @@ assert not u.EditorLoadingAndSavingUtils.get_dirty_content_packages()
 folder='/Game/Level/ezreal/FX/Missiles'
 lib=u.MaterialEditingLibrary
 assets=u.AssetToolsHelpers.get_asset_tools()
-def material(name,attack,energy):
+def material(name,attack,energy,style=None):
     path=folder+'/'+name
     mat=u.load_asset(path) if u.EditorAssetLibrary.does_asset_exist(path) else assets.create_asset(name,folder,u.Material,u.MaterialFactoryNew())
     mat.set_editor_property('blend_mode',u.BlendMode.BLEND_ADDITIVE if energy else u.BlendMode.BLEND_OPAQUE)
@@ -35,6 +35,14 @@ float3 tint=lerp(float3(0.035,0.35,0.65),float3(1,0.86,0.48),head);
 float facet=0.8+0.2*pow(abs(cos(UV.y*6.283)),3);
 return tint*facet*(0.75+head*1.05);'''
         if attack: code=code.replace('float3(0.035,0.35,0.65)','float3(0.85,0.3,0.025)')
+    if style=='W':
+        code=('''float edge=pow(saturate(1-abs(UV.y*2-1)),1.5);
+float pulse=0.78+0.22*sin(UV.x*37.699-T*5);
+float3 tint=lerp(float3(0.025,0.5,0.85),float3(1,0.63,0.16),pow(saturate(sin(UV.x*18.85-T*3)),5));
+return tint*edge*pulse*1.6;''' if energy else
+'''float pulse=0.85+0.15*sin(UV.x*25.133-T*5);
+float rim=pow(abs(cos(UV.y*6.283)),3);
+return lerp(float3(1,0.63,0.16),float3(1,0.86,0.48),rim)*pulse*(0.95+0.5*rim);''')
     shader.set_editor_property('code',code)
     assert lib.connect_material_expressions(uv,'',shader,'UV')
     assert lib.connect_material_expressions(time,'',shader,'T')
@@ -46,9 +54,9 @@ return tint*facet*(0.75+head*1.05);'''
     assert u.EditorAssetLibrary.save_loaded_asset(mat,False)
     return mat
 
-for name,attack in [('SM_EzrealMysticShot',False),('SM_EzrealBasicBolt',True)]:
-    core=material('M_Ezreal'+('Basic' if attack else 'Q')+'Core',attack,False)
-    energy=material('M_Ezreal'+('Basic' if attack else 'Q')+'Energy',attack,True)
+for name,variant in globals().get('MISSILE_IMPORTS',[('SM_EzrealMysticShot','Q'),('SM_EzrealBasicBolt','Basic')]):
+    core=material('M_Ezreal'+variant+'Core',variant=='Basic',False,variant)
+    energy=material('M_Ezreal'+variant+'Energy',variant=='Basic',True,variant)
     task=u.AssetImportTask()
     task.set_editor_property('filename',str(Path(u.Paths.project_dir()).resolve().parent/'Tools/Art/Ezreal'/(name+'.obj')))
     task.set_editor_property('destination_path',folder)

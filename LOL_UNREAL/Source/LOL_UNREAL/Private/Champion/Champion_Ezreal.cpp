@@ -67,7 +67,7 @@ AChampion_Ezreal::AChampion_Ezreal()
     }
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> WProjectileMeshAsset(
-        TEXT("/Game/Level/ezreal/ezreal_tex/ezreal_w.ezreal_w"));
+        TEXT("/Game/Level/ezreal/FX/Missiles/SM_EzrealEssenceFlux.SM_EzrealEssenceFlux"));
     if (WProjectileMeshAsset.Succeeded())
     {
         WProjectileMesh = WProjectileMeshAsset.Object;
@@ -614,7 +614,7 @@ UStaticMesh* AChampion_Ezreal::GetEzrealProjectileMesh(uint8 ProjectileType)
         {
             WProjectileMesh = LoadObject<UStaticMesh>(
                 nullptr,
-                TEXT("/Game/Level/ezreal/ezreal_tex/ezreal_w.ezreal_w")
+                TEXT("/Game/Level/ezreal/FX/Missiles/SM_EzrealEssenceFlux.SM_EzrealEssenceFlux")
             );
         }
         return WProjectileMesh.Get();

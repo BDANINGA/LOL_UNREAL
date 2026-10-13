@@ -58,12 +58,19 @@ float filaments = pow(saturate(flow), 9.0) * smoothstep(0.3, 0.9, breakup);
 float seams = exp(-pow((d - 0.19 - 0.025 * sin(y * 24.0 - T * 10.0)) / 0.017, 2.0));
 float ends = smoothstep(0.0, 0.14, span);
 float backClip = smoothstep(-1.0, -0.84, x);
-float3 ivory = float3(1.0, 0.87, 0.42);
-float3 gold = float3(1.0, 0.44, 0.035);
-float3 cyan = float3(0.04, 0.56, 0.95);
-float3 color = ivory * rim * 0.85
-    + gold * (core * 3.2 + body * 1.8)
-    + cyan * (wake * (0.12 + filaments * 0.85) + seams * 0.18);
+// Same ivory/gold/cyan palette as the authored Q and basic-attack meshes.
+float3 ivory = float3(1.0, 0.86, 0.48);
+float3 gold = float3(1.0, 0.63, 0.16);
+float3 cyan = float3(0.025, 0.5, 0.85);
+// Braided inner ribbons follow the arc. A thin bright edge stays readable.
+float braidOffset = 0.11 + 0.035*sin(y*19.0-T*6.0);
+float braid = exp(-pow((d-braidOffset)/0.018,2.0));
+float echoOffset = 0.28 + 0.035*sin(y*19.0-T*6.0+3.14159);
+float echo = exp(-pow((d-echoOffset)/0.013,2.0));
+float ribbonEnds = pow(span, 0.65);
+float3 color = ivory * rim * 1.05
+    + gold * (core * 1.8 + body * 0.55 + echo * ribbonEnds * 0.55)
+    + cyan * (wake * (0.25 + filaments * 0.65) + seams * 0.28 + braid * ribbonEnds * 1.5);
 return color * ends * backClip * Fade * Intensity;
 ''')
 for source, name in [(local, 'P'), (time, 'T'), (fade, 'Fade'), (glow, 'Intensity')]:
