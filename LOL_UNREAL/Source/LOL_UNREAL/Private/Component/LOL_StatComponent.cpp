@@ -591,6 +591,17 @@ float ULOL_StatComponent::ApplyDamage(float InDamage, EDamageType DamageType, AC
 
 	if (ActualDamage > 0.0f)
 	{
+		if (GetOwnerRole() == ROLE_Authority)
+		{
+			if (ABaseChampion* Victim = Cast<ABaseChampion>(GetOwner()))
+			{
+				if (ALOL_PlayerController* PC = Cast<ALOL_PlayerController>(Victim->GetController()))
+				{
+					PC->Client_PlayDamageVignette(Victim, ActualDamage / FMath::Max(BaseStat.MaxHP, 1.0f));
+				}
+			}
+		}
+
 		// All attacks share this accepted-damage path. Only the server emits the RPC.
 		// Play before death handlers can hide/destroy the victim of a lethal hit.
 		if (GetOwnerRole() == ROLE_Authority && bEnableHitImpact && HitImpactEffect)

@@ -14,6 +14,7 @@
 
 #include "Widget/LOL_CursorWidget.h"
 #include "Widget/LOL_QuitConfirmWidget.h"
+#include "Widget/LOL_DamageVignetteWidget.h"
 
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_StateComponent.h"
@@ -232,12 +233,30 @@ void ALOL_PlayerController::OnPossess(APawn* InPawn)
 
 void ALOL_PlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (DamageVignetteWidget)
+	{
+		DamageVignetteWidget->RemoveFromParent();
+		DamageVignetteWidget = nullptr;
+	}
 	if (QuitConfirmWidget)
 	{
 		QuitConfirmWidget->RemoveFromParent();
 		QuitConfirmWidget = nullptr;
 	}
 	Super::EndPlay(EndPlayReason);
+}
+
+void ALOL_PlayerController::Client_PlayDamageVignette_Implementation(APawn* Victim, float DamageFraction)
+{
+	if (!IsLocalController() || !bEnableDamageVignette || !Victim || Victim != GetPawn()
+		|| !Cast<ABaseChampion>(Victim) || DamageFraction <= 0.0f) return;
+	if (!DamageVignetteWidget)
+	{
+		DamageVignetteWidget = CreateWidget<ULOL_DamageVignetteWidget>(this, ULOL_DamageVignetteWidget::StaticClass());
+		if (!DamageVignetteWidget) return;
+		DamageVignetteWidget->AddToPlayerScreen(50);
+	}
+	DamageVignetteWidget->PlayHit(Victim, DamageFraction);
 }
 
 void ALOL_PlayerController::OnRep_Pawn()
