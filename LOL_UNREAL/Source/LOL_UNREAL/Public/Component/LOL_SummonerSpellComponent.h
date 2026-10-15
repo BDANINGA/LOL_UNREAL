@@ -15,6 +15,19 @@ public:
 	void CastExhaust(AActor* Target);
 	void CastFlash(const FVector& TargetLocation);
 	float GetOutgoingDamageMultiplier() const { return OutgoingDamageMultiplier; }
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Summoner Spell|VFX")
+	bool bEnableSpellEffects = true;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Summoner Spell|VFX")
+	TObjectPtr<class UParticleSystem> FlashDepartureEffect;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Summoner Spell|VFX")
+	TObjectPtr<class UParticleSystem> FlashArrivalEffect;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Summoner Spell|VFX")
+	TObjectPtr<class UParticleSystem> ExhaustAuraEffect;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Summoner Spell|Exhaust")
 	float ExhaustRange = 650.0f;
@@ -39,6 +52,11 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_PlayFlashEffect(FVector_NetQuantize Departure, FVector_NetQuantize Arrival);
 
 	UFUNCTION(Server, Reliable)
 	void Server_CastExhaust(AActor* Target);
@@ -53,6 +71,19 @@ protected:
 	void Client_SetExhaustMoveSpeed(float MoveSpeed);
 
 private:
+	UFUNCTION()
+	void OnRep_ExhaustVisualEndTime();
+	void UpdateExhaustVisual();
+	void StopExhaustVisual();
+	float GetSpellServerTime() const;
+
+	// Persistent state lets a newly relevant client show only the remaining debuff.
+	UPROPERTY(ReplicatedUsing = OnRep_ExhaustVisualEndTime)
+	float ExhaustVisualEndTime = 0.0f;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UParticleSystemComponent> ExhaustAuraComponent;
+
 	bool CanCastSummonerSpell() const;
 	void ApplyExhaustEffect(float Duration, float MoveSpeedMultiplier, float DamageMultiplier);
 	void ClearExhaustEffect();
