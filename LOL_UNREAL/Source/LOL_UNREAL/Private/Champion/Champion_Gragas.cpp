@@ -1,4 +1,6 @@
 #include "Champion/Champion_Gragas.h"
+#include "Champion/Projectile/GragasQBarrelVisual.h"
+#include "Champion/Projectile/GragasRBarrelVisual.h"
 
 #include "Animation/AnimMontage.h"
 #include "Component/Champion_SkillComponent.h"
@@ -7,10 +9,8 @@
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_StateComponent.h"
 #include "Components/CapsuleComponent.h"
-#include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInterface.h"
 #include "NiagaraComponent.h"
@@ -338,6 +338,15 @@ void AChampion_Gragas::Tick(float DeltaTime)
 void AChampion_Gragas::ExplodeQ()
 {
 	if (!HasAuthority() || !bQActive || !SkillComponent || !StatComponent) return;
+
+	// A recast during the roll detonates on arrival, never ahead of the barrel.
+	const float RemainingTravel = QCastStartTime + QTravelTime - GetWorld()->GetTimeSeconds();
+	if (RemainingTravel > KINDA_SMALL_NUMBER)
+	{
+		GetWorldTimerManager().SetTimer(QExplosionTimerHandle, this,
+			&AChampion_Gragas::ExplodeQ, RemainingTravel, false);
+		return;
+	}
 
 	GetWorldTimerManager().ClearTimer(QExplosionTimerHandle);
 	bQActive = false;
@@ -825,108 +834,26 @@ void AChampion_Gragas::Multicast_SpawnGragasProjectile_Implementation(
 	SpawnParameters.SpawnCollisionHandlingOverride =
 		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	AActor* ProjectileActor = GetWorld()->SpawnActor<AActor>(
-		AActor::StaticClass(),
-		StartLocation,
-		Direction.Rotation(),
-		SpawnParameters
-	);
-	if (!ProjectileActor) return;
-
-	UStaticMeshComponent* MeshComponent =
-		NewObject<UStaticMeshComponent>(
-			ProjectileActor,
-			TEXT("GragasProjectileMesh")
-		);
-	if (!MeshComponent)
-	{
-		ProjectileActor->Destroy();
-		return;
-	}
-
-	ProjectileActor->AddInstanceComponent(MeshComponent);
-	ProjectileActor->SetRootComponent(MeshComponent);
-	MeshComponent->SetStaticMesh(ProjectileMeshAsset);
-	if (ProjectileMaterial)
-	{
-		MeshComponent->SetMaterial(0, ProjectileMaterial);
-	}
-	MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	MeshComponent->SetGenerateOverlapEvents(false);
-	MeshComponent->RegisterComponent();
-
-	const float MeshRadius = ProjectileMeshAsset->GetBounds().SphereRadius;
-	const float VisualRadius = ProjectileType == 0
-		? QProjectileVisualRadius
-		: RProjectileVisualRadius;
-	const float Scale = MeshRadius > KINDA_SMALL_NUMBER
-		? VisualRadius / MeshRadius
-		: 1.0f;
-	MeshComponent->SetWorldScale3D(FVector(Scale));
-	MeshComponent->SetVisibility(true, true);
-	MeshComponent->SetHiddenInGame(false, true);
-
-	UProjectileMovementComponent* ProjectileMovement =
-		NewObject<UProjectileMovementComponent>(
-			ProjectileActor,
-			TEXT("GragasProjectileMovement")
-		);
-	if (!ProjectileMovement)
-	{
-		ProjectileActor->Destroy();
-		return;
-	}
-
-	const float VisualSpeed =
-		FVector::Distance(StartLocation, EndLocation) /
-		FMath::Max(TravelTime, KINDA_SMALL_NUMBER);
-	ProjectileActor->AddInstanceComponent(ProjectileMovement);
-	ProjectileMovement->SetUpdatedComponent(MeshComponent);
-	ProjectileMovement->bInitialVelocityInLocalSpace = false;
-	ProjectileMovement->InitialSpeed = VisualSpeed;
-	ProjectileMovement->MaxSpeed = VisualSpeed;
-	ProjectileMovement->Velocity = Direction * VisualSpeed;
-	ProjectileMovement->ProjectileGravityScale = 0.0f;
-	ProjectileMovement->bRotationFollowsVelocity = true;
-	ProjectileMovement->RegisterComponent();
-	ProjectileMovement->Activate(true);
-
-	TWeakObjectPtr<AActor> WeakProjectile(ProjectileActor);
-	TWeakObjectPtr<UProjectileMovementComponent> WeakMovement(ProjectileMovement);
-	FTimerHandle StopTimer;
-	GetWorldTimerManager().SetTimer(
-		StopTimer,
-		FTimerDelegate::CreateLambda(
-			[WeakProjectile, WeakMovement, EndLocation]()
-			{
-				if (WeakMovement.IsValid())
-				{
-					WeakMovement->StopMovementImmediately();
-					WeakMovement->Deactivate();
-				}
-				if (WeakProjectile.IsValid())
-				{
-					WeakProjectile->SetActorLocation(
-						EndLocation,
-						false,
-						nullptr,
-						ETeleportType::TeleportPhysics
-					);
-				}
-			}
-		),
-		FMath::Max(TravelTime, 0.01f),
-		false
-	);
-
-	ProjectileActor->SetLifeSpan(FMath::Max(LifeTime, 0.2f));
 	if (ProjectileType == 0)
 	{
-		if (IsValid(LocalQProjectileActor))
-		{
-			LocalQProjectileActor->Destroy();
-		}
-		LocalQProjectileActor = ProjectileActor;
+		if (GetNetMode() == NM_DedicatedServer) return;
+		AGragasQBarrelVisual* Barrel = GetWorld()->SpawnActor<AGragasQBarrelVisual>(
+			StartLocation, Direction.Rotation(), SpawnParameters);
+		if (!Barrel) return;
+		Barrel->Initialize(ProjectileMeshAsset, ProjectileMaterial, StartLocation, EndLocation,
+			TravelTime, QProjectileVisualRadius, LifeTime);
+		if (IsValid(LocalQProjectileActor)) LocalQProjectileActor->Destroy();
+		LocalQProjectileActor = Barrel;
+		return;
+	}
+
+	if (GetNetMode() == NM_DedicatedServer) return;
+	AGragasRBarrelVisual* Barrel = GetWorld()->SpawnActor<AGragasRBarrelVisual>(
+		StartLocation, Direction.Rotation(), SpawnParameters);
+	if (Barrel)
+	{
+		Barrel->Initialize(ProjectileMeshAsset, ProjectileMaterial, StartLocation, EndLocation,
+			TravelTime, RProjectileVisualRadius);
 	}
 }
 
