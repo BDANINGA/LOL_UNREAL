@@ -29,6 +29,20 @@ public:
     class UImage* SkillP_Image;
 
     UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* SkillQ_DisableImage;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* SkillW_DisableImage;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* SkillE_DisableImage;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* SkillR_DisableImage;
+
+    void UpdateSkillDisableOverlays();
+
+    UPROPERTY(meta = (BindWidgetOptional))
     class UImage* ItemSlot_1;
     UPROPERTY(meta = (BindWidgetOptional))
     class UImage* ItemSlot_2;

@@ -60,6 +60,46 @@ ULOL_HUDWidget::ULOL_HUDWidget(const FObjectInitializer& ObjectInitializer)
     }
 }
 
+void ULOL_HUDWidget::UpdateSkillDisableOverlays()
+{
+    const ABaseChampion* Champion = Cast<ABaseChampion>(GetOwningPlayerPawn());
+    const UChampion_SkillComponent* SkillComp = Champion ? Champion->SkillComponent : nullptr;
+
+    if (!SkillComp)
+    {
+        return;
+    }
+
+    // 각 스킬의 찍힌 레벨 확인 (0레벨이면 안 찍힌 상태)
+    auto SetOverlayVisibility = [SkillComp](UImage* DisableImage, FName SkillName)
+        {
+            if (!DisableImage)
+            {
+                return;
+            }
+
+            // 스킬을 찍었는지(CanLevelUp 조건 또는 스킬 레벨 체크)
+            // 만약 SkillComponent에 GetSkillLevel(SkillName) 함수가 있다면 사용:
+            const int32 SkillLevel = SkillComp->GetSkillLevel(SkillName);
+
+            if (SkillLevel > 0)
+            {
+                // 스킬을 찍었으면 어두운 이미지 숨김 (밝아짐)
+                DisableImage->SetVisibility(ESlateVisibility::Collapsed); // 또는 Hidden
+            }
+            else
+            {
+                // 스킬을 안 찍었으면 어두운 이미지 표시
+                DisableImage->SetVisibility(ESlateVisibility::SelfHitTestInvisible); // 또는 Visible
+            }
+        };
+
+    SetOverlayVisibility(SkillQ_DisableImage, TEXT("Q"));
+    SetOverlayVisibility(SkillW_DisableImage, TEXT("W"));
+    SetOverlayVisibility(SkillE_DisableImage, TEXT("E"));
+    SetOverlayVisibility(SkillR_DisableImage, TEXT("R"));
+}
+
 void ULOL_HUDWidget::NativeConstruct()
 {
     Super::NativeConstruct();
@@ -189,6 +229,7 @@ void ULOL_HUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 
     UpdateScoreboard();
     UpdateSkillLevelUpButtonStates();
+    UpdateSkillDisableOverlays();
 }
 
 void ULOL_HUDWidget::UpdateScoreboard()
