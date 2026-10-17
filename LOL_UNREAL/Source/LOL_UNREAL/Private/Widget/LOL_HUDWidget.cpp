@@ -661,11 +661,29 @@ void ULOL_HUDWidget::UpdateMinimapChampions()
         CacheMinimapChampionImages();
     }
 
-    // 현재 월드에 스폰되어 있는 모든 챔피언(`ABaseChampion`) 수집
+    if (!MiniMap)
+    {
+        return;
+    }
+
+    ALOL_PlayerController* PC = Cast<ALOL_PlayerController>(GetOwningPlayer());
+    if (!PC)
+    {
+        return;
+    }
+
+    // 미니맵의 로컬 크기 가져오기
+    const FVector2D MinimapSize = MiniMap->GetCachedGeometry().GetLocalSize();
+    if (MinimapSize.X <= 0.f || MinimapSize.Y <= 0.f)
+    {
+        return;
+    }
+
+    // 현재 월드에 스폰되어 있는 모든 챔피언 수집
     TArray<AActor*> FoundChampions;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABaseChampion::StaticClass(), FoundChampions);
 
-    // 미리 준비된 미니맵 이미지 슬롯(0~9)을 순회
+    // 슬롯 0 ~ 9번 순회
     for (int32 i = 0; i < CachedMinimapChampionImages.Num(); ++i)
     {
         UImage* SlotImage = CachedMinimapChampionImages[i];
@@ -674,30 +692,51 @@ void ULOL_HUDWidget::UpdateMinimapChampions()
             continue;
         }
 
-        // 해당 인덱스에 매칭되는 플레이어(챔피언)가 존재하는 경우
         if (FoundChampions.IsValidIndex(i) && FoundChampions[i])
         {
             ABaseChampion* Champion = Cast<ABaseChampion>(FoundChampions[i]);
             if (Champion && Champion->ChampionResource.Portrait_Circle)
             {
-                // 챔피언의 portrait_image 적용 및 표시
+                // 1. 챔피언의 월드 좌표 가져오기
+                FVector ChampionLoc = Champion->GetActorLocation();
+
+                // 2. 월드 좌표를 0.0 ~ 1.0 비율(UV)로 변환
+                float NormX = FMath::GetRangePct(PC->MinimapWorldMin.X, PC->MinimapWorldMax.X, ChampionLoc.X);
+                float NormY = FMath::GetRangePct(PC->MinimapWorldMin.Y, PC->MinimapWorldMax.Y, ChampionLoc.Y);
+
+                NormX = FMath::Clamp(NormX, 0.0f, 1.0f);
+                NormY = FMath::Clamp(NormY, 0.0f, 1.0f);
+
+                // 미니맵 Y축 반전 옵션 적용
+                if (PC->bInvertMinimapY)
+                {
+                    NormY = 1.0f - NormY;
+                }
+
+                // 3. 미니맵 내부에서의 상대 픽셀 위치 계산
+                FVector2D LocalPosition(NormX * MinimapSize.X, NormY * MinimapSize.Y);
+
+                // 캔버스 슬롯을 통해 미니맵 내부 상대 위치 설정
+                if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(SlotImage->Slot))
+                {
+                    CanvasSlot->SetPosition(LocalPosition);
+                }
+
+                // 초상화 적용 및 표시
                 SlotImage->SetBrushFromTexture(Champion->ChampionResource.Portrait_Circle, false);
                 SlotImage->SetVisibility(ESlateVisibility::Visible);
             }
             else
             {
-                // 텍스처가 유효하지 않으면 숨김
                 SlotImage->SetVisibility(ESlateVisibility::Collapsed);
             }
         }
         else
         {
-            // 해당하는 플레이어가 없으면 위젯을 보이지 않게 처리
             SlotImage->SetVisibility(ESlateVisibility::Collapsed);
         }
     }
 }
-
 void ULOL_HUDWidget::UpdateHP(float NewHP, float MaxHP)
 {
 	if (HPProgressBar) HPProgressBar->SetPercent(NewHP / MaxHP);
