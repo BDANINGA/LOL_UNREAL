@@ -263,17 +263,14 @@ protected:
 	UPROPERTY()
 	FTimerHandle SkillCastTimerHandle;
 
-	UPROPERTY()
-	class UNiagaraSystem* RecallEffectSystem = nullptr;
-
-	UPROPERTY()
-	class UNiagaraComponent* RecallEffectComponent = nullptr;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Recall")
+	class ULOL_RecallVisualComponent* RecallVisualComponent = nullptr;
 
 	void CompleteRecall();
 	void EndRecall(bool bTeleportHome);
 
 	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_SetRecallEffectVisible(bool bVisible);
+	void Multicast_SetRecallEffectVisible(bool bVisible, bool bCompleted);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	FName ChampionName;
