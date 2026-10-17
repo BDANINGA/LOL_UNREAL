@@ -1,7 +1,4 @@
 // HUD 관리하는 위젯 클래스
-#include "Widget/LOL_HUDWidget.h"
-#include "LOL_PlayerController.h"
-#include "Blueprint/WidgetTree.h"
 #include "Components/CanvasPanelSlot.h"
 #include "Components/CanvasPanel.h"
 #include "Components/Image.h"
@@ -9,14 +6,24 @@
 #include "Components/VerticalBox.h"
 #include "Components/Button.h"
 #include "Components/Widget.h"
-#include "Blueprint/UserWidget.h"
+
+#include "Component/Champion_SkillComponent.h"
+
 #include "LOL_GameState.h"
 #include "LOL_PlayerState.h"
+#include "LOL_PlayerController.h"
 #include "BaseChampion.h"
-#include "Component/Champion_SkillComponent.h"
-#include "GameFramework/PlayerController.h"
+#include "Widget/LOL_HUDWidget.h"
+
+#include "Kismet/GameplayStatics.h"
+
+#include "Blueprint/WidgetTree.h"
+#include "Blueprint/UserWidget.h"
+
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
+
+#include "GameFramework/PlayerController.h"
 #include "PaperSprite.h"
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
@@ -110,6 +117,7 @@ void ULOL_HUDWidget::NativeConstruct()
     if (SkillR_Image) SkillR_MID = SkillR_Image->GetDynamicMaterial();
 
     CacheSummonerSpellWidgets();
+    CacheMinimapChampionImages();
 
     CacheItemSlotImages();
     CacheScoreboardTextBlocks();
@@ -230,6 +238,7 @@ void ULOL_HUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
     UpdateScoreboard();
     UpdateSkillLevelUpButtonStates();
     UpdateSkillDisableOverlays();
+    UpdateMinimapChampions();
 }
 
 void ULOL_HUDWidget::UpdateScoreboard()
@@ -609,6 +618,84 @@ void ULOL_HUDWidget::CacheScoreboardTextBlocks()
     MinionCountText = FindTextBlock({ TEXT("minion_count"), TEXT("cs_count") });
     MatchTimerText = FindTextBlock({ TEXT("timer"), TEXT("time"), TEXT("times") });
 
+}
+
+void ULOL_HUDWidget::CacheMinimapChampionImages()
+{
+    CachedMinimapChampionImages.Reset();
+
+    if (!WidgetTree)
+    {
+        return;
+    }
+
+    auto AddImage = [this](const FName& Name)
+        {
+            if (UImage* Img = Cast<UImage>(WidgetTree->FindWidget(Name)))
+            {
+                CachedMinimapChampionImages.Add(Img);
+            }
+            else
+            {
+                CachedMinimapChampionImages.Add(nullptr);
+            }
+        };
+
+    // Minimap_Champion_Image (0번) 부터 Minimap_Champion_Image_9 (9번)까지 순서대로 매핑
+    AddImage(TEXT("Minimap_Champion_Image"));
+    AddImage(TEXT("Minimap_Champion_Image_1"));
+    AddImage(TEXT("Minimap_Champion_Image_2"));
+    AddImage(TEXT("Minimap_Champion_Image_3"));
+    AddImage(TEXT("Minimap_Champion_Image_4"));
+    AddImage(TEXT("Minimap_Champion_Image_5"));
+    AddImage(TEXT("Minimap_Champion_Image_6"));
+    AddImage(TEXT("Minimap_Champion_Image_7"));
+    AddImage(TEXT("Minimap_Champion_Image_8"));
+    AddImage(TEXT("Minimap_Champion_Image_9"));
+}
+
+void ULOL_HUDWidget::UpdateMinimapChampions()
+{
+    if (CachedMinimapChampionImages.Num() == 0)
+    {
+        CacheMinimapChampionImages();
+    }
+
+    // 현재 월드에 스폰되어 있는 모든 챔피언(`ABaseChampion`) 수집
+    TArray<AActor*> FoundChampions;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABaseChampion::StaticClass(), FoundChampions);
+
+    // 미리 준비된 미니맵 이미지 슬롯(0~9)을 순회
+    for (int32 i = 0; i < CachedMinimapChampionImages.Num(); ++i)
+    {
+        UImage* SlotImage = CachedMinimapChampionImages[i];
+        if (!SlotImage)
+        {
+            continue;
+        }
+
+        // 해당 인덱스에 매칭되는 플레이어(챔피언)가 존재하는 경우
+        if (FoundChampions.IsValidIndex(i) && FoundChampions[i])
+        {
+            ABaseChampion* Champion = Cast<ABaseChampion>(FoundChampions[i]);
+            if (Champion && Champion->ChampionResource.Portrait_Circle)
+            {
+                // 챔피언의 portrait_image 적용 및 표시
+                SlotImage->SetBrushFromTexture(Champion->ChampionResource.Portrait_Circle, false);
+                SlotImage->SetVisibility(ESlateVisibility::Visible);
+            }
+            else
+            {
+                // 텍스처가 유효하지 않으면 숨김
+                SlotImage->SetVisibility(ESlateVisibility::Collapsed);
+            }
+        }
+        else
+        {
+            // 해당하는 플레이어가 없으면 위젯을 보이지 않게 처리
+            SlotImage->SetVisibility(ESlateVisibility::Collapsed);
+        }
+    }
 }
 
 void ULOL_HUDWidget::UpdateHP(float NewHP, float MaxHP)

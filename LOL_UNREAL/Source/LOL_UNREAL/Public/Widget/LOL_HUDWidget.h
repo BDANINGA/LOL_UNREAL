@@ -122,6 +122,41 @@ public:
     UPROPERTY(meta = (BindWidgetOptional))
     TObjectPtr<UImage> MiniMap = nullptr;
 
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* Minimap_Champion_Image; // index 0
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* Minimap_Champion_Image_1;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* Minimap_Champion_Image_2;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* Minimap_Champion_Image_3;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* Minimap_Champion_Image_4;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* Minimap_Champion_Image_5;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* Minimap_Champion_Image_6;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* Minimap_Champion_Image_7;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* Minimap_Champion_Image_8;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    class UImage* Minimap_Champion_Image_9; // index 9
+
+    // 캐시된 이미지 배열 및 관련 함수
+    TArray<class UImage*> CachedMinimapChampionImages;
+    void CacheMinimapChampionImages();
+    void UpdateMinimapChampions();
+
     void SetAttackDamage(float Value) { if (Txt_AD) Txt_AD->SetText(FText::AsNumber(Value)); }
     void SetAbilityPower(float Value) { if (Txt_AP) Txt_AP->SetText(FText::AsNumber(Value)); }
     void SetArmor(float Value) { if (Txt_Armor) Txt_Armor->SetText(FText::AsNumber(Value)); }
