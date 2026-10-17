@@ -220,9 +220,6 @@ private:
 	void DebugResetGame();
 
 	UFUNCTION(Server, Reliable)
-	void Server_DebugRecover();
-
-	UFUNCTION(Server, Reliable)
 	void Server_DebugLevelUp();
 
 	UFUNCTION(Server, Reliable)
@@ -232,9 +229,6 @@ private:
 	void Server_DebugTeleport(const FVector& Location);
 
 	UFUNCTION(Server, Reliable)
-	void Server_DebugResetSkillCooldown();
-
-	UFUNCTION(Server, Reliable)
 	void Server_DebugKill();
 
 	UFUNCTION(Server, Reliable)
@@ -242,4 +236,19 @@ private:
 
 	/*UFUNCTION(Server, Reliable)
 	void Server_DebugResetGame();*/
+
+	bool bIsAutoRecoverActive = false;
+	FTimerHandle AutoRecoverTimerHandle;
+
+	bool bIsAutoResetCooldownActive = false;
+	FTimerHandle AutoResetCooldownTimerHandle;
+
+	UFUNCTION(Server, Reliable)
+	void Server_ToggleAutoRecover();
+
+	UFUNCTION(Server, Reliable)
+	void Server_ToggleAutoResetCooldown();
+
+	void DoAutoRecover();
+	void DoAutoResetCooldown();
 };

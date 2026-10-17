@@ -232,6 +232,12 @@ void ALOL_PlayerController::OnPossess(APawn* InPawn)
 
 void ALOL_PlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(AutoRecoverTimerHandle);
+		World->GetTimerManager().ClearTimer(AutoResetCooldownTimerHandle);
+	}
+
 	if (QuitConfirmWidget)
 	{
 		QuitConfirmWidget->RemoveFromParent();
@@ -1482,27 +1488,52 @@ void ALOL_PlayerController::DebugRecover()
 		return;
 	}
 
+	// 멀티플레이어 환경 권한 체크
 	if (!HasAuthority())
 	{
-		Server_DebugRecover();
+		Server_ToggleAutoRecover();
 		return;
 	}
 
-	if (MyChampion->StatComponent)
-	{
-		MyChampion->StatComponent->SetHP(
-			MyChampion->StatComponent->GetStat().MaxHP
-		);
+	// 스위치 토글 (ON <-> OFF)
+	bIsAutoRecoverActive = !bIsAutoRecoverActive;
+	UWorld* World = GetWorld();
+	if (!World) return;
 
-		MyChampion->StatComponent->SetMP(
-			MyChampion->StatComponent->GetStat().MaxMP
-		);
+	if (bIsAutoRecoverActive)
+	{
+		// 켜지는 순간 즉시 한 번 회복 후 1초마다 반복 설정 (Looping = true)
+		if (MyChampion->StatComponent)
+		{
+			MyChampion->StatComponent->SetHP(MyChampion->StatComponent->GetStat().MaxHP);
+			MyChampion->StatComponent->SetMP(MyChampion->StatComponent->GetStat().MaxMP);
+		}
+		World->GetTimerManager().SetTimer(AutoRecoverTimerHandle, this, &ALOL_PlayerController::DoAutoRecover, 1.0f, true);
+		UE_LOG(LogTemp, Log, TEXT("[DEBUG] Auto Recover ON (1초마다 체력/마나 회복)"));
+	}
+	else
+	{
+		// 꺼질 때 타이머 해제
+		World->GetTimerManager().ClearTimer(AutoRecoverTimerHandle);
+		UE_LOG(LogTemp, Log, TEXT("[DEBUG] Auto Recover OFF"));
 	}
 }
-void ALOL_PlayerController::Server_DebugRecover_Implementation()
+void ALOL_PlayerController::Server_ToggleAutoRecover_Implementation()
 {
 	DebugRecover();
 }
+
+void ALOL_PlayerController::DoAutoRecover()
+{
+	if (!MyChampion || !MyChampion->StatComponent)
+	{
+		return;
+	}
+
+	MyChampion->StatComponent->SetHP(MyChampion->StatComponent->GetStat().MaxHP);
+	MyChampion->StatComponent->SetMP(MyChampion->StatComponent->GetStat().MaxMP);
+}
+
 void ALOL_PlayerController::DebugLevelUp()
 {
 	if (!MyChampion || !MyChampion->StatComponent)
@@ -1591,17 +1622,46 @@ void ALOL_PlayerController::DebugResetSkillCooldown()
 	if (!MyChampion || !MyChampion->SkillComponent)
 		return;
 
+	// 멀티플레이어 환경 권한 체크
 	if (!HasAuthority())
 	{
-		Server_DebugResetSkillCooldown();
+		Server_ToggleAutoResetCooldown();
+		return;
+	}
+
+	// 스위치 토글 (ON <-> OFF)
+	bIsAutoResetCooldownActive = !bIsAutoResetCooldownActive;
+	UWorld* World = GetWorld();
+	if (!World) return;
+
+	if (bIsAutoResetCooldownActive)
+	{
+		// 켜지는 순간 즉시 한 번 초기화 후 1초마다 반복 설정 (Looping = true)
+		MyChampion->SkillComponent->DebugResetCooldowns();
+		World->GetTimerManager().SetTimer(AutoResetCooldownTimerHandle, this, &ALOL_PlayerController::DoAutoResetCooldown, 1.0f, true);
+		UE_LOG(LogTemp, Log, TEXT("[DEBUG] Auto Reset Skill Cooldown ON (1초마다 쿨타임 초기화)"));
+	}
+	else
+	{
+		// 꺼질 때 타이머 해제
+		World->GetTimerManager().ClearTimer(AutoResetCooldownTimerHandle);
+		UE_LOG(LogTemp, Log, TEXT("[DEBUG] Auto Reset Skill Cooldown OFF"));
+	}
+}
+
+void ALOL_PlayerController::Server_ToggleAutoResetCooldown_Implementation()
+{
+	DebugResetSkillCooldown();
+}
+
+void ALOL_PlayerController::DoAutoResetCooldown()
+{
+	if (!MyChampion || !MyChampion->SkillComponent)
+	{
 		return;
 	}
 
 	MyChampion->SkillComponent->DebugResetCooldowns();
-}
-void ALOL_PlayerController::Server_DebugResetSkillCooldown_Implementation()
-{
-	DebugResetSkillCooldown();
 }
 void ALOL_PlayerController::DebugKill()
 {
