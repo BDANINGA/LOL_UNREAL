@@ -10,6 +10,7 @@ class LOL_UNREAL_API ABuilding_Nexus : public ABaseBuilding
 	GENERATED_BODY()
 public:
 	ABuilding_Nexus();
+	virtual void OnBuildingDeath() override;
 
 private:
 	UPROPERTY(EditAnywhere, Category = "Mesh")

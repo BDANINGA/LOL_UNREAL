@@ -152,7 +152,9 @@ public:
 
 	void ProcessMoveInput(FVector ClickLocation, AActor* TargetActor);
 	bool IsEnemyActor(AActor* TargetActor) const;
-	virtual bool IsMoveInputBlocked() const { return bIsRecalling || bIsCastingSkill; }
+	virtual bool IsMoveInputBlocked() const { return bIsRecalling || bIsCastingSkill || bIsGrabbed; }
+	bool IsGrabbed() const { return bIsGrabbed; }
+	void SetIsGrabbed(bool bNewGrabbed);
 	void BeginSkillCast(float CastTime);
 	void EndSkillCast();
 	bool IsCastingSkill() const { return bIsCastingSkill; }
@@ -232,6 +234,12 @@ public:
 	void Multicast_ApplySilence(float Duration);
 
 protected:
+	UPROPERTY(ReplicatedUsing = OnRep_IsGrabbed)
+	bool bIsGrabbed = false;
+
+	UFUNCTION()
+	void OnRep_IsGrabbed();
+
 	virtual void BeginPlay() override;
 
 	UPROPERTY(ReplicatedUsing = OnRep_KnockupCollisionSuppressed)

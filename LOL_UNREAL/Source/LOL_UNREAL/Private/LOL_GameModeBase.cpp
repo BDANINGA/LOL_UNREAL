@@ -503,47 +503,122 @@ void ALOL_GameModeBase::SpawnJungleMonsterAtTransform(FName MonsterRowName, FVec
     }
 }
 
-void ALOL_GameModeBase::StartMinionWave()
+void ALOL_GameModeBase::NotifyNexusDestroyed(const ABuilding_Nexus* Nexus)
 {
-    /*TArray<AActor*> FoundBuilding;
-    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABuilding_Inhibitor::StaticClass(), FoundBuilding);
+    if (!HasAuthority() || !IsValid(Nexus)) return;
+    ALOL_GameState* GS = GetWorld()->GetGameState<ALOL_GameState>();
+    if (!GS || GS->HasMatchFinished()) return;
 
-    AActor* TargetLine = nullptr;
-
-    FName TeamTag = "BlueTeam";
-    FName LineTag = "Top";
-
-
-
-    for (AActor* Actor : FoundBuilding)
+    const ULOL_StateComponent* State = Nexus->FindComponentByClass<ULOL_StateComponent>();
+    bool bBlueNexus = State && State->HasStatusTag(LOLTags::Team_Blue);
+    bool bRedNexus = State && State->HasStatusTag(LOLTags::Team_Red);
+    if (!bBlueNexus && !bRedNexus)
     {
-        if (Actor->ActorHasTag(TeamTag))
+        bBlueNexus = Nexus->ActorHasTag(TEXT("BlueTeam")) || Nexus->ActorHasTag(TEXT("BlueNexus"));
+        bRedNexus = Nexus->ActorHasTag(TEXT("RedTeam")) || Nexus->ActorHasTag(TEXT("RedNexus"));
+    }
+    if (bBlueNexus == bRedNexus)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Cannot resolve team for destroyed nexus %s"), *Nexus->GetName());
+        return;
+    }
+
+    if (GS->FinishMatch(bBlueNexus ? 2 : 1))
+    {
+        GetWorldTimerManager().ClearTimer(MinionSpawnTimerHandle);
+    }
+}
+
+void ALOL_GameModeBase::NotifyInhibitorDestroyed(const ABuilding_Inhibitor* Inhibitor)
+{
+    if (!HasAuthority() || !IsValid(Inhibitor)) return;
+
+    const ULOL_StateComponent* State = Inhibitor->FindComponentByClass<ULOL_StateComponent>();
+    bool bBlueInhibitor = State && State->HasStatusTag(LOLTags::Team_Blue);
+    bool bRedInhibitor = State && State->HasStatusTag(LOLTags::Team_Red);
+    if (!bBlueInhibitor && !bRedInhibitor)
+    {
+        bBlueInhibitor = Inhibitor->ActorHasTag(TEXT("BlueTeam"));
+        bRedInhibitor = Inhibitor->ActorHasTag(TEXT("RedTeam"));
+    }
+    if (bBlueInhibitor == bRedInhibitor)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Cannot resolve team for destroyed inhibitor %s"), *Inhibitor->GetName());
+        return;
+    }
+
+    int32 LaneIndex = INDEX_NONE;
+    const FName LaneTags[] = {TEXT("Top"), TEXT("Mid"), TEXT("Bot")};
+    const FName LaneAliases[] = {TEXT("TopLane"), TEXT("MidLane"), TEXT("BotLane")};
+    for (int32 Index = 0; Index < 3; ++Index)
+    {
+        if (Inhibitor->ActorHasTag(LaneTags[Index]) || Inhibitor->ActorHasTag(LaneAliases[Index]))
         {
-            TargetLine = Actor;
+            LaneIndex = Index;
             break;
         }
-    }*/
+    }
 
-    ALOL_GameState* GS = Cast<ALOL_GameState>(GetWorld()->GetGameState());
+    // Existing maps can omit lane tags; use the nearest lane segment in the ground plane.
+    if (LaneIndex == INDEX_NONE)
+    {
+        const TArray<AActor*>* Paths[] = {&BlueTopLanePoints, &BlueMidLanePoints, &BlueBotLanePoints};
+        FVector Location = Inhibitor->GetActorLocation();
+        Location.Z = 0.f;
+        float ClosestDistanceSquared = TNumericLimits<float>::Max();
+        for (int32 Index = 0; Index < 3; ++Index)
+        {
+            const TArray<AActor*>& Path = *Paths[Index];
+            for (int32 PointIndex = 1; PointIndex < Path.Num(); ++PointIndex)
+            {
+                if (!IsValid(Path[PointIndex - 1]) || !IsValid(Path[PointIndex])) continue;
+                FVector Start = Path[PointIndex - 1]->GetActorLocation();
+                FVector End = Path[PointIndex]->GetActorLocation();
+                Start.Z = End.Z = 0.f;
+                const float DistanceSquared = FVector::DistSquared(
+                    Location, FMath::ClosestPointOnSegment(Location, Start, End));
+                if (DistanceSquared < ClosestDistanceSquared)
+                {
+                    ClosestDistanceSquared = DistanceSquared;
+                    LaneIndex = Index;
+                }
+            }
+        }
+    }
+    if (LaneIndex == INDEX_NONE)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Cannot resolve lane for destroyed inhibitor %s"), *Inhibitor->GetName());
+        return;
+    }
+
+    // Destroying a blue inhibitor empowers red minions, and vice versa.
+    SuperMinionLanes.Add(LaneIndex + (bBlueInhibitor ? 3 : 0));
+}
+
+void ALOL_GameModeBase::StartMinionWave()
+{
+    const ALOL_GameState* GS = GetWorld()->GetGameState<ALOL_GameState>();
+    if (GS && GS->HasMatchFinished()) return;
+    const float MatchTime = GS ? GS->CurrentMatchTime : 0.f;
     int32 TimeWave = 0;
-    if (GS->CurrentMatchTime < 15.0f * 60.0f) {
+    if (MatchTime < 15.0f * 60.0f) {
         TimeWave = 3;
     }
-    else if (GS->CurrentMatchTime < 25.0f * 60.0f) {
+    else if (MatchTime < 25.0f * 60.0f) {
         TimeWave = 2;
     }
     else
         TimeWave = 1;
-
+    // Snapshot once so an inhibitor destroyed mid-wave affects the next wave only.
+    CurrentWaveSuperMinionLanes = SuperMinionLanes;
+    bCurrentWaveHasSiegeMinion = (MinionWaveCount + 1) % TimeWave == 0;
 
     CurrentWaveMinions.Empty();
     CurrentWaveMinions.Add(AMinion_Melee::StaticClass());
     CurrentWaveMinions.Add(AMinion_Melee::StaticClass());
     CurrentWaveMinions.Add(AMinion_Melee::StaticClass());
-    if (MinionWaveCount != 0 || MinionWaveCount % TimeWave == 0)
-    {
-        CurrentWaveMinions.Add(AMinion_Siege::StaticClass());
-    }
+    // Reserve this slot even on non-siege waves so empowered lanes always get a super minion.
+    CurrentWaveMinions.Add(AMinion_Siege::StaticClass());
     CurrentWaveMinions.Add(AMinion_Caster::StaticClass());
     CurrentWaveMinions.Add(AMinion_Caster::StaticClass());
     CurrentWaveMinions.Add(AMinion_Caster::StaticClass());
@@ -556,15 +631,29 @@ void ALOL_GameModeBase::StartMinionWave()
 
 void ALOL_GameModeBase::SpawnNextMinion()
 {
+    const ALOL_GameState* GS = GetWorld()->GetGameState<ALOL_GameState>();
+    if (GS && GS->HasMatchFinished()) return;
     TArray<AActor*> SelectedPoints{};
     FVector SpawnLocation = FVector::ZeroVector;
     FRotator SpawnRotation = FRotator::ZeroRotator;
     if (SpawnedMinionCount < CurrentWaveMinions.Num())
     {
-        UClass* MinionClass = CurrentWaveMinions[SpawnedMinionCount];
-        if (MinionClass)
+        UClass* WaveMinionClass = CurrentWaveMinions[SpawnedMinionCount];
+        if (WaveMinionClass)
         {
             for (int i = 0; i < 6; ++i) {
+                UClass* MinionClass = WaveMinionClass;
+                if (WaveMinionClass == AMinion_Siege::StaticClass())
+                {
+                    if (CurrentWaveSuperMinionLanes.Contains(i))
+                    {
+                        MinionClass = AMinion_Super::StaticClass();
+                    }
+                    else if (!bCurrentWaveHasSiegeMinion)
+                    {
+                        continue;
+                    }
+                }
                 if (i == 0) SelectedPoints = BlueTopLanePoints;
                 else if (i == 1) SelectedPoints = BlueMidLanePoints;
                 else if (i == 2) SelectedPoints = BlueBotLanePoints;

@@ -62,6 +62,7 @@ public:
 
 	void CancelQuitGame();
 	void ConfirmQuitGame();
+	bool GetMatchVictory(bool& bOutVictory) const;
 
 	void OnToggleCamera();
 	void OnToggleCameraLock();
@@ -162,6 +163,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shop")
 	TArray<FName> ShopActorTags;
 private:
+	void UpdateMatchResult();
+
+	UPROPERTY(Transient)
+	class ULOL_GameResultWidget* GameResultWidget = nullptr;
+
 	bool IsSkillLevelUpInputDown() const;
 	void HandleSkillInput(uint8 SkillKey, FName SkillName);
 	bool GetTargetAwareHitUnderCursor(FHitResult& OutHit) const;
@@ -205,6 +211,7 @@ private:
 	TArray<FName> PurchasedItemNames;
 
 	bool bShopButtonsBound = false;
+	TSharedPtr<class FLOL_ShopInputProcessor> ShopInputProcessor;
 
 	FString LastCursorState;
 

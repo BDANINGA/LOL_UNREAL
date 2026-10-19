@@ -282,7 +282,7 @@ void ABaseChampion::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (bIsKnockedBack)
+	if (bIsKnockedBack || bIsGrabbed)
 	{
 		return;
 	}
@@ -394,6 +394,42 @@ void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(ABaseChampion, bIsRecalling);
 	DOREPLIFETIME(ABaseChampion, bIsCastingSkill);
 	DOREPLIFETIME(ABaseChampion, bKnockupCollisionSuppressed);
+	DOREPLIFETIME(ABaseChampion, bIsGrabbed);
+}
+
+void ABaseChampion::SetIsGrabbed(bool bNewGrabbed)
+{
+	if (!HasAuthority() || bIsGrabbed == bNewGrabbed) return;
+	bIsGrabbed = bNewGrabbed;
+	OnRep_IsGrabbed();
+	if (MoveComponent)
+	{
+		// Reliable cancellation also covers a short grab whose replicated flag coalesces.
+		MoveComponent->Client_SetNavigationPath(TArray<FVector>());
+	}
+	ForceNetUpdate();
+}
+
+void ABaseChampion::OnRep_IsGrabbed()
+{
+	// Clear both server navigation and the owning client's predicted path on entry/exit.
+	if (AttackComponent)
+	{
+		AttackComponent->CancelAttack();
+		AttackComponent->CombatTarget = nullptr;
+		AttackComponent->HitTarget = nullptr;
+	}
+	if (MoveComponent)
+	{
+		MoveComponent->StopMovement();
+		MoveComponent->bIsSearchAttack = false;
+	}
+	ConsumeMovementInputVector();
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->ClearAccumulatedForces();
+		Movement->StopMovementImmediately();
+	}
 }
 
 void ABaseChampion::Server_ExecuteAttackHit_Implementation()
@@ -558,6 +594,7 @@ bool ABaseChampion::Server_ProcessMoveInput_Validate(FVector ClickLocation, AAct
 
 void ABaseChampion::PressSkill(const uint8 skilltype)
 {
+	if (bIsGrabbed) return;
 	if (bIsRecalling)
 	{
 		Server_CancelRecall();
@@ -707,6 +744,7 @@ void ABaseChampion::Multicast_StopCurrentMontage_Implementation()
 
 void ABaseChampion::StartRecall()
 {
+	if (bIsGrabbed) return;
 	if (StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
 	if (bIsStunned || bIsKnockedBack) return;
 
@@ -715,6 +753,7 @@ void ABaseChampion::StartRecall()
 
 void ABaseChampion::Server_StartRecall_Implementation()
 {
+	if (bIsGrabbed) return;
 	if (bIsRecalling) return;
 	if (StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
 	if (bIsStunned || bIsKnockedBack) return;
