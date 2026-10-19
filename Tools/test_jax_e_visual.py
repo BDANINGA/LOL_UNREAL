@@ -37,7 +37,7 @@ for actor,team in [(a,'Team.Blue') for a in casters]+[(a,'Team.Red') for a in vi
     position=actor.get_actor_location()
     position.z=actor.capsule_component.get_scaled_capsule_half_height()+2
     actor.set_actor_location(position,False,False)
-victims[1].set_actor_location(u.Vector(950,0,132),False,False)
+victims[1].set_actor_location(u.Vector(440,0,132),False,False)
 before=[hp(a) for a in victims]
 result={}
 casters[3].call_method('Server_Skill_E',());assert not layers(casters[3])

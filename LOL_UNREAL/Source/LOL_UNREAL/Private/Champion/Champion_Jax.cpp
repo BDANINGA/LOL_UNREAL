@@ -678,6 +678,12 @@ void AChampion_Jax::FinishCounterStrike()
         {
             AActor* Target = Hit.GetActor();
             if (!IsValid(Target) || Target == this || DamagedTargets.Contains(Target)) continue;
+            // Attack-range spheres and UI widgets also overlap ECC_Pawn. Only the
+            // character's body may extend into E's radius, not those helper volumes.
+            if (const ACharacter* TargetCharacter = Cast<ACharacter>(Target))
+            {
+                if (Hit.GetComponent() != TargetCharacter->GetCapsuleComponent()) continue;
+            }
             if (!Target->FindComponentByClass<ULOL_StateComponent>() || !IsEnemyActor(Target)) continue;
             DamagedTargets.Add(Target);
 

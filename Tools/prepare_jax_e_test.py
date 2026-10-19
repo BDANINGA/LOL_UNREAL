@@ -18,7 +18,7 @@ for index,name in enumerate(['EComplete','EMove','EDeath','EUnlearned']):
     actor=actors.spawn_actor_from_class(u.Champion_Jax,u.Vector(0,index*1600,132))
     actor.set_actor_label(name); actor.set_editor_property('tags',[name])
     actor.set_editor_property('auto_possess_ai',u.AutoPossessAI.DISABLED)
-for name,location in [('EInside',u.Vector(220,0,132)),('EOutside',u.Vector(950,0,132)),('EDeadVictim',u.Vector(220,3200,132))]:
+for name,location in [('EInside',u.Vector(220,0,132)),('EOutside',u.Vector(440,0,132)),('EDeadVictim',u.Vector(220,3200,132))]:
     actor=actors.spawn_actor_from_class(u.Champion_Ezreal,location)
     actor.set_editor_property('tags',[name])
     actor.set_editor_property('auto_possess_ai',u.AutoPossessAI.DISABLED)
