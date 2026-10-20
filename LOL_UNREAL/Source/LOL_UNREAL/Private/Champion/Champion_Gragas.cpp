@@ -1,4 +1,6 @@
 #include "Champion/Champion_Gragas.h"
+#include "Champion/Projectile/GragasQBarrelVisual.h"
+#include "Champion/Projectile/GragasRBarrelVisual.h"
 
 #include "Animation/AnimMontage.h"
 #include "Component/Champion_SkillComponent.h"
@@ -7,21 +9,25 @@
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_StateComponent.h"
 #include "Components/CapsuleComponent.h"
-#include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInterface.h"
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraSystem.h"
+#include "Net/UnrealNetwork.h"
+#include "Particles/ParticleSystem.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "GamePlayTag/LOL_GamePlayTags.h"
 #include "UObject/ConstructorHelpers.h"
 
 AChampion_Gragas::AChampion_Gragas()
 {
 	ChampionName = TEXT("Gragas");
 	SetChampionData(ChampionName);
+	WAuraEffect = TSoftObjectPtr<UParticleSystem>(FSoftObjectPath(TEXT("/Game/VFX/Gragas/P_GragasWAura.P_GragasWAura")));
+	EDashAuraEffect = TSoftObjectPtr<UParticleSystem>(FSoftObjectPath(TEXT("/Game/VFX/Gragas/P_GragasEDashAura.P_GragasEDashAura")));
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> QMeshAsset(
 		TEXT("/Game/Level/gragas/tex_gragas/throw_q.throw_q"));
@@ -212,6 +218,8 @@ void AChampion_Gragas::Server_Skill_W_Implementation()
 	Multicast_PlayGragasSkillAnimation(1, 1.0f, GetActorRotation());
 
 	bWEmpowered = true;
+	OnRep_WEmpowered();
+	ForceNetUpdate();
 	bWDamageReductionActive = true;
 
 	GetWorldTimerManager().ClearTimer(WEmpowerTimerHandle);
@@ -277,6 +285,7 @@ void AChampion_Gragas::Server_Skill_E_Implementation(FVector TargetLocation)
 	bEDashing = true;
 	EElapsed = 0.0f;
 	Multicast_PlayGragasSkillAnimation(2, 1.0f, Direction.Rotation());
+	Multicast_SetEDashAura(true);
 }
 
 bool AChampion_Gragas::Server_Skill_R_Validate(FVector TargetLocation)
@@ -328,6 +337,8 @@ void AChampion_Gragas::Server_Skill_R_Implementation(FVector TargetLocation)
 void AChampion_Gragas::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	if (bWEmpowered || WAuraComponent) UpdateWAura();
+	if (EDashAuraComponent) UpdateEDashAura();
 
 	if (HasAuthority() && bEDashing)
 	{
@@ -338,6 +349,15 @@ void AChampion_Gragas::Tick(float DeltaTime)
 void AChampion_Gragas::ExplodeQ()
 {
 	if (!HasAuthority() || !bQActive || !SkillComponent || !StatComponent) return;
+
+	// A recast during the roll detonates on arrival, never ahead of the barrel.
+	const float RemainingTravel = QCastStartTime + QTravelTime - GetWorld()->GetTimeSeconds();
+	if (RemainingTravel > KINDA_SMALL_NUMBER)
+	{
+		GetWorldTimerManager().SetTimer(QExplosionTimerHandle, this,
+			&AChampion_Gragas::ExplodeQ, RemainingTravel, false);
+		return;
+	}
 
 	GetWorldTimerManager().ClearTimer(QExplosionTimerHandle);
 	bQActive = false;
@@ -443,6 +463,112 @@ void AChampion_Gragas::ExplodeQ()
 void AChampion_Gragas::EndWEmpower()
 {
 	bWEmpowered = false;
+	OnRep_WEmpowered();
+	ForceNetUpdate();
+}
+
+void AChampion_Gragas::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AChampion_Gragas, bWEmpowered);
+}
+
+void AChampion_Gragas::OnRep_WEmpowered()
+{
+	UpdateWAura();
+}
+
+void AChampion_Gragas::UpdateWAura()
+{
+	const bool bDead = StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead);
+	if (bDead && HasAuthority() && bWEmpowered)
+	{
+		bWEmpowered = false;
+		GetWorldTimerManager().ClearTimer(WEmpowerTimerHandle);
+		ForceNetUpdate();
+	}
+	if (!bWEmpowered || bDead || GetNetMode() == NM_DedicatedServer)
+	{
+		StopWAura();
+		return;
+	}
+	if (!WAuraComponent)
+	{
+		if (UParticleSystem* Effect = WAuraEffect.LoadSynchronous())
+		{
+			WAuraComponent = UGameplayStatics::SpawnEmitterAttached(Effect, GetRootComponent(),
+				NAME_None, FVector(0, 0, 10), FRotator::ZeroRotator, FVector::OneVector,
+				EAttachLocation::KeepRelativeOffset, false);
+		}
+	}
+	if (WAuraComponent) WAuraComponent->SetVisibility(!IsHidden());
+}
+
+void AChampion_Gragas::StopWAura()
+{
+	if (WAuraComponent)
+	{
+		WAuraComponent->DestroyComponent();
+		WAuraComponent = nullptr;
+	}
+}
+
+void AChampion_Gragas::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	StopWAura();
+	StopEDashAura(true);
+	Super::EndPlay(EndPlayReason);
+}
+
+void AChampion_Gragas::Multicast_SetEDashAura_Implementation(bool bActive)
+{
+	if (!bActive)
+	{
+		StopEDashAura(false);
+		return;
+	}
+	StopEDashAura(true);
+	if (GetNetMode() == NM_DedicatedServer ||
+		(StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead))) return;
+	if (UParticleSystem* Effect = EDashAuraEffect.LoadSynchronous())
+	{
+		EDashAuraComponent = UGameplayStatics::SpawnEmitterAttached(Effect, GetRootComponent(),
+			NAME_None, FVector(-20, 0, 0), FRotator::ZeroRotator, FVector::OneVector,
+			EAttachLocation::KeepRelativeOffset, false);
+		EAuraEmissionEndTime = GetWorld()->GetTimeSeconds() + FMath::Max(EDashDuration, 0.01f) + 0.1f;
+		if (EDashAuraComponent) EDashAuraComponent->SetVisibility(!IsHidden());
+	}
+}
+
+void AChampion_Gragas::StopEDashAura(bool bImmediate)
+{
+	if (!EDashAuraComponent) return;
+	if (bImmediate)
+	{
+		EDashAuraComponent->DestroyComponent();
+		EDashAuraComponent = nullptr;
+		EAuraEmissionEndTime = EAuraFadeEndTime = 0.0;
+	}
+	else if (EAuraFadeEndTime == 0.0)
+	{
+		// World-space particles stay behind the champion and fade naturally.
+		EDashAuraComponent->DeactivateSystem();
+		EAuraEmissionEndTime = 0.0;
+		EAuraFadeEndTime = GetWorld()->GetTimeSeconds() + 0.45f;
+	}
+}
+
+void AChampion_Gragas::UpdateEDashAura()
+{
+	const double Now = GetWorld()->GetTimeSeconds();
+	if ((StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead)) ||
+		(EAuraFadeEndTime > 0.0 && Now >= EAuraFadeEndTime))
+	{
+		StopEDashAura(true);
+		return;
+	}
+	EDashAuraComponent->SetVisibility(!IsHidden());
+	if (EAuraEmissionEndTime > 0.0 && Now >= EAuraEmissionEndTime) StopEDashAura(false);
 }
 
 void AChampion_Gragas::EndWDamageReduction()
@@ -482,7 +608,7 @@ void AChampion_Gragas::OnBasicAttackHit(ACharacter* Target)
 		ULOL_DamageMagic::StaticClass()
 	);
 
-	bWEmpowered = false;
+	EndWEmpower();
 	GetWorldTimerManager().ClearTimer(WEmpowerTimerHandle);
 }
 
@@ -550,6 +676,7 @@ void AChampion_Gragas::FinishEDash(AActor* HitTarget)
 	if (!bEDashing) return;
 
 	bEDashing = false;
+	Multicast_SetEDashAura(false);
 	if (GetCharacterMovement())
 	{
 		GetCharacterMovement()->SetMovementMode(MOVE_Walking);
@@ -825,108 +952,26 @@ void AChampion_Gragas::Multicast_SpawnGragasProjectile_Implementation(
 	SpawnParameters.SpawnCollisionHandlingOverride =
 		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	AActor* ProjectileActor = GetWorld()->SpawnActor<AActor>(
-		AActor::StaticClass(),
-		StartLocation,
-		Direction.Rotation(),
-		SpawnParameters
-	);
-	if (!ProjectileActor) return;
-
-	UStaticMeshComponent* MeshComponent =
-		NewObject<UStaticMeshComponent>(
-			ProjectileActor,
-			TEXT("GragasProjectileMesh")
-		);
-	if (!MeshComponent)
-	{
-		ProjectileActor->Destroy();
-		return;
-	}
-
-	ProjectileActor->AddInstanceComponent(MeshComponent);
-	ProjectileActor->SetRootComponent(MeshComponent);
-	MeshComponent->SetStaticMesh(ProjectileMeshAsset);
-	if (ProjectileMaterial)
-	{
-		MeshComponent->SetMaterial(0, ProjectileMaterial);
-	}
-	MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	MeshComponent->SetGenerateOverlapEvents(false);
-	MeshComponent->RegisterComponent();
-
-	const float MeshRadius = ProjectileMeshAsset->GetBounds().SphereRadius;
-	const float VisualRadius = ProjectileType == 0
-		? QProjectileVisualRadius
-		: RProjectileVisualRadius;
-	const float Scale = MeshRadius > KINDA_SMALL_NUMBER
-		? VisualRadius / MeshRadius
-		: 1.0f;
-	MeshComponent->SetWorldScale3D(FVector(Scale));
-	MeshComponent->SetVisibility(true, true);
-	MeshComponent->SetHiddenInGame(false, true);
-
-	UProjectileMovementComponent* ProjectileMovement =
-		NewObject<UProjectileMovementComponent>(
-			ProjectileActor,
-			TEXT("GragasProjectileMovement")
-		);
-	if (!ProjectileMovement)
-	{
-		ProjectileActor->Destroy();
-		return;
-	}
-
-	const float VisualSpeed =
-		FVector::Distance(StartLocation, EndLocation) /
-		FMath::Max(TravelTime, KINDA_SMALL_NUMBER);
-	ProjectileActor->AddInstanceComponent(ProjectileMovement);
-	ProjectileMovement->SetUpdatedComponent(MeshComponent);
-	ProjectileMovement->bInitialVelocityInLocalSpace = false;
-	ProjectileMovement->InitialSpeed = VisualSpeed;
-	ProjectileMovement->MaxSpeed = VisualSpeed;
-	ProjectileMovement->Velocity = Direction * VisualSpeed;
-	ProjectileMovement->ProjectileGravityScale = 0.0f;
-	ProjectileMovement->bRotationFollowsVelocity = true;
-	ProjectileMovement->RegisterComponent();
-	ProjectileMovement->Activate(true);
-
-	TWeakObjectPtr<AActor> WeakProjectile(ProjectileActor);
-	TWeakObjectPtr<UProjectileMovementComponent> WeakMovement(ProjectileMovement);
-	FTimerHandle StopTimer;
-	GetWorldTimerManager().SetTimer(
-		StopTimer,
-		FTimerDelegate::CreateLambda(
-			[WeakProjectile, WeakMovement, EndLocation]()
-			{
-				if (WeakMovement.IsValid())
-				{
-					WeakMovement->StopMovementImmediately();
-					WeakMovement->Deactivate();
-				}
-				if (WeakProjectile.IsValid())
-				{
-					WeakProjectile->SetActorLocation(
-						EndLocation,
-						false,
-						nullptr,
-						ETeleportType::TeleportPhysics
-					);
-				}
-			}
-		),
-		FMath::Max(TravelTime, 0.01f),
-		false
-	);
-
-	ProjectileActor->SetLifeSpan(FMath::Max(LifeTime, 0.2f));
 	if (ProjectileType == 0)
 	{
-		if (IsValid(LocalQProjectileActor))
-		{
-			LocalQProjectileActor->Destroy();
-		}
-		LocalQProjectileActor = ProjectileActor;
+		if (GetNetMode() == NM_DedicatedServer) return;
+		AGragasQBarrelVisual* Barrel = GetWorld()->SpawnActor<AGragasQBarrelVisual>(
+			StartLocation, Direction.Rotation(), SpawnParameters);
+		if (!Barrel) return;
+		Barrel->Initialize(ProjectileMeshAsset, ProjectileMaterial, StartLocation, EndLocation,
+			TravelTime, QProjectileVisualRadius, LifeTime);
+		if (IsValid(LocalQProjectileActor)) LocalQProjectileActor->Destroy();
+		LocalQProjectileActor = Barrel;
+		return;
+	}
+
+	if (GetNetMode() == NM_DedicatedServer) return;
+	AGragasRBarrelVisual* Barrel = GetWorld()->SpawnActor<AGragasRBarrelVisual>(
+		StartLocation, Direction.Rotation(), SpawnParameters);
+	if (Barrel)
+	{
+		Barrel->Initialize(ProjectileMeshAsset, ProjectileMaterial, StartLocation, EndLocation,
+			TravelTime, RProjectileVisualRadius);
 	}
 }
 

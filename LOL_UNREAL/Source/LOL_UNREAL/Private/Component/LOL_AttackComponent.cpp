@@ -444,8 +444,8 @@ void ULOL_AttackComponent::ExecuteRangeAttackHit()
             if (Champion->GetChampionName() == TEXT("Ezreal"))
             {
                 Arrow->SetMeshTransform(
-                    FVector(4.0f, 4.0f, 4.0f),
-                    FRotator(0.0f, -90.0f, 0.0f)
+                    FVector::OneVector,
+                    FRotator::ZeroRotator
                 );
             }
         }

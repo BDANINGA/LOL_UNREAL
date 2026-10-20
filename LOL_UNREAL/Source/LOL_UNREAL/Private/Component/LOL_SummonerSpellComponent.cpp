@@ -8,17 +8,105 @@
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GamePlayTag/LOL_GamePlayTags.h"
+#include "GameFramework/GameStateBase.h"
+#include "Kismet/GameplayStatics.h"
+#include "Net/UnrealNetwork.h"
+#include "Particles/ParticleSystem.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "UObject/ConstructorHelpers.h"
 
 ULOL_SummonerSpellComponent::ULOL_SummonerSpellComponent()
 {
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bStartWithTickEnabled = false;
+	PrimaryComponentTick.TickInterval = 0.05f;
 	SetIsReplicatedByDefault(true);
+	static ConstructorHelpers::FObjectFinder<UParticleSystem> Departure(TEXT("/Game/VFX/SummonerSpells/P_FlashDeparture.P_FlashDeparture"));
+	static ConstructorHelpers::FObjectFinder<UParticleSystem> Arrival(TEXT("/Game/VFX/SummonerSpells/P_FlashArrival.P_FlashArrival"));
+	static ConstructorHelpers::FObjectFinder<UParticleSystem> Exhaust(TEXT("/Game/VFX/SummonerSpells/P_ExhaustAura.P_ExhaustAura"));
+	if (Departure.Succeeded()) FlashDepartureEffect = Departure.Object;
+	if (Arrival.Succeeded()) FlashArrivalEffect = Arrival.Object;
+	if (Exhaust.Succeeded()) ExhaustAuraEffect = Exhaust.Object;
 }
 
 void ULOL_SummonerSpellComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	OwnerChampion = Cast<ABaseChampion>(GetOwner());
+	if (ExhaustVisualEndTime > 0.0f) OnRep_ExhaustVisualEndTime();
+}
+
+void ULOL_SummonerSpellComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(ULOL_SummonerSpellComponent, ExhaustVisualEndTime);
+}
+
+float ULOL_SummonerSpellComponent::GetSpellServerTime() const
+{
+	const AGameStateBase* GS = GetWorld()->GetGameState();
+	return GS ? GS->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
+}
+
+void ULOL_SummonerSpellComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	GetWorld()->GetTimerManager().ClearTimer(ExhaustEffectTimerHandle);
+	StopExhaustVisual();
+	Super::EndPlay(EndPlayReason);
+}
+
+void ULOL_SummonerSpellComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	UpdateExhaustVisual();
+}
+
+void ULOL_SummonerSpellComponent::StopExhaustVisual()
+{
+	if (ExhaustAuraComponent)
+	{
+		ExhaustAuraComponent->DestroyComponent();
+		ExhaustAuraComponent = nullptr;
+	}
+	SetComponentTickEnabled(false);
+}
+
+void ULOL_SummonerSpellComponent::OnRep_ExhaustVisualEndTime()
+{
+	OwnerChampion = Cast<ABaseChampion>(GetOwner());
+	UpdateExhaustVisual();
+}
+
+void ULOL_SummonerSpellComponent::UpdateExhaustVisual()
+{
+	if (GetNetMode() == NM_DedicatedServer || !OwnerChampion || !bEnableSpellEffects
+		|| ExhaustVisualEndTime <= GetSpellServerTime()
+		|| (OwnerChampion->StateComponent && OwnerChampion->StateComponent->HasStatusTag(LOLTags::State_Dead)))
+	{
+		StopExhaustVisual();
+		return;
+	}
+	if (!ExhaustAuraComponent && ExhaustAuraEffect)
+	{
+		ExhaustAuraComponent = UGameplayStatics::SpawnEmitterAttached(ExhaustAuraEffect,
+			OwnerChampion->GetRootComponent(), NAME_None, FVector::ZeroVector, FRotator::ZeroRotator,
+			FVector::OneVector, EAttachLocation::KeepRelativeOffset, false);
+	}
+	if (ExhaustAuraComponent)
+	{
+		// Fog-of-war visibility must not reveal a hidden opponent through its VFX.
+		ExhaustAuraComponent->SetVisibility(!OwnerChampion->IsHidden());
+		SetComponentTickEnabled(true);
+	}
+}
+
+void ULOL_SummonerSpellComponent::Multicast_PlayFlashEffect_Implementation(FVector_NetQuantize Departure, FVector_NetQuantize Arrival)
+{
+	if (GetNetMode() == NM_DedicatedServer || !bEnableSpellEffects || !GetOwner() || GetOwner()->IsHidden()) return;
+	if (FlashDepartureEffect)
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FlashDepartureEffect, Departure, FRotator::ZeroRotator, FVector::OneVector, true);
+	if (FlashArrivalEffect)
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FlashArrivalEffect, Arrival, FRotator::ZeroRotator, FVector::OneVector, true);
 }
 
 void ULOL_SummonerSpellComponent::CastExhaust(AActor* Target)
@@ -118,6 +206,7 @@ void ULOL_SummonerSpellComponent::Server_CastFlash_Implementation(FVector_NetQua
 	{
 		return;
 	}
+	Multicast_PlayFlashEffect(StartLocation, OwnerChampion->GetActorLocation());
 
 	if (OwnerChampion->AttackComponent)
 	{
@@ -165,6 +254,9 @@ void ULOL_SummonerSpellComponent::ApplyExhaustEffect(
 	}
 
 	GetWorld()->GetTimerManager().ClearTimer(ExhaustEffectTimerHandle);
+	ExhaustVisualEndTime = GetSpellServerTime() + FMath::Max(0.01f, Duration);
+	OnRep_ExhaustVisualEndTime();
+	OwnerChampion->ForceNetUpdate();
 	GetWorld()->GetTimerManager().SetTimer(
 		ExhaustEffectTimerHandle,
 		this,
@@ -190,6 +282,9 @@ void ULOL_SummonerSpellComponent::ClearExhaustEffect()
 	}
 
 	bExhaustActive = false;
+	ExhaustVisualEndTime = 0.0f;
+	OnRep_ExhaustVisualEndTime();
+	OwnerChampion->ForceNetUpdate();
 	OutgoingDamageMultiplier = 1.0f;
 	PreExhaustMoveSpeed = 0.0f;
 	ExhaustAppliedMoveSpeed = 0.0f;

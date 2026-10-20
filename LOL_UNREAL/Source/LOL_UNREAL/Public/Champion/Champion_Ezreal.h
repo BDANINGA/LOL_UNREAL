@@ -44,6 +44,9 @@ protected:
     UFUNCTION(NetMulticast, Reliable)
     void Multicast_PlayEzrealSkillMontage(UAnimMontage* Montage, float PlayRate, FRotator NewRotation);
 
+    UFUNCTION(NetMulticast, Unreliable)
+    void Multicast_PlayBlinkEffect(FVector DepartureLocation, FVector ArrivalLocation);
+
     UFUNCTION(NetMulticast, Reliable)
     void Multicast_SpawnEzrealProjectile(
         uint8 ProjectileType,
@@ -105,6 +108,27 @@ protected:
     UPROPERTY()
     TObjectPtr<class UStaticMesh> WProjectileMesh;
 
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ezreal | W Trail")
+    TObjectPtr<class UParticleSystem> WTrailEffect;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | W Trail")
+    bool bEnableWTrail = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | W Trail", meta = (ClampMin = "0.1", ClampMax = "4.0"))
+    float WTrailScale = 0.8f;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ezreal | E VFX")
+    TObjectPtr<class UParticleSystem> EDepartureEffect;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ezreal | E VFX")
+    TObjectPtr<class UParticleSystem> EArrivalEffect;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | E VFX")
+    bool bEnableBlinkEffect = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | E VFX", meta = (ClampMin = "0.1", ClampMax = "3.0"))
+    float BlinkEffectScale = 1.f;
+
     UPROPERTY()
     TObjectPtr<class UStaticMesh> RProjectileMesh;
 
@@ -151,16 +175,16 @@ protected:
     FVector QProjectileVisualScale3D = FVector(1.0f, 0.8f, 1.0f);
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
-    FVector WProjectileVisualScale3D = FVector(0.5f, 0.5f, 0.5f);
+    FVector WProjectileVisualScale3D = FVector(0.85f, 0.85f, 0.85f);
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
     FVector RProjectileVisualScale3D = FVector(1.5f, 2.0f, 1.0f);
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
-    FRotator QProjectileRotationOffset = FRotator(0.0f, 90.0f, 0.0f);
+    FRotator QProjectileRotationOffset = FRotator::ZeroRotator;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
-    FRotator WProjectileRotationOffset = FRotator(-110.0f, 90.0f, 270.0f);
+    FRotator WProjectileRotationOffset = FRotator::ZeroRotator;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
     FRotator RProjectileRotationOffset = FRotator(180.0f, 270.0f, 180.0f);

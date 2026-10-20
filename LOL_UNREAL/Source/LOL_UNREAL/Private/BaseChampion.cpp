@@ -8,9 +8,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/DamageEvents.h"
-#include "NiagaraComponent.h"
-#include "NiagaraFunctionLibrary.h"
-#include "NiagaraSystem.h"
+#include "Component/LOL_RecallVisualComponent.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
@@ -65,8 +63,7 @@ ABaseChampion::ABaseChampion()
 
 	static ConstructorHelpers::FObjectFinder<UDataTable> ResourceDataAssetTable(TEXT("/Game/LOL_Data/Data_Champions/Data_ChampionResource.Data_ChampionResource"));
 	if (ResourceDataAssetTable.Succeeded()) DataTable = ResourceDataAssetTable.Object;
-	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> RecallEffectAsset(TEXT("/Game/UI/recall/StaticMeshes/ns_recall.ns_recall"));
-	if (RecallEffectAsset.Succeeded()) RecallEffectSystem = RecallEffectAsset.Object;
+	RecallVisualComponent = CreateDefaultSubobject<ULOL_RecallVisualComponent>(TEXT("RecallVisualComponent"));
 
 	// 캡슐 컴포넌트의 콜리전 설정
 	GetCapsuleComponent()->InitCapsuleSize(60.f, 130.f);
@@ -681,7 +678,7 @@ void ABaseChampion::Server_StartRecall_Implementation()
 	}
 
 	bIsRecalling = true;
-	Multicast_SetRecallEffectVisible(true);
+	Multicast_SetRecallEffectVisible(true, false);
 
 	GetWorldTimerManager().ClearTimer(RecallTimerHandle);
 	GetWorldTimerManager().SetTimer(
@@ -738,34 +735,14 @@ void ABaseChampion::EndRecall(bool bTeleportHome)
 		TeleportTo(RecallHomeLocation, RecallHomeRotation);
 	}
 
-	Multicast_SetRecallEffectVisible(false);
+	Multicast_SetRecallEffectVisible(false, bTeleportHome);
 }
 
-void ABaseChampion::Multicast_SetRecallEffectVisible_Implementation(bool bVisible)
+void ABaseChampion::Multicast_SetRecallEffectVisible_Implementation(bool bVisible, bool bCompleted)
 {
-	if (bVisible)
-	{
-		if (!RecallEffectSystem || RecallEffectComponent) return;
-
-		RecallEffectComponent = UNiagaraFunctionLibrary::SpawnSystemAttached(
-			RecallEffectSystem,
-			GetRootComponent(),
-			NAME_None,
-			FVector::ZeroVector,
-			FRotator::ZeroRotator,
-			EAttachLocation::KeepRelativeOffset,
-			true,
-			true
-		);
-		return;
-	}
-
-	if (RecallEffectComponent)
-	{
-		RecallEffectComponent->Deactivate();
-		RecallEffectComponent->DestroyComponent();
-		RecallEffectComponent = nullptr;
-	}
+	if (!RecallVisualComponent) return;
+	if (bVisible) RecallVisualComponent->StartVisual(RecallDuration);
+	else RecallVisualComponent->StopVisual(bCompleted);
 }
 
 void ABaseChampion::SetIsPressA(bool toggle)

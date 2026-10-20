@@ -26,6 +26,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Particles/ParticleSystem.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/CapsuleComponent.h"
 
 ULOL_StatComponent::ULOL_StatComponent()
 {
@@ -591,6 +592,17 @@ float ULOL_StatComponent::ApplyDamage(float InDamage, EDamageType DamageType, AC
 
 	if (ActualDamage > 0.0f)
 	{
+		if (GetOwnerRole() == ROLE_Authority)
+		{
+			if (ABaseChampion* Victim = Cast<ABaseChampion>(GetOwner()))
+			{
+				if (ALOL_PlayerController* PC = Cast<ALOL_PlayerController>(Victim->GetController()))
+				{
+					PC->Client_PlayDamageVignette(Victim, ActualDamage / FMath::Max(BaseStat.MaxHP, 1.0f));
+				}
+			}
+		}
+
 		// All attacks share this accepted-damage path. Only the server emits the RPC.
 		// Play before death handlers can hide/destroy the victim of a lethal hit.
 		if (GetOwnerRole() == ROLE_Authority && bEnableHitImpact && HitImpactEffect)
@@ -611,12 +623,20 @@ float ULOL_StatComponent::ApplyDamage(float InDamage, EDamageType DamageType, AC
 			LifeCycle->RecordDamageFrom(Instigator);
 		}
 
-		if (Cast<ABaseChampion>(GetOwner()))
+		if (const ABaseChampion* Champion = Cast<ABaseChampion>(GetOwner()))
 		{
-			FVector Origin = FVector::ZeroVector;
-			FVector BoxExtent = FVector::ZeroVector;
-			GetOwner()->GetActorBounds(false, Origin, BoxExtent);
-			Multicast_ShowDamageText(ActualDamage, Origin + FVector(0.0f, 0.0f, BoxExtent.Z + 40.0f));
+			// Actor bounds include the large detection spheres. Anchor to the visible
+			// character instead, so floating numbers start just above its head.
+			FVector TextLocation = Champion->GetActorLocation();
+			if (const USkeletalMeshComponent* Mesh = Champion->GetMesh(); Mesh && Mesh->GetSkeletalMeshAsset())
+			{
+				TextLocation = Mesh->Bounds.Origin + FVector(0.0f, 0.0f, Mesh->Bounds.BoxExtent.Z + 12.0f);
+			}
+			else if (const UCapsuleComponent* Capsule = Champion->GetCapsuleComponent())
+			{
+				TextLocation = Capsule->GetComponentLocation() + FVector(0.0f, 0.0f, Capsule->GetScaledCapsuleHalfHeight() + 12.0f);
+			}
+			Multicast_ShowDamageText(ActualDamage, TextLocation);
 		}
 	}
 

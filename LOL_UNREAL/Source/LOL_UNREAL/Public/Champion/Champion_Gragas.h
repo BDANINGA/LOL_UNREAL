@@ -17,6 +17,8 @@ public:
 	virtual void Skill_E() override;
 	virtual void Skill_R() override;
 	virtual void Tick(float DeltaTime) override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void OnBasicAttackHit(ACharacter* Target) override;
 	virtual bool IsMoveInputBlocked() const override;
 	virtual float TakeDamage(
@@ -64,6 +66,14 @@ protected:
 	void SpawnGragasExplosionEffect(FVector SpawnLocation, float VisualRadius, bool bUseQEffect);
 	void ExplodeQ();
 	void EndWEmpower();
+	UFUNCTION()
+	void OnRep_WEmpowered();
+	void UpdateWAura();
+	void StopWAura();
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_SetEDashAura(bool bActive);
+	void StopEDashAura(bool bImmediate);
+	void UpdateEDashAura();
 	void EndWDamageReduction();
 	void UpdateEDash(float DeltaTime);
 	void FinishEDash(AActor* HitTarget);
@@ -97,7 +107,22 @@ protected:
 	TObjectPtr<AActor> LocalQProjectileActor;
 
 	bool bQActive = false;
+	UPROPERTY(ReplicatedUsing = OnRep_WEmpowered)
 	bool bWEmpowered = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Gragas | W")
+	TSoftObjectPtr<class UParticleSystem> WAuraEffect;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UParticleSystemComponent> WAuraComponent;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Gragas | E")
+	TSoftObjectPtr<class UParticleSystem> EDashAuraEffect;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UParticleSystemComponent> EDashAuraComponent;
+	double EAuraEmissionEndTime = 0.0;
+	double EAuraFadeEndTime = 0.0;
 	bool bWDamageReductionActive = false;
 	bool bEDashing = false;
 	bool bMovementLocked = false;

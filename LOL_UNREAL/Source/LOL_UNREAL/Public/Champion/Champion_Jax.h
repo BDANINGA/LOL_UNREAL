@@ -17,6 +17,7 @@ public:
 	virtual void Skill_E() override;
 	virtual void Skill_R() override;
 	virtual void Tick(float DeltaTime) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void OnBasicAttackHit(ACharacter* Target) override;
 	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent,
 		AController* EventInstigator, AActor* DamageCauser) override;
@@ -49,8 +50,34 @@ protected:
 	void UpdateGrandmastersMightIdleAnimation();
 	void FinishLeap();
 	void EndWEmpower();
+	UFUNCTION()
+	void OnRep_WEmpowered();
+	void UpdateEmpowerVisual(float DeltaTime);
+
+	UPROPERTY()
+	TObjectPtr<class UMaterialInterface> EmpowerWeaponMaterial;
+	UPROPERTY(VisibleAnywhere, Category = "Jax | W")
+	TObjectPtr<class UMaterialBillboardComponent> EmpowerWeaponHalo;
+	UPROPERTY(Transient)
+	TObjectPtr<class UMaterialInterface> OriginalWeaponMaterial;
+	UPROPERTY(Transient)
+	TObjectPtr<class UMaterialInstanceDynamic> EmpowerWeaponMID;
+	int32 EmpowerWeaponSlot = INDEX_NONE;
+	float EmpowerVisualAge = 0.f;
+	bool bEmpowerVisualActive = false;
 	void FinishCounterStrike();
+	float GetCounterStrikeRadius() const;
+	UFUNCTION()
+	void OnRep_CounterStrikeActive();
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_ReleaseCounterStrike(float Radius);
+	UPROPERTY(VisibleAnywhere, Category = "Jax | E")
+	TObjectPtr<class UJaxCounterStrikeVisualComponent> CounterStrikeVisual;
 	void EndGrandmastersMight();
+	UFUNCTION()
+	void OnRep_GrandmastersMightActive();
+	UPROPERTY(VisibleAnywhere, Category = "Jax | R")
+	TObjectPtr<class UJaxUltimateVisualComponent> UltimateVisual;
 	void ApplyEmpowerDamage(ACharacter* Target);
 	void ApplyGrandmastersMightActiveDamage();
 	void ApplyGrandmastersMightPassive(ACharacter* Target);
@@ -72,8 +99,11 @@ protected:
 
 	bool bIsChasingForQ = false;
 	bool bIsLeaping = false;
+	UPROPERTY(ReplicatedUsing = OnRep_WEmpowered)
 	bool bWEmpowered = false;
+	UPROPERTY(ReplicatedUsing = OnRep_CounterStrikeActive)
 	bool bCounterStrikeActive = false;
+	UPROPERTY(ReplicatedUsing = OnRep_GrandmastersMightActive)
 	bool bGrandmastersMightActive = false;
 	bool bGrandmastersMightIdleEnabled = false;
 

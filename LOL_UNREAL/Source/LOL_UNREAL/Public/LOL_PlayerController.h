@@ -63,6 +63,13 @@ public:
 	void CancelQuitGame();
 	void ConfirmQuitGame();
 
+	// Sent only to the controller owning the damaged champion, before death handling.
+	UFUNCTION(Client, Unreliable)
+	void Client_PlayDamageVignette(APawn* Victim, float DamageFraction);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI|Damage Feedback")
+	bool bEnableDamageVignette = true;
+
 	void OnToggleCamera();
 	void OnToggleCameraLock();
 	void FreeCameraEdgeScroll(float DeltaTime);
@@ -162,6 +169,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shop")
 	TArray<FName> ShopActorTags;
 private:
+	UPROPERTY(Transient)
+	TObjectPtr<class ULOL_DamageVignetteWidget> DamageVignetteWidget;
+
 	bool IsSkillLevelUpInputDown() const;
 	void HandleSkillInput(uint8 SkillKey, FName SkillName);
 	bool GetTargetAwareHitUnderCursor(FHitResult& OutHit) const;

@@ -1,0 +1,46 @@
+[
+  {
+    "source": "Minimap/Blue/tower_blue.png",
+    "asset_path": "/Game/UI/Minimap/Icons/Blue/T_Minimap_Tower_Blue"
+  },
+  {
+    "source": "Minimap/Red/tower_red.png",
+    "asset_path": "/Game/UI/Minimap/Icons/Red/T_Minimap_Tower_Red"
+  },
+  {
+    "source": "Minimap/Neutral/tower.png",
+    "asset_path": "/Game/UI/Minimap/Icons/Neutral/T_Minimap_Tower_Neutral"
+  },
+  {
+    "source": "Minimap/Blue/inhibitor_blue.png",
+    "asset_path": "/Game/UI/Minimap/Icons/Blue/T_Minimap_Inhibitor_Blue"
+  },
+  {
+    "source": "Minimap/Red/inhibitor_red.png",
+    "asset_path": "/Game/UI/Minimap/Icons/Red/T_Minimap_Inhibitor_Red"
+  },
+  {
+    "source": "Minimap/Neutral/inhibitor.png",
+    "asset_path": "/Game/UI/Minimap/Icons/Neutral/T_Minimap_Inhibitor_Neutral"
+  },
+  {
+    "source": "Minimap/Blue/nexus_blue.png",
+    "asset_path": "/Game/UI/Minimap/Icons/Blue/T_Minimap_Nexus_Blue"
+  },
+  {
+    "source": "Minimap/Red/nexus_red.png",
+    "asset_path": "/Game/UI/Minimap/Icons/Red/T_Minimap_Nexus_Red"
+  },
+  {
+    "source": "Minimap/Neutral/nexus.png",
+    "asset_path": "/Game/UI/Minimap/Icons/Neutral/T_Minimap_Nexus_Neutral"
+  },
+  {
+    "source": "SkillLevel/skill_level_filled.png",
+    "asset_path": "/Game/UI/HUD/SkillLevel/T_SkillLevel_Filled"
+  },
+  {
+    "source": "SkillLevel/skill_level_empty.png",
+    "asset_path": "/Game/UI/HUD/SkillLevel/T_SkillLevel_Empty"
+  }
+]

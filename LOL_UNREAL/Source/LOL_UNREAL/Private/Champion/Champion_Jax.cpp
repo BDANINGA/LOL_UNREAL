@@ -5,11 +5,17 @@
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_StateComponent.h"
+#include "Component/JaxCounterStrikeVisualComponent.h"
+#include "Component/JaxUltimateVisualComponent.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "Animation/AnimSequence.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/MaterialBillboardComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Net/UnrealNetwork.h"
+#include "GamePlayTag/LOL_GamePlayTags.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "Engine/DamageEvents.h"
@@ -22,6 +28,8 @@
 
 AChampion_Jax::AChampion_Jax()
 {
+    CounterStrikeVisual = CreateDefaultSubobject<UJaxCounterStrikeVisualComponent>(TEXT("CounterStrikeVisual"));
+    UltimateVisual = CreateDefaultSubobject<UJaxUltimateVisualComponent>(TEXT("UltimateVisual"));
     ChampionName = TEXT("Jax");
     SetChampionData(ChampionName);
 
@@ -40,6 +48,99 @@ AChampion_Jax::AChampion_Jax()
     }
 
     GetMesh()->SetRelativeScale3D(FVector(0.8f, 0.8f, 0.8f));
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> EmpowerMaterial(
+        TEXT("/Game/VFX/Jax/M_JaxEmpowerWeapon.M_JaxEmpowerWeapon"));
+    EmpowerWeaponMaterial = EmpowerMaterial.Object;
+    EmpowerWeaponHalo = CreateDefaultSubobject<UMaterialBillboardComponent>(TEXT("EmpowerWeaponHalo"));
+    EmpowerWeaponHalo->SetupAttachment(GetMesh(), TEXT("Buffbone_Glb_Weapon_Loc"));
+    EmpowerWeaponHalo->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    EmpowerWeaponHalo->SetGenerateOverlapEvents(false);
+    EmpowerWeaponHalo->SetCanEverAffectNavigation(false);
+    EmpowerWeaponHalo->SetCastShadow(false);
+    EmpowerWeaponHalo->SetVisibility(false);
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> HaloMaterial(
+        TEXT("/Game/VFX/Jax/M_JaxEmpowerHalo.M_JaxEmpowerHalo"));
+    if (HaloMaterial.Succeeded())
+    {
+        EmpowerWeaponHalo->AddElement(HaloMaterial.Object, nullptr, false, 48.f, 48.f, nullptr);
+    }
+}
+
+void AChampion_Jax::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(AChampion_Jax, bWEmpowered);
+    DOREPLIFETIME(AChampion_Jax, bCounterStrikeActive);
+    DOREPLIFETIME(AChampion_Jax, bGrandmastersMightActive);
+}
+
+void AChampion_Jax::OnRep_GrandmastersMightActive()
+{
+    if (!UltimateVisual) return;
+    if (bGrandmastersMightActive) UltimateVisual->StartVisual();
+    else UltimateVisual->StopVisual();
+}
+
+float AChampion_Jax::GetCounterStrikeRadius() const
+{
+    if (!SkillComponent) return 300.f;
+    const TArray<float>& Ranges = SkillComponent->GetE_Data().Range;
+    return Ranges.IsValidIndex(0) ? FMath::Max(1.f, Ranges[0]) : 300.f;
+}
+
+void AChampion_Jax::OnRep_CounterStrikeActive()
+{
+    if (!CounterStrikeVisual) return;
+    if (bCounterStrikeActive) CounterStrikeVisual->StartVisual(GetCounterStrikeRadius());
+    else CounterStrikeVisual->StopSpin();
+}
+
+void AChampion_Jax::Multicast_ReleaseCounterStrike_Implementation(float Radius)
+{
+    if (CounterStrikeVisual) CounterStrikeVisual->ReleaseVisual(Radius);
+}
+
+void AChampion_Jax::OnRep_WEmpowered()
+{
+    if (GetNetMode() == NM_DedicatedServer || !GetMesh()) return;
+    if (EmpowerWeaponHalo) EmpowerWeaponHalo->SetVisibility(bWEmpowered);
+    if (bWEmpowered && !bEmpowerVisualActive)
+    {
+        EmpowerWeaponSlot = GetMesh()->GetMaterialIndex(TEXT("Weapon"));
+        if (EmpowerWeaponSlot == INDEX_NONE || !EmpowerWeaponMaterial) return;
+        OriginalWeaponMaterial = GetMesh()->GetMaterial(EmpowerWeaponSlot);
+        if (!EmpowerWeaponMID)
+        {
+            EmpowerWeaponMID = UMaterialInstanceDynamic::Create(EmpowerWeaponMaterial, this);
+        }
+        if (!EmpowerWeaponMID) return;
+        EmpowerVisualAge = 0.f;
+        EmpowerWeaponMID->SetScalarParameterValue(TEXT("EmpowerStrength"), 4.5f);
+        GetMesh()->SetMaterial(EmpowerWeaponSlot, EmpowerWeaponMID);
+        bEmpowerVisualActive = true;
+    }
+    else if (!bWEmpowered && bEmpowerVisualActive)
+    {
+        // Restore the exact material present before the cast, including any instance overrides.
+        GetMesh()->SetMaterial(EmpowerWeaponSlot, OriginalWeaponMaterial);
+        OriginalWeaponMaterial = nullptr;
+        bEmpowerVisualActive = false;
+    }
+}
+
+void AChampion_Jax::UpdateEmpowerVisual(float DeltaTime)
+{
+    if (HasAuthority() && bWEmpowered && StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead))
+    {
+        EndWEmpower();
+    }
+    if (!bEmpowerVisualActive || !EmpowerWeaponMID) return;
+    EmpowerVisualAge += DeltaTime;
+    // A brief ignition settles into a restrained pulse. The skeletal weapon itself glows,
+    // so animation, fog visibility and relevance cannot leave a detached light behind.
+    const float Ignition = 1.7f * FMath::Exp(-EmpowerVisualAge * 9.f);
+    const float Pulse = 0.22f * FMath::Sin(EmpowerVisualAge * 7.f);
+    EmpowerWeaponMID->SetScalarParameterValue(TEXT("EmpowerStrength"), 2.8f + Ignition + Pulse);
 }
 
 int32 JaxSkillLevelIndex = 0;
@@ -146,6 +247,8 @@ void AChampion_Jax::Server_Skill_W_Implementation()
     if (!SkillComponent->TryCastSkill("W", 1)) return;
 
     bWEmpowered = true;
+    OnRep_WEmpowered();
+    ForceNetUpdate();
 
     // Empower resets Jax's basic attack timer.
     GetWorldTimerManager().ClearTimer(AttackComponent->AttackTimerHandle);
@@ -175,6 +278,8 @@ void AChampion_Jax::Server_Skill_E_Implementation()
     if (!SkillComponent->TryCastSkill("E", 1)) return;
 
     bCounterStrikeActive = true;
+    OnRep_CounterStrikeActive();
+    ForceNetUpdate();
     CounterStrikeDodgedAttacks = 0;
     Multicast_PlayJaxSkillAnimation(2, 0.9f, GetActorRotation());
 
@@ -213,6 +318,8 @@ void AChampion_Jax::Server_Skill_R_Implementation()
     StatComponent->SetStat(BuffedStat);
 
     bGrandmastersMightActive = true;
+    OnRep_GrandmastersMightActive();
+    ForceNetUpdate();
     Multicast_PlayJaxSkillAnimation(3, 0.8f, GetActorRotation());
     Multicast_SetGrandmastersMightIdle(true);
 
@@ -249,6 +356,15 @@ void AChampion_Jax::Server_Skill_R_Implementation()
 void AChampion_Jax::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
+    UpdateEmpowerVisual(DeltaTime);
+    if (HasAuthority() && bCounterStrikeActive && StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead))
+    {
+        bCounterStrikeActive = false;
+        GetWorldTimerManager().ClearTimer(ETimerHandle);
+        CounterStrikeDodgedAttacks = 0;
+        OnRep_CounterStrikeActive();
+        ForceNetUpdate();
+    }
 
     if (IsLocallyControlled() && bIsChasingForQ)
     {
@@ -439,8 +555,7 @@ void AChampion_Jax::ApplyEmpowerDamage(ACharacter* Target)
         ULOL_DamageMagic::StaticClass()
     );
 
-    bWEmpowered = false;
-    GetWorldTimerManager().ClearTimer(WTimerHandle);
+    EndWEmpower();
 }
 
 void AChampion_Jax::ApplyGrandmastersMightPassive(ACharacter* Target)
@@ -538,10 +653,18 @@ void AChampion_Jax::FinishCounterStrike()
 
     bCounterStrikeActive = false;
     GetWorldTimerManager().ClearTimer(ETimerHandle);
+    OnRep_CounterStrikeActive();
+    ForceNetUpdate();
+    if (StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead))
+    {
+        CounterStrikeDodgedAttacks = 0;
+        return;
+    }
     Multicast_PlayJaxSkillAnimation(2, 1.2f, GetActorRotation());
 
     const FSkillData& EData = SkillComponent->GetE_Data();
-    const float Radius = GetSkillValue(EData.Range, JaxSkillLevelIndex, 300.0f);
+    const float Radius = GetCounterStrikeRadius();
+    Multicast_ReleaseCounterStrike(Radius);
     const float BaseDamage = GetSkillValue(EData.BaseDamage, JaxSkillLevelIndex, 55.0f);
     const int32 DamageStacks = FMath::Min(CounterStrikeDodgedAttacks, EMaxDamageStacks);
     const float DodgeMultiplier = 1.0f + DamageStacks * EDodgedAttackDamageRatio;
@@ -567,6 +690,12 @@ void AChampion_Jax::FinishCounterStrike()
         {
             AActor* Target = Hit.GetActor();
             if (!IsValid(Target) || Target == this || DamagedTargets.Contains(Target)) continue;
+            // Attack-range spheres and UI widgets also overlap ECC_Pawn. Only the
+            // character's body may extend into E's radius, not those helper volumes.
+            if (const ACharacter* TargetCharacter = Cast<ACharacter>(Target))
+            {
+                if (Hit.GetComponent() != TargetCharacter->GetCapsuleComponent()) continue;
+            }
             if (!Target->FindComponentByClass<ULOL_StateComponent>() || !IsEnemyActor(Target)) continue;
             DamagedTargets.Add(Target);
 
@@ -601,6 +730,9 @@ void AChampion_Jax::FinishCounterStrike()
 void AChampion_Jax::EndWEmpower()
 {
     bWEmpowered = false;
+    GetWorldTimerManager().ClearTimer(WTimerHandle);
+    OnRep_WEmpowered();
+    ForceNetUpdate();
 }
 
 void AChampion_Jax::EndGrandmastersMight()
@@ -615,6 +747,8 @@ void AChampion_Jax::EndGrandmastersMight()
     StatComponent->SetStat(CurrentStat);
 
     bGrandmastersMightActive = false;
+    OnRep_GrandmastersMightActive();
+    ForceNetUpdate();
     RArmorBonusApplied = 0.0f;
     RSpellBlockBonusApplied = 0.0f;
 }
