@@ -74,6 +74,10 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "Jax | E")
 	TObjectPtr<class UJaxCounterStrikeVisualComponent> CounterStrikeVisual;
 	void EndGrandmastersMight();
+	UFUNCTION()
+	void OnRep_GrandmastersMightActive();
+	UPROPERTY(VisibleAnywhere, Category = "Jax | R")
+	TObjectPtr<class UJaxUltimateVisualComponent> UltimateVisual;
 	void ApplyEmpowerDamage(ACharacter* Target);
 	void ApplyGrandmastersMightActiveDamage();
 	void ApplyGrandmastersMightPassive(ACharacter* Target);
@@ -99,6 +103,7 @@ protected:
 	bool bWEmpowered = false;
 	UPROPERTY(ReplicatedUsing = OnRep_CounterStrikeActive)
 	bool bCounterStrikeActive = false;
+	UPROPERTY(ReplicatedUsing = OnRep_GrandmastersMightActive)
 	bool bGrandmastersMightActive = false;
 	bool bGrandmastersMightIdleEnabled = false;
 

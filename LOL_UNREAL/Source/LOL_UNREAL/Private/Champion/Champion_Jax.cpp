@@ -6,6 +6,7 @@
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_StateComponent.h"
 #include "Component/JaxCounterStrikeVisualComponent.h"
+#include "Component/JaxUltimateVisualComponent.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "Animation/AnimSequence.h"
@@ -28,6 +29,7 @@
 AChampion_Jax::AChampion_Jax()
 {
     CounterStrikeVisual = CreateDefaultSubobject<UJaxCounterStrikeVisualComponent>(TEXT("CounterStrikeVisual"));
+    UltimateVisual = CreateDefaultSubobject<UJaxUltimateVisualComponent>(TEXT("UltimateVisual"));
     ChampionName = TEXT("Jax");
     SetChampionData(ChampionName);
 
@@ -69,6 +71,14 @@ void AChampion_Jax::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(AChampion_Jax, bWEmpowered);
     DOREPLIFETIME(AChampion_Jax, bCounterStrikeActive);
+    DOREPLIFETIME(AChampion_Jax, bGrandmastersMightActive);
+}
+
+void AChampion_Jax::OnRep_GrandmastersMightActive()
+{
+    if (!UltimateVisual) return;
+    if (bGrandmastersMightActive) UltimateVisual->StartVisual();
+    else UltimateVisual->StopVisual();
 }
 
 float AChampion_Jax::GetCounterStrikeRadius() const
@@ -308,6 +318,8 @@ void AChampion_Jax::Server_Skill_R_Implementation()
     StatComponent->SetStat(BuffedStat);
 
     bGrandmastersMightActive = true;
+    OnRep_GrandmastersMightActive();
+    ForceNetUpdate();
     Multicast_PlayJaxSkillAnimation(3, 0.8f, GetActorRotation());
     Multicast_SetGrandmastersMightIdle(true);
 
@@ -735,6 +747,8 @@ void AChampion_Jax::EndGrandmastersMight()
     StatComponent->SetStat(CurrentStat);
 
     bGrandmastersMightActive = false;
+    OnRep_GrandmastersMightActive();
+    ForceNetUpdate();
     RArmorBonusApplied = 0.0f;
     RSpellBlockBonusApplied = 0.0f;
 }
