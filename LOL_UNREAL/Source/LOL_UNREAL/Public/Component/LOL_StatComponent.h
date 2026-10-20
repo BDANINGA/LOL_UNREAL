@@ -195,6 +195,10 @@ public:
 	UFUNCTION(NetMulticast, Unreliable)
 	void Multicast_ShowDamageText(float DamageAmount, FVector WorldLocation);
 
+	// A reflected class reference keeps the floater, widget and font in cooked builds.
+	UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage Text")
+	TSubclassOf<AActor> DamageFloaterClass;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|Hit VFX")
 	TObjectPtr<class UParticleSystem> HitImpactEffect;
 

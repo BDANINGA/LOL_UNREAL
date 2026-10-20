@@ -33,6 +33,9 @@ ULOL_StatComponent::ULOL_StatComponent()
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
 
+	static ConstructorHelpers::FClassFinder<AActor> DamageFloaterAsset(TEXT("/Game/UI/bp_damagefloater"));
+	if (DamageFloaterAsset.Succeeded()) DamageFloaterClass = DamageFloaterAsset.Class;
+
 	static ConstructorHelpers::FObjectFinder<UParticleSystem> HitImpactAsset(TEXT("/Game/VFX/HitImpact/P_HitImpact.P_HitImpact"));
 	if (HitImpactAsset.Succeeded()) HitImpactEffect = HitImpactAsset.Object;
 
@@ -671,8 +674,6 @@ void ULOL_StatComponent::Multicast_ShowDamageText_Implementation(float DamageAmo
 		return;
 	}
 
-	static TSubclassOf<AActor> DamageFloaterClass =
-		LoadClass<AActor>(nullptr, TEXT("/Game/UI/bp_damagefloater.bp_damagefloater_C"));
 	if (!DamageFloaterClass)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Damage floater class not found. Expected /Game/UI/bp_damagefloater.bp_damagefloater_C"));
