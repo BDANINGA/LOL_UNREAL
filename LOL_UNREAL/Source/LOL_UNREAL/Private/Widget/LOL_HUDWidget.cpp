@@ -1,4 +1,5 @@
 // HUD 관리하는 위젯 클래스
+#include "Widget/LOL_HUDWidget.h"
 #include "Components/CanvasPanelSlot.h"
 #include "Components/CanvasPanel.h"
 #include "Components/Image.h"
@@ -13,7 +14,7 @@
 #include "LOL_PlayerState.h"
 #include "LOL_PlayerController.h"
 #include "BaseChampion.h"
-#include "Widget/LOL_HUDWidget.h"
+
 
 #include "Kismet/GameplayStatics.h"
 
