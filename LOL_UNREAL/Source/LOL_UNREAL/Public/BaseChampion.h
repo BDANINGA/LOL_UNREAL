@@ -152,7 +152,9 @@ public:
 
 	void ProcessMoveInput(FVector ClickLocation, AActor* TargetActor);
 	bool IsEnemyActor(AActor* TargetActor) const;
-	virtual bool IsMoveInputBlocked() const { return bIsRecalling || bIsCastingSkill; }
+	virtual bool IsMoveInputBlocked() const { return bIsRecalling || bIsCastingSkill || bIsGrabbed; }
+	bool IsGrabbed() const { return bIsGrabbed; }
+	void SetIsGrabbed(bool bNewGrabbed);
 	void BeginSkillCast(float CastTime);
 	void EndSkillCast();
 	bool IsCastingSkill() const { return bIsCastingSkill; }
@@ -197,6 +199,8 @@ public:
 	void FinishKnockback() { bIsKnockedBack = false; }
 	
 	void SetIsKnockedBack(bool bInKnockback);
+	void SuppressChampionCollisionUntilLanding();
+	virtual void OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode = 0) override;
 
 	virtual void OnBasicAttackHit(ACharacter* Target) {};
 
@@ -230,7 +234,25 @@ public:
 	void Multicast_ApplySilence(float Duration);
 
 protected:
+	UPROPERTY(ReplicatedUsing = OnRep_IsGrabbed)
+	bool bIsGrabbed = false;
+
+	UFUNCTION()
+	void OnRep_IsGrabbed();
+
 	virtual void BeginPlay() override;
+
+	UPROPERTY(ReplicatedUsing = OnRep_KnockupCollisionSuppressed)
+	bool bKnockupCollisionSuppressed = false;
+
+	UFUNCTION()
+	void OnRep_KnockupCollisionSuppressed();
+
+	bool bKnockupCollisionOverrideApplied = false;
+	ECollisionResponse PreKnockupChampionResponse = ECR_Block;
+	ECollisionResponse PreKnockupPawnResponse = ECR_Block;
+	ECollisionResponse PreKnockupMeshChampionResponse = ECR_Block;
+
 	virtual void PossessedBy(AController* NewController) override;
 
 	virtual void Tick(float DeltaTime) override;

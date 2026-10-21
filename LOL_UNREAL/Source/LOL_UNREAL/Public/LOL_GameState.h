@@ -20,6 +20,11 @@ public:
 
 	void TickOneSecond();
 
+	// Uses PlayerState team IDs: 0 = undecided, 1 = blue, 2 = red.
+	bool FinishMatch(uint8 InWinningTeamID);
+	uint8 GetWinningTeamID() const { return WinningTeamID; }
+	bool HasMatchFinished() const { return WinningTeamID != 0; }
+
 	void AddTeamKill(bool bBlueTeam);
 	void NotifyChampionKill(class ABaseChampion* Killer, class ABaseChampion* Victim);
 
@@ -41,4 +46,8 @@ public:
 	FTimerHandle OneSecondTimerHandle;
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+private:
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Match Result", meta = (AllowPrivateAccess = "true"))
+	uint8 WinningTeamID = 0;
 };

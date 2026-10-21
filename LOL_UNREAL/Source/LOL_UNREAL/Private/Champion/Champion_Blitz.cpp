@@ -3,10 +3,9 @@
 #include "Component/Champion_SkillComponent.h"
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_StateComponent.h"
-#include "Components/StaticMeshComponent.h"
-#include "Components/SphereComponent.h"
+#include "Component/LOL_MoveComponent.h"
+#include "Champion/Projectile/BlitzQProjectile.h"
 #include "Engine/StaticMesh.h"
-#include "GameFramework/ProjectileMovementComponent.h"
 #include "JungleMonster/BaseJungleMonster.h"
 #include "Minion/BaseMinion.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -63,7 +62,7 @@ bool AChampion_Blitz::Server_Skill_Q_Validate(FVector TargetLocation)
 
 void AChampion_Blitz::Server_Skill_Q_Implementation(FVector TargetLocation)
 {
-    if (!SkillComponent || !GetWorld()) return;
+    if (!SkillComponent || !GetWorld() || IsValid(ActiveQProjectile) || IsValid(GrabbedTarget)) return;
 
     FSkillData& QData = SkillComponent->GetQ_Data();
     const int32 SkillLevelIdx = 0;
@@ -77,14 +76,12 @@ void AChampion_Blitz::Server_Skill_Q_Implementation(FVector TargetLocation)
         return;
     }
 
-    if (!SkillComponent->TryCastSkill("Q", 1)) return;
-
     FVector LookDirection = TargetLocation - GetActorLocation();
     LookDirection.Z = 0.0f;
     if (LookDirection.IsNearlyZero()) return;
+    if (!SkillComponent->TryCastSkill("Q", 1)) return;
 
     const FRotator LookRotation = LookDirection.Rotation();
-    const FVector SkillDirection = LookRotation.Vector();
 
     SetActorRotation(LookRotation);
 
@@ -98,146 +95,123 @@ void AChampion_Blitz::Server_Skill_Q_Implementation(FVector TargetLocation)
         );
     }
 
-    const float QRange = QData.Range[SkillLevelIdx];
-    const float HookRadius = Q_Radius > 0.0f ? Q_Radius : 70.0f;
+    const FVector Start = GetActorLocation() + FVector(0.f, 0.f, 80.f);
+    const FTransform SpawnTransform(LookRotation, Start);
+    ActiveQProjectile = GetWorld()->SpawnActorDeferred<ABlitzQProjectile>(
+        ABlitzQProjectile::StaticClass(), SpawnTransform, this, this,
+        ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+    if (!ActiveQProjectile) return;
 
-    const FVector TraceStart = GetActorLocation() + FVector(0.f, 0.f, 80.f);
-    const FVector TraceEnd = TraceStart + SkillDirection * QRange;
-    const FVector VisualStart = TraceStart;
-    const FVector VisualMaxEnd = VisualStart + SkillDirection * QRange;
-
-    TArray<FHitResult> Hits;
-    FCollisionQueryParams Params;
-    Params.AddIgnoredActor(this);
-
-    const bool bHit = GetWorld()->SweepMultiByChannel(
-        Hits,
-        TraceStart,
-        TraceEnd,
-        FQuat::Identity,
-        ECC_Pawn,
-        FCollisionShape::MakeSphere(HookRadius),
-        Params
-    );
-
-    ACharacter* Target = nullptr;
-    FVector VisualEnd = VisualMaxEnd;
-
-    if (bHit)
-    {
-        Hits.Sort([](const FHitResult& A, const FHitResult& B)
-        {
-            return A.Distance < B.Distance;
-        });
-
-        for (const FHitResult& Hit : Hits)
-        {
-            AActor* HitActor = Hit.GetActor();
-            if (!IsValidBlitzSkillTarget(HitActor)) continue;
-
-            Target = Cast<ACharacter>(HitActor);
-            const float HitDistanceAlongPath = FMath::Clamp(
-                FVector::DotProduct(HitActor->GetActorLocation() - TraceStart, SkillDirection),
-                0.0f,
-                QRange
-            );
-            VisualEnd = VisualStart + SkillDirection * HitDistanceAlongPath;
-            break;
-        }
-    }
-
-    const float TravelDistance = FVector::Dist(VisualStart, VisualEnd);
-    const float TravelTime = TravelDistance / FMath::Max(QProjectileSpeed, 1.0f);
-
-    Multicast_SpawnQProjectileVisual(VisualStart, VisualEnd, TravelTime);
-
-    if (!Target)
-    {
-        return;
-    }
-
-    GetWorldTimerManager().ClearTimer(PullTimerHandle);
-    GetWorldTimerManager().ClearTimer(PullTimeoutTimerHandle);
-
-    FTimerHandle BeginPullTimerHandle;
-    GetWorldTimerManager().SetTimer(
-        BeginPullTimerHandle,
-        FTimerDelegate::CreateUObject(this, &AChampion_Blitz::BeginPullTarget, Target, SkillDirection),
-        FMath::Max(TravelTime, 0.01f),
-        false
-    );
+    ActiveQProjectile->Initialize(this, QProjectileSpeed, QData.Range[SkillLevelIdx],
+        Q_Radius > 0.0f ? Q_Radius : 50.0f, QProjectileMesh,
+        QProjectileVisualRadius, QProjectileVisualScale, QProjectileRotationOffset);
+    ActiveQProjectile->FinishSpawning(SpawnTransform);
 }
+
+void AChampion_Blitz::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    if (IsValid(ActiveQProjectile))
+    {
+        ActiveQProjectile->Destroy();
+    }
+    ActiveQProjectile = nullptr;
+    if (HasAuthority())
+    {
+        FinishPullTarget();
+    }
+    Super::EndPlay(EndPlayReason);
+}
+
+FVector AChampion_Blitz::GetSafePullDestination() const
+{
+    const float TargetRadius = GrabbedTarget->GetCapsuleComponent()->GetScaledCapsuleRadius();
+    const float SafeDistance = FMath::Max(Q_PullDistance,
+        GetCapsuleComponent()->GetScaledCapsuleRadius() + TargetRadius + 10.0f);
+    FVector Destination = GetActorLocation() + PullDirection * SafeDistance;
+    Destination.Z = GrabbedTarget->GetActorLocation().Z;
+    return Destination;
+}
+
 void AChampion_Blitz::TickPullTarget()
 {
-    if (!IsValid(GrabbedTarget))
+    if (!IsValid(GrabbedTarget) || !IsValidBlitzSkillTarget(GrabbedTarget))
     {
-        RestoreGrabbedTargetCollision();
-        GetWorldTimerManager().ClearTimer(PullTimerHandle);
-        GrabbedTarget = nullptr;
+        FinishPullTarget();
         return;
     }
 
-    FVector CurrentLocation = GrabbedTarget->GetActorLocation();
-
-    float DistanceToDest = FVector::Dist2D(PullDestination, CurrentLocation);
-
-    if (DistanceToDest <= 20.0f)
-    {
-        GrabbedTarget->SetActorLocation(PullDestination, false, nullptr, ETeleportType::TeleportPhysics);
-
-        if (GrabbedTarget->GetCharacterMovement())
-        {
-            GrabbedTarget->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
-        }
-
-        FRotator FinalRotation = (-GetActorForwardVector()).Rotation();
-        FinalRotation.Pitch = 0.f;
-        FinalRotation.Roll = 0.f;
-        GrabbedTarget->SetActorRotation(FinalRotation);
-
-        RestoreGrabbedTargetCollision();
-        GetWorldTimerManager().ClearTimer(PullTimerHandle);
-        GrabbedTarget = nullptr;
-        return;
-    }
-
-    FVector NewLocation = FMath::VInterpConstantTo(
-        CurrentLocation,
-        PullDestination,
-        0.01f,
-        PullSpeed * 220.0f
-    );
-
+    // Follow Blitz's current position so walking forward cannot overlap the landing point.
+    PullDestination = GetSafePullDestination();
+    const FVector NewLocation = FMath::VInterpConstantTo(
+        GrabbedTarget->GetActorLocation(), PullDestination, 0.01f, PullSpeed * 220.0f);
     GrabbedTarget->SetActorLocation(NewLocation, false, nullptr, ETeleportType::TeleportPhysics);
+    GrabbedTarget->SetActorRotation((-PullDirection).Rotation());
+    GrabbedTarget->ForceNetUpdate();
 
-    FRotator SmoothRotation = (-GetActorForwardVector()).Rotation();
-    SmoothRotation.Pitch = 0.f;
-    SmoothRotation.Roll = 0.f;
-    GrabbedTarget->SetActorRotation(SmoothRotation);
+    if (NewLocation.Equals(PullDestination, 0.1f))
+    {
+        FinishPullTarget();
+    }
 }
+
 void AChampion_Blitz::FinishPullTarget()
 {
     GetWorldTimerManager().ClearTimer(PullTimerHandle);
     GetWorldTimerManager().ClearTimer(PullTimeoutTimerHandle);
-
-    if (GrabbedTarget && GrabbedTarget->GetCharacterMovement())
+    if (!IsValid(GrabbedTarget))
     {
-        GrabbedTarget->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+        GrabbedTarget = nullptr;
+        return;
     }
 
-    RestoreGrabbedTargetCollision();
-
-    if (GetCharacterMovement())
+    const ULOL_StateComponent* TargetState = GrabbedTarget->FindComponentByClass<ULOL_StateComponent>();
+    const bool bAlive = !TargetState || !TargetState->HasStatusTag(LOLTags::State_Dead);
+    if (bAlive)
     {
-        GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+        const FVector SafeDestination = GetSafePullDestination();
+        const float SafeDistance = FVector::Dist2D(SafeDestination, GetActorLocation());
+        // Also protect the timeout/interrupt path if Blitz moved into the target this frame.
+        if (FVector::Dist2D(GrabbedTarget->GetActorLocation(), GetActorLocation()) < SafeDistance)
+        {
+            FVector Away = (GrabbedTarget->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
+            if (Away.IsNearlyZero()) Away = PullDirection;
+            FVector ReleaseLocation = GetActorLocation() + Away * SafeDistance;
+            ReleaseLocation.Z = GrabbedTarget->GetActorLocation().Z;
+            GrabbedTarget->SetActorLocation(ReleaseLocation, false, nullptr, ETeleportType::TeleportPhysics);
+        }
+        RestoreGrabbedTargetCollision();
     }
 
+    if (ABaseChampion* Champion = Cast<ABaseChampion>(GrabbedTarget))
+    {
+        Champion->SetIsGrabbed(false);
+    }
+    if (ULOL_MoveComponent* Move = GrabbedTarget->FindComponentByClass<ULOL_MoveComponent>())
+    {
+        Move->StopMovement();
+        Move->bIsSearchAttack = false;
+    }
+    GrabbedTarget->ConsumeMovementInputVector();
+    if (UCharacterMovementComponent* Movement = GrabbedTarget->GetCharacterMovement())
+    {
+        Movement->ClearAccumulatedForces();
+        Movement->StopMovementImmediately();
+        if (bAlive && Movement->MovementMode == MOVE_None)
+        {
+            Movement->SetMovementMode(GrabbedTargetPreviousMovementMode, GrabbedTargetPreviousCustomMode);
+        }
+    }
+    GrabbedTarget->ForceNetUpdate();
     GrabbedTarget = nullptr;
 }
 
-void AChampion_Blitz::BeginPullTarget(ACharacter* Target, FVector SkillDirection)
+void AChampion_Blitz::BeginPullTarget(ACharacter* Target)
 {
-    if (!HasAuthority() || !IsValidBlitzSkillTarget(Target)) return;
+    if (!HasAuthority() || !SkillComponent || IsValid(GrabbedTarget) || !IsValidBlitzSkillTarget(Target)) return;
+    if (const ABaseChampion* Champion = Cast<ABaseChampion>(Target))
+    {
+        if (Champion->IsGrabbed()) return;
+    }
 
     const FSkillData& QData = SkillComponent->GetQ_Data();
     const float BaseDamage = QData.BaseDamage.IsValidIndex(0)
@@ -258,10 +232,24 @@ void AChampion_Blitz::BeginPullTarget(ACharacter* Target, FVector SkillDirection
             ULOL_DamageMagic::StaticClass()
         );
     }
+    // A lethal hit must not disable movement/collision on an already dead target.
+    if (!IsValidBlitzSkillTarget(Target)) return;
     GrabbedTarget = Target;
 
-    PullDestination = GetActorLocation() + GetActorForwardVector().GetSafeNormal2D() * Q_PullDistance;
-    PullDestination.Z = GrabbedTarget->GetActorLocation().Z;
+    PullDirection = GetActorForwardVector().GetSafeNormal2D();
+    PullDestination = GetSafePullDestination();
+    if (ABaseChampion* Champion = Cast<ABaseChampion>(Target))
+    {
+        Champion->SetIsGrabbed(true);
+    }
+    if (ULOL_MoveComponent* Move = Target->FindComponentByClass<ULOL_MoveComponent>())
+    {
+        Move->StopMovement();
+        Move->bIsSearchAttack = false;
+    }
+    if (AController* TargetController = Target->GetController()) TargetController->StopMovement();
+    Target->ConsumeMovementInputVector();
+    Target->StopAnimMontage();
 
     if (UCapsuleComponent* Capsule = GrabbedTarget->GetCapsuleComponent())
     {
@@ -271,11 +259,16 @@ void AChampion_Blitz::BeginPullTarget(ACharacter* Target, FVector SkillDirection
         Capsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     }
 
-    if (GrabbedTarget->GetCharacterMovement())
+    if (UCharacterMovementComponent* Movement = Target->GetCharacterMovement())
     {
-        GrabbedTarget->GetCharacterMovement()->StopMovementImmediately();
-        GrabbedTarget->GetCharacterMovement()->DisableMovement();
+        GrabbedTargetPreviousMovementMode = Movement->MovementMode;
+        GrabbedTargetPreviousCustomMode = Movement->CustomMovementMode;
+        Movement->ClearAccumulatedForces();
+        Movement->CurrentRootMotion.Clear();
+        Movement->StopMovementImmediately();
+        Movement->DisableMovement();
     }
+    Target->ForceNetUpdate();
 
     GetWorldTimerManager().SetTimer(
         PullTimerHandle,
@@ -322,124 +315,6 @@ bool AChampion_Blitz::IsValidBlitzSkillTarget(AActor* TargetActor) const
     return IsEnemyActor(TargetActor);
 }
 
-void AChampion_Blitz::Multicast_SpawnQProjectileVisual_Implementation(FVector StartLocation, FVector EndLocation, float TravelTime)
-{
-    SpawnQProjectileVisual(StartLocation, EndLocation, TravelTime);
-}
-
-void AChampion_Blitz::SpawnQProjectileVisual(FVector StartLocation, FVector EndLocation, float TravelTime)
-{
-    if (!GetWorld()) return;
-
-    if (!QProjectileMesh)
-    {
-        QProjectileMesh = LoadObject<UStaticMesh>(
-            nullptr,
-            TEXT("/Game/Level/blitzcrank/blitz_tex/blitz_q.blitz_q")
-        );
-    }
-
-    if (!QProjectileMesh)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("Blitz Q projectile mesh missing."));
-        return;
-    }
-
-    const FVector Direction = (EndLocation - StartLocation).GetSafeNormal();
-    if (Direction.IsNearlyZero()) return;
-
-    FActorSpawnParameters SpawnParameters;
-    SpawnParameters.Owner = this;
-    SpawnParameters.Instigator = this;
-    SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-    AActor* ProjectileActor = GetWorld()->SpawnActor<AActor>(
-        AActor::StaticClass(),
-        StartLocation,
-        Direction.Rotation(),
-        SpawnParameters
-    );
-    if (!ProjectileActor) return;
-    ProjectileActor->SetActorHiddenInGame(false);
-
-    USphereComponent* CollisionComponent = NewObject<USphereComponent>(
-        ProjectileActor,
-        TEXT("BlitzQProjectileRoot")
-    );
-    if (!CollisionComponent)
-    {
-        ProjectileActor->Destroy();
-        return;
-    }
-
-    ProjectileActor->AddInstanceComponent(CollisionComponent);
-    ProjectileActor->SetRootComponent(CollisionComponent);
-    CollisionComponent->SetMobility(EComponentMobility::Movable);
-    CollisionComponent->InitSphereRadius(Q_Radius > 0.0f ? Q_Radius : 50.0f);
-    CollisionComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    CollisionComponent->SetGenerateOverlapEvents(false);
-    CollisionComponent->RegisterComponent();
-
-    UStaticMeshComponent* MeshComponent = NewObject<UStaticMeshComponent>(
-        ProjectileActor,
-        TEXT("BlitzQProjectileMesh")
-    );
-    if (!MeshComponent)
-    {
-        ProjectileActor->Destroy();
-        return;
-    }
-
-    ProjectileActor->AddInstanceComponent(MeshComponent);
-    MeshComponent->SetupAttachment(CollisionComponent);
-    MeshComponent->SetMobility(EComponentMobility::Movable);
-    MeshComponent->SetStaticMesh(QProjectileMesh);
-    MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    MeshComponent->SetGenerateOverlapEvents(false);
-    MeshComponent->SetCastShadow(false);
-    MeshComponent->RegisterComponent();
-    MeshComponent->SetRelativeRotation(QProjectileRotationOffset);
-
-    ProjectileActor->SetActorLocationAndRotation(
-        StartLocation,
-        Direction.Rotation(),
-        false,
-        nullptr,
-        ETeleportType::TeleportPhysics
-    );
-
-    const float MeshRadius = QProjectileMesh->GetBounds().SphereRadius;
-    const float MeshScale = MeshRadius > KINDA_SMALL_NUMBER
-        ? QProjectileVisualRadius / MeshRadius
-        : 1.0f;
-    MeshComponent->SetWorldScale3D(FVector(MeshScale * QProjectileVisualScale));
-    MeshComponent->SetVisibility(true, true);
-    MeshComponent->SetHiddenInGame(false, true);
-
-    UProjectileMovementComponent* ProjectileMovement = NewObject<UProjectileMovementComponent>(
-        ProjectileActor,
-        TEXT("BlitzQProjectileMovement")
-    );
-    if (!ProjectileMovement)
-    {
-        ProjectileActor->Destroy();
-        return;
-    }
-
-    const float VisualSpeed = FVector::Dist(StartLocation, EndLocation) / FMath::Max(TravelTime, KINDA_SMALL_NUMBER);
-    ProjectileActor->AddInstanceComponent(ProjectileMovement);
-    ProjectileMovement->SetUpdatedComponent(CollisionComponent);
-    ProjectileMovement->bInitialVelocityInLocalSpace = false;
-    ProjectileMovement->InitialSpeed = VisualSpeed;
-    ProjectileMovement->MaxSpeed = VisualSpeed;
-    ProjectileMovement->Velocity = Direction * VisualSpeed;
-    ProjectileMovement->ProjectileGravityScale = 0.0f;
-    ProjectileMovement->bRotationFollowsVelocity = false;
-    ProjectileMovement->RegisterComponent();
-    ProjectileMovement->Activate(true);
-
-    ProjectileActor->SetLifeSpan(FMath::Max(TravelTime, 0.05f));
-}
 void AChampion_Blitz::Skill_W() 
 {
 	if (!IsLocallyControlled()) return;

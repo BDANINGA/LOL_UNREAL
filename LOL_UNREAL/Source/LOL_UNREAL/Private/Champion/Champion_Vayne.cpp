@@ -1,6 +1,7 @@
 #include "Champion/Champion_Vayne.h"
 #include "Component/Champion_SkillComponent.h"
 #include "Component/LOL_StatComponent.h"
+#include "Component/LOL_FixedKnockbackComponent.h"
 
 #include "Components/CapsuleComponent.h"
 #include "Component/LOL_StateComponent.h"
@@ -400,16 +401,14 @@ void AChampion_Vayne::Server_ExecuteCondemn_Implementation(ACharacter* Target)
     FVector MyLoc = GetActorLocation();
     FVector TargetLoc = Target->GetActorLocation();
     FVector PushDir = (TargetLoc - MyLoc).GetSafeNormal2D();
-    FVector LaunchVelocity = (PushDir * PushDistance) / PushTime;
-
-    if (ABaseChampion* TargetChampion = Cast<ABaseChampion>(Target))
+    ULOL_FixedKnockbackComponent* Knockback = Target->FindComponentByClass<ULOL_FixedKnockbackComponent>();
+    if (!Knockback)
     {
-        TargetChampion->StartKnockbackWithWallCheck(LaunchVelocity, PushTime, WallStunDuration);
+        Knockback = NewObject<ULOL_FixedKnockbackComponent>(Target);
+        Target->AddInstanceComponent(Knockback);
+        Knockback->RegisterComponent();
     }
-    else
-    {
-        Target->LaunchCharacter(LaunchVelocity, true, true);
-    }
+    Knockback->StartKnockback(PushDir, PushDistance, PushTime, WallStunDuration);
 
     float SkillDamage = SkillComponent->GetE_Data().BaseDamage[0] + StatComponent->GetStat().AttackDamage * 0.5f;
 

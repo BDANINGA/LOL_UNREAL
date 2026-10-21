@@ -6,6 +6,8 @@
 
 #include "LOL_PlayerController.h"
 #include "LOL_HUD.h"
+#include "LOL_GameState.h"
+#include "LOL_PlayerState.h"
 #include "BaseChampion.h"
 #include "Minion/BaseMinion.h"
 #include "JungleMonster/BaseJungleMonster.h"
@@ -15,6 +17,8 @@
 #include "Widget/LOL_CursorWidget.h"
 #include "Widget/LOL_QuitConfirmWidget.h"
 #include "Widget/LOL_DamageVignetteWidget.h"
+#include "Widget/LOL_GameResultWidget.h"
+#include "Widget/LOL_ShopInputProcessor.h"
 
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_StateComponent.h"
@@ -244,6 +248,16 @@ void ALOL_PlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		DamageVignetteWidget->RemoveFromParent();
 		DamageVignetteWidget = nullptr;
 	}
+	if (GameResultWidget)
+	{
+		GameResultWidget->RemoveFromParent();
+		GameResultWidget = nullptr;
+	}
+	if (ShopInputProcessor.IsValid() && FSlateApplication::IsInitialized())
+	{
+		FSlateApplication::Get().UnregisterInputPreProcessor(ShopInputProcessor);
+	}
+	ShopInputProcessor.Reset();
 	if (QuitConfirmWidget)
 	{
 		QuitConfirmWidget->RemoveFromParent();
@@ -276,6 +290,7 @@ void ALOL_PlayerController::PlayerTick(float DeltaTime)
 
 	if (IsLocalController())
 	{
+		UpdateMatchResult();
 		UpdateCursorSelection();
 		FreeCameraEdgeScroll(DeltaTime);
 
@@ -293,6 +308,41 @@ void ALOL_PlayerController::PlayerTick(float DeltaTime)
 	}
 
 	FreeCameraEdgeScroll(DeltaTime);
+}
+
+bool ALOL_PlayerController::GetMatchVictory(bool& bOutVictory) const
+{
+	bOutVictory = false;
+	const ALOL_GameState* GS = GetWorld()->GetGameState<ALOL_GameState>();
+	if (!GS || !GS->HasMatchFinished()) return false;
+
+	const ALOL_PlayerState* PS = GetPlayerState<ALOL_PlayerState>();
+	uint8 TeamID = PS ? PS->TeamID : 0;
+	if (TeamID != 1 && TeamID != 2)
+	{
+		// Standalone PIE can have no lobby team assigned yet.
+		const ULOL_StateComponent* State = GetPawn() ? GetPawn()->FindComponentByClass<ULOL_StateComponent>() : nullptr;
+		const bool bBlue = State && State->HasStatusTag(LOLTags::Team_Blue);
+		const bool bRed = State && State->HasStatusTag(LOLTags::Team_Red);
+		if (bBlue == bRed) return false;
+		TeamID = bBlue ? 1 : 2;
+	}
+	bOutVictory = GS->GetWinningTeamID() == TeamID;
+	return true;
+}
+
+void ALOL_PlayerController::UpdateMatchResult()
+{
+	if (!IsLocalController() || GameResultWidget) return;
+	bool bVictory = false;
+	// Retry until both replicated result and local team are available, including late joins.
+	if (!GetMatchVictory(bVictory)) return;
+	GameResultWidget = CreateWidget<ULOL_GameResultWidget>(this, ULOL_GameResultWidget::StaticClass());
+	if (GameResultWidget)
+	{
+		GameResultWidget->SetVictory(bVictory);
+		GameResultWidget->AddToPlayerScreen(5000);
+	}
 }
 
 void ALOL_PlayerController::SetupInputComponent()
@@ -651,6 +701,11 @@ void ALOL_PlayerController::OnToggleShop()
 
 	if (ShopWidget->IsInViewport())
 	{
+		if (ShopInputProcessor.IsValid())
+		{
+			FSlateApplication::Get().UnregisterInputPreProcessor(ShopInputProcessor);
+			ShopInputProcessor->ResetInputState();
+		}
 		SelectedShopItemName = NAME_None;
 		SelectedInventoryItemSlotIndex = INDEX_NONE;
 		ShopWidget->RemoveFromParent();
@@ -665,6 +720,10 @@ void ALOL_PlayerController::OnToggleShop()
 	SelectedShopItemName = NAME_None;
 	SelectedInventoryItemSlotIndex = INDEX_NONE;
 	ShopWidget->AddToViewport();
+	if (ShopInputProcessor.IsValid())
+	{
+		FSlateApplication::Get().RegisterInputPreProcessor(ShopInputProcessor);
+	}
 	bShowMouseCursor = true;
 
 	FInputModeGameAndUI InputMode;
@@ -1359,6 +1418,7 @@ void ALOL_PlayerController::BindShopWidgetButtons()
 		}
 	}
 
+	ShopInputProcessor = MakeShared<FLOL_ShopInputProcessor>(this, ShopWidget);
 	int32 ItemIndex = 0;
 	for (UButton* Button : Buttons)
 	{
@@ -1374,6 +1434,7 @@ void ALOL_PlayerController::BindShopWidgetButtons()
 
 		ULOL_ShopButtonBinding* Binding = NewObject<ULOL_ShopButtonBinding>(this);
 		Binding->Initialize(this, ItemNames[ItemIndex], false);
+		ShopInputProcessor->AddItemButton(Button, ItemNames[ItemIndex]);
 		Button->OnClicked.AddDynamic(Binding, &ULOL_ShopButtonBinding::HandleClicked);
 		ShopButtonBindings.Add(Binding);
 		++ItemIndex;

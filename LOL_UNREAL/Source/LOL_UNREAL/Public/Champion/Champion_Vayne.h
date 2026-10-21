@@ -111,8 +111,7 @@ protected:
     void Server_ExecuteCondemn(ACharacter* Target);
 
     // �����Ϳ��� ���� ������ ��ų ��ġ
-    UPROPERTY(EditAnywhere, Category = "Skill|E")
-    float PushDistance = 3500.0f; // �з��� �Ÿ�
+    static constexpr float PushDistance = 500.0f; // �з��� �Ÿ�
 
     UPROPERTY(EditAnywhere, Category = "Skill|E")
     float PushTime = 0.4f; // �з����� �ð� (��)

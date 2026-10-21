@@ -62,6 +62,7 @@ public:
 
 	void CancelQuitGame();
 	void ConfirmQuitGame();
+	bool GetMatchVictory(bool& bOutVictory) const;
 
 	// Sent only to the controller owning the damaged champion, before death handling.
 	UFUNCTION(Client, Unreliable)
@@ -172,6 +173,11 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<class ULOL_DamageVignetteWidget> DamageVignetteWidget;
 
+	void UpdateMatchResult();
+
+	UPROPERTY(Transient)
+	class ULOL_GameResultWidget* GameResultWidget = nullptr;
+
 	bool IsSkillLevelUpInputDown() const;
 	void HandleSkillInput(uint8 SkillKey, FName SkillName);
 	bool GetTargetAwareHitUnderCursor(FHitResult& OutHit) const;
@@ -215,6 +221,7 @@ private:
 	TArray<FName> PurchasedItemNames;
 
 	bool bShopButtonsBound = false;
+	TSharedPtr<class FLOL_ShopInputProcessor> ShopInputProcessor;
 
 	FString LastCursorState;
 

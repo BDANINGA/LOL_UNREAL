@@ -547,6 +547,16 @@ void ULOL_StatComponent::HandleRegeneration()
 
 void ULOL_StatComponent::OnRep_BaseStat()
 {
+	// HP and BaseStat can arrive in either order. Refresh the bar when MaxHP arrives too.
+	if (AActor* Owner = GetOwner())
+	{
+		if (ULOL_UIComponent* UI = Owner->FindComponentByClass<ULOL_UIComponent>())
+		{
+			UI->SetMaxHp(BaseStat.MaxHP);
+			UI->UpdateHpFromStat(CurrentHP);
+		}
+	}
+
 	if (BaseStat.MoveSpeed > 0.0f)
 	{
 		if (ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner()))

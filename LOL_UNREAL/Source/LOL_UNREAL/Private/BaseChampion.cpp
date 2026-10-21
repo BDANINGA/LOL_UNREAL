@@ -279,7 +279,7 @@ void ABaseChampion::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (bIsKnockedBack)
+	if (bIsKnockedBack || bIsGrabbed)
 	{
 		return;
 	}
@@ -390,6 +390,43 @@ void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(ABaseChampion, bIsSilenced);
 	DOREPLIFETIME(ABaseChampion, bIsRecalling);
 	DOREPLIFETIME(ABaseChampion, bIsCastingSkill);
+	DOREPLIFETIME(ABaseChampion, bKnockupCollisionSuppressed);
+	DOREPLIFETIME(ABaseChampion, bIsGrabbed);
+}
+
+void ABaseChampion::SetIsGrabbed(bool bNewGrabbed)
+{
+	if (!HasAuthority() || bIsGrabbed == bNewGrabbed) return;
+	bIsGrabbed = bNewGrabbed;
+	OnRep_IsGrabbed();
+	if (MoveComponent)
+	{
+		// Reliable cancellation also covers a short grab whose replicated flag coalesces.
+		MoveComponent->Client_SetNavigationPath(TArray<FVector>());
+	}
+	ForceNetUpdate();
+}
+
+void ABaseChampion::OnRep_IsGrabbed()
+{
+	// Clear both server navigation and the owning client's predicted path on entry/exit.
+	if (AttackComponent)
+	{
+		AttackComponent->CancelAttack();
+		AttackComponent->CombatTarget = nullptr;
+		AttackComponent->HitTarget = nullptr;
+	}
+	if (MoveComponent)
+	{
+		MoveComponent->StopMovement();
+		MoveComponent->bIsSearchAttack = false;
+	}
+	ConsumeMovementInputVector();
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->ClearAccumulatedForces();
+		Movement->StopMovementImmediately();
+	}
 }
 
 void ABaseChampion::Server_ExecuteAttackHit_Implementation()
@@ -554,6 +591,7 @@ bool ABaseChampion::Server_ProcessMoveInput_Validate(FVector ClickLocation, AAct
 
 void ABaseChampion::PressSkill(const uint8 skilltype)
 {
+	if (bIsGrabbed) return;
 	if (bIsRecalling)
 	{
 		Server_CancelRecall();
@@ -629,6 +667,61 @@ void ABaseChampion::SetIsKnockedBack(bool bInKnockback)
 	bIsKnockedBack = bInKnockback;
 }
 
+void ABaseChampion::SuppressChampionCollisionUntilLanding()
+{
+	if (!HasAuthority()) return;
+
+	bKnockupCollisionSuppressed = true;
+	OnRep_KnockupCollisionSuppressed();
+	ForceNetUpdate();
+}
+
+void ABaseChampion::OnRep_KnockupCollisionSuppressed()
+{
+	UCapsuleComponent* Capsule = GetCapsuleComponent();
+	if (!Capsule) return;
+
+	if (bKnockupCollisionSuppressed && !bKnockupCollisionOverrideApplied)
+	{
+		PreKnockupChampionResponse = Capsule->GetCollisionResponseToChannel(ECC_GameTraceChannel2);
+		PreKnockupPawnResponse = Capsule->GetCollisionResponseToChannel(ECC_Pawn);
+		bKnockupCollisionOverrideApplied = true;
+		// Keep hit queries and terrain collision, but prevent champion depenetration in the air.
+		Capsule->SetCollisionResponseToChannel(ECC_GameTraceChannel2, ECR_Overlap);
+		// Character meshes use Pawn even though champion capsules use Champion.
+		Capsule->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+		if (USkeletalMeshComponent* ChampionMesh = GetMesh())
+		{
+			PreKnockupMeshChampionResponse = ChampionMesh->GetCollisionResponseToChannel(ECC_GameTraceChannel2);
+			ChampionMesh->SetCollisionResponseToChannel(ECC_GameTraceChannel2, ECR_Overlap);
+		}
+	}
+	else if (!bKnockupCollisionSuppressed && bKnockupCollisionOverrideApplied)
+	{
+		bKnockupCollisionOverrideApplied = false;
+		Capsule->SetCollisionResponseToChannel(ECC_GameTraceChannel2, PreKnockupChampionResponse);
+		Capsule->SetCollisionResponseToChannel(ECC_Pawn, PreKnockupPawnResponse);
+		if (USkeletalMeshComponent* ChampionMesh = GetMesh())
+		{
+			ChampionMesh->SetCollisionResponseToChannel(ECC_GameTraceChannel2, PreKnockupMeshChampionResponse);
+		}
+	}
+}
+
+void ABaseChampion::OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode)
+{
+	Super::OnMovementModeChanged(PrevMovementMode, PreviousCustomMode);
+
+	if (HasAuthority() && bKnockupCollisionSuppressed && PrevMovementMode == MOVE_Falling &&
+		GetCharacterMovement() && !GetCharacterMovement()->IsFalling())
+	{
+		// Restore on actual landing (or interrupted falling), not a fixed airborne timer.
+		bKnockupCollisionSuppressed = false;
+		OnRep_KnockupCollisionSuppressed();
+		ForceNetUpdate();
+	}
+}
+
 void ABaseChampion::Multicast_PlayMontage_Implementation(UAnimMontage* AnimMontage, float InplayRate)
 {
 	if (AnimMontage) PlayAnimMontage(AnimMontage, InplayRate);
@@ -648,6 +741,7 @@ void ABaseChampion::Multicast_StopCurrentMontage_Implementation()
 
 void ABaseChampion::StartRecall()
 {
+	if (bIsGrabbed) return;
 	if (StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
 	if (bIsStunned || bIsKnockedBack) return;
 
@@ -656,6 +750,7 @@ void ABaseChampion::StartRecall()
 
 void ABaseChampion::Server_StartRecall_Implementation()
 {
+	if (bIsGrabbed) return;
 	if (bIsRecalling) return;
 	if (StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
 	if (bIsStunned || bIsKnockedBack) return;

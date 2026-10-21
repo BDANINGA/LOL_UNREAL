@@ -44,7 +44,7 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
     ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn);
     if (Champion)
     {
-        if(Champion->bIsStunned || Champion->bIsKnockedBack) return;
+        if(Champion->bIsStunned || Champion->bIsKnockedBack || Champion->IsGrabbed()) return;
         if (Champion->AttackComponent->CombatTarget) return;
 
         if (bIsSearchAttack && Champion->EnemiesInRange.Num() > 0)
@@ -160,6 +160,10 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
 void ULOL_MoveComponent::SetMoveTarget(FVector NewLocation, AActor* TargetActor)
 {
     if (!OwnerPawn) return;
+    if (const ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
+    {
+        if (Champion->IsGrabbed()) return;
+    }
     TargetLocation = NewLocation;
 
     if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
@@ -311,6 +315,7 @@ void ULOL_MoveComponent::SetMoveTarget(FVector NewLocation, AActor* TargetActor)
 
 void ULOL_MoveComponent::StopMovement()
 {
+    if (!OwnerPawn) OwnerPawn = Cast<APawn>(GetOwner());
     if (!OwnerPawn) return;
 
     bUsingDirectMovement = false;
@@ -366,6 +371,16 @@ void ULOL_MoveComponent::Client_SetNavigationPath_Implementation(
         return;
     }
 
+    if (NewPathPoints.IsEmpty())
+    {
+        StopMovement();
+        bIsSearchAttack = false;
+        return;
+    }
+    if (const ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
+    {
+        if (Champion->IsGrabbed()) return;
+    }
     SetLocalNavigationPath(NewPathPoints);
 }
 
