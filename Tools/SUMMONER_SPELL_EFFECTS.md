@@ -3,13 +3,14 @@
 The existing `LOL_SummonerSpellComponent` now supplies separate summoner VFX:
 
 - `/Game/VFX/SummonerSpells/P_FlashDeparture`: diagonal white snap, lemon-yellow
-  angular afterimage and 12 inward diamond fragments.
+  angular afterimage, gold core and 26 inward diamond fragments.
 - `/Game/VFX/SummonerSpells/P_FlashArrival`: a larger diagonal white snap, lemon-yellow
-  afterimage and 20 outward diamond fragments.
+  afterimage, gold core and 34 outward diamond fragments.
 - `/Game/VFX/SummonerSpells/P_ExhaustAura`: two amber binding bands and inward
   shards/motes. A local-space looping effect follows the exhausted champion.
 
-Flash bursts finish within 0.25 seconds and auto-destroy. There is no ring or
+Flash particles finish within 0.55 seconds and auto-destroy. The main snap lasts
+0.24 seconds and the broad diagonal rift lasts 0.48 seconds. There is no ring or
 circular wave: the three Flash-only materials (`M_FlashStar`, `M_FlashSlash`,
 `M_FlashChip`) create angular silhouettes. This distinguishes Flash from Ezreal E's
 longer gold/cyan ring blink. Exhaust continues using the unchanged HitImpact materials.
@@ -51,3 +52,16 @@ test passed again (14/22 particles at Flash endpoints). Inspected slowed preview
 frames `FlashRedesign_0.png` through `FlashRedesign_2.png` in Saved/DesignBackups.
 Exhaust and Ezreal E asset hashes are unchanged. The redesigned assets have not
 been recooked; the full cook result above applies to the initial revision.
+
+Visibility revision (2026-10-25): larger 380/440 cm snap and 360/420 cm rift,
+thicker Flash-only masks, stronger midpoint opacity, 26/34 fragments and an added
+gold core. Flash-specific emissive strength is 5 (previously 4). Rebuild only Flash;
+shared HitImpact, Exhaust and Ezreal assets are not edited. The normal-speed
+`test_flash_visibility.py` uses the summoner fixture and writes samples at roughly
+0.07/0.23/0.4 seconds plus endpoint, rejection and cleanup results to
+`Saved/Validation/FlashVisibility`. This revision has not been recooked or tested
+in a launched packaged multiplayer session.
+Editor Development build and the normal-speed test passed: both endpoints still
+contained live particles at 0.083, 0.233 and 0.400 seconds (29/37, 28/36, 23/30),
+then auto-cleaned. Diagnostic captures can be enabled with `capture_frames=True`;
+keep it false for timing assertions because high-resolution capture stalls frames.
