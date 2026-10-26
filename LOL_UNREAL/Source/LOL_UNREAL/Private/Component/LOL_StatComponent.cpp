@@ -26,6 +26,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Particles/ParticleSystem.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Components/CapsuleComponent.h"
 
 ULOL_StatComponent::ULOL_StatComponent()
@@ -636,20 +637,30 @@ float ULOL_StatComponent::ApplyDamage(float InDamage, EDamageType DamageType, AC
 			LifeCycle->RecordDamageFrom(Instigator);
 		}
 
-		if (const ABaseChampion* Champion = Cast<ABaseChampion>(GetOwner()))
+		if (GetOwnerRole() == ROLE_Authority)
 		{
-			// Actor bounds include the large detection spheres. Anchor to the visible
-			// character instead, so floating numbers start just above its head.
-			FVector TextLocation = Champion->GetActorLocation();
-			if (const USkeletalMeshComponent* Mesh = Champion->GetMesh(); Mesh && Mesh->GetSkeletalMeshAsset())
+			APawn* AttackingPawn = Instigator ? Instigator->GetPawn() : nullptr;
+			if (!AttackingPawn && Causer)
 			{
-				TextLocation = Mesh->Bounds.Origin + FVector(0.0f, 0.0f, Mesh->Bounds.BoxExtent.Z + 12.0f);
+				AttackingPawn = Cast<APawn>(Causer);
+				if (!AttackingPawn) AttackingPawn = Causer->GetInstigator();
+				if (!AttackingPawn) AttackingPawn = Cast<APawn>(Causer->GetOwner());
 			}
-			else if (const UCapsuleComponent* Capsule = Champion->GetCapsuleComponent())
+
+			// Use the visible body, not actor bounds (which include detection spheres).
+			FVector TextLocation = GetOwner()->GetActorLocation() + FVector(0.0f, 0.0f, 100.0f);
+			const ACharacter* Character = Cast<ACharacter>(GetOwner());
+			const UMeshComponent* BodyMesh = Character ? Character->GetMesh() :
+				Cast<UMeshComponent>(GetOwner()->FindComponentByClass<UStaticMeshComponent>());
+			if (BodyMesh && BodyMesh->Bounds.BoxExtent.Z > 1.0f)
+			{
+				TextLocation = BodyMesh->Bounds.Origin + FVector(0.0f, 0.0f, BodyMesh->Bounds.BoxExtent.Z + 12.0f);
+			}
+			else if (const UCapsuleComponent* Capsule = GetOwner()->FindComponentByClass<UCapsuleComponent>())
 			{
 				TextLocation = Capsule->GetComponentLocation() + FVector(0.0f, 0.0f, Capsule->GetScaledCapsuleHalfHeight() + 12.0f);
 			}
-			Multicast_ShowDamageText(ActualDamage, TextLocation);
+			Multicast_ShowDamageText(ActualDamage, TextLocation, AttackingPawn);
 		}
 	}
 
@@ -676,13 +687,21 @@ void ULOL_StatComponent::Multicast_PlayHitImpact_Implementation(FVector WorldLoc
 		FRotator::ZeroRotator, FVector(FMath::Clamp(HitImpactScale, 0.1f, 3.f)), true);
 }
 
-void ULOL_StatComponent::Multicast_ShowDamageText_Implementation(float DamageAmount, FVector WorldLocation)
+void ULOL_StatComponent::Multicast_ShowDamageText_Implementation(float DamageAmount, FVector WorldLocation, APawn* AttackingPawn)
 {
 	UWorld* World = GetWorld();
-	if (!World || DamageAmount <= 0.0f)
+	if (!World || GetNetMode() == NM_DedicatedServer || DamageAmount <= 0.0f)
 	{
 		return;
 	}
+	const auto IsLocalPlayerPawn = [](const APawn* Pawn)
+	{
+		const APlayerController* Player = Pawn ? Cast<APlayerController>(Pawn->GetController()) : nullptr;
+		return Player && Player->IsLocalController();
+	};
+	// Each client sees its own outgoing and incoming hits, without numbers from
+	// unrelated minion fights. AI controllers must not count as local players.
+	if (!IsLocalPlayerPawn(AttackingPawn) && !IsLocalPlayerPawn(Cast<APawn>(GetOwner()))) return;
 
 	if (!DamageFloaterClass)
 	{
@@ -705,9 +724,11 @@ void ULOL_StatComponent::Multicast_ShowDamageText_Implementation(float DamageAmo
 	}
 
 	DamageFloater->SetLifeSpan(1.2f);
+	DamageFloater->SetReplicates(false);
 
 	UWidgetComponent* WidgetComponent =
 		DamageFloater->FindComponentByClass<UWidgetComponent>();
+	if (WidgetComponent) WidgetComponent->InitWidget();
 	UUserWidget* DamageWidget = WidgetComponent
 		? WidgetComponent->GetUserWidgetObject()
 		: nullptr;
@@ -721,6 +742,9 @@ void ULOL_StatComponent::Multicast_ShowDamageText_Implementation(float DamageAmo
 	if (DamageText)
 	{
 		DamageText->SetText(FText::AsNumber(FMath::RoundToInt(DamageAmount)));
+		const FColor TargetColor = GetOwner()->IsA<ABaseChampion>()
+			? FColor(255, 128, 48) : FColor(255, 224, 80);
+		DamageText->SetColorAndOpacity(FSlateColor(FLinearColor::FromSRGBColor(TargetColor)));
 	}
 }
 

@@ -193,7 +193,7 @@ public:
 	float ApplyDamage(float InDagame, EDamageType DamageType, AController* Instigator, AActor* Causer);
 
 	UFUNCTION(NetMulticast, Unreliable)
-	void Multicast_ShowDamageText(float DamageAmount, FVector WorldLocation);
+	void Multicast_ShowDamageText(float DamageAmount, FVector WorldLocation, APawn* AttackingPawn);
 
 	// A reflected class reference keeps the floater, widget and font in cooked builds.
 	UPROPERTY(EditDefaultsOnly, Category = "Combat|Damage Text")
