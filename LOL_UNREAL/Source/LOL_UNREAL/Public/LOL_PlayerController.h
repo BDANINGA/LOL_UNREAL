@@ -219,12 +219,14 @@ private:
 	FString LastCursorState;
 
 	// Debug
+	bool bIsDebugModeEnabled = false;
+
+	void ChangeModeDebugMode();
 	void DebugRecover();
 	void DebugLevelUp();
 	void DebugAddGold();
 	void DebugTeleport();
 	void DebugResetSkillCooldown();
-	void DebugKill();
 	void DebugRespawn();
 	void DebugTestVision();
 	void DebugResetGame();
@@ -237,9 +239,6 @@ private:
 
 	UFUNCTION(Server, Reliable)
 	void Server_DebugTeleport(const FVector& Location);
-
-	UFUNCTION(Server, Reliable)
-	void Server_DebugKill();
 
 	UFUNCTION(Server, Reliable)
 	void Server_DebugRespawn();

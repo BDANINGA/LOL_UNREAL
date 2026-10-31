@@ -319,15 +319,15 @@ void ALOL_PlayerController::SetupInputComponent()
 	InputComponent->BindKey(EKeys::Escape, IE_Pressed, this, &ALOL_PlayerController::OnQuitGame);
 	InputComponent->BindKey(EKeys::Y, IE_Pressed, this, &ALOL_PlayerController::OnToggleCameraLock);
 
-	InputComponent->BindKey(EKeys::F1, IE_Pressed, this, &ALOL_PlayerController::DebugRecover);
-	InputComponent->BindKey(EKeys::F2, IE_Pressed, this, &ALOL_PlayerController::DebugLevelUp);
-	InputComponent->BindKey(EKeys::F3, IE_Pressed, this, &ALOL_PlayerController::DebugAddGold);
-	InputComponent->BindKey(EKeys::F4, IE_Pressed, this, &ALOL_PlayerController::DebugTeleport);
-	InputComponent->BindKey(EKeys::F5, IE_Pressed, this, &ALOL_PlayerController::DebugResetSkillCooldown);
-	InputComponent->BindKey(EKeys::F6, IE_Pressed, this, &ALOL_PlayerController::DebugKill);
-	InputComponent->BindKey(EKeys::F7, IE_Pressed, this, &ALOL_PlayerController::DebugRespawn);
-	InputComponent->BindKey(EKeys::F8, IE_Pressed, this, &ALOL_PlayerController::DebugTestVision);
-	InputComponent->BindKey(EKeys::F9, IE_Pressed, this, &ALOL_PlayerController::DebugResetGame);
+	InputComponent->BindKey(EKeys::F3, IE_Pressed, this, &ALOL_PlayerController::ChangeModeDebugMode);
+	InputComponent->BindKey(EKeys::One, IE_Pressed, this, &ALOL_PlayerController::DebugRecover);
+	InputComponent->BindKey(EKeys::Two, IE_Pressed, this, &ALOL_PlayerController::DebugLevelUp);
+	InputComponent->BindKey(EKeys::Three, IE_Pressed, this, &ALOL_PlayerController::DebugAddGold);
+	InputComponent->BindKey(EKeys::Four, IE_Pressed, this, &ALOL_PlayerController::DebugTeleport);
+	InputComponent->BindKey(EKeys::Five, IE_Pressed, this, &ALOL_PlayerController::DebugResetSkillCooldown);
+	InputComponent->BindKey(EKeys::Six, IE_Pressed, this, &ALOL_PlayerController::DebugRespawn);
+	InputComponent->BindKey(EKeys::Seven, IE_Pressed, this, &ALOL_PlayerController::DebugTestVision);
+	InputComponent->BindKey(EKeys::Eight, IE_Pressed, this, &ALOL_PlayerController::DebugResetGame);
 }
 
 void ALOL_PlayerController::OnQuitGame()
@@ -1500,8 +1500,17 @@ void ALOL_PlayerController::ChangeCursorType(FString NewStateName)
 }
 
 
+void ALOL_PlayerController::ChangeModeDebugMode()
+{
+	bIsDebugModeEnabled = !bIsDebugModeEnabled;
+
+	UE_LOG(LogTemp, Warning, TEXT("[DEBUG] Debug Mode %s"),
+		bIsDebugModeEnabled ? TEXT("ON") : TEXT("OFF"));
+}
+
 void ALOL_PlayerController::DebugRecover()
 {
+	if (!bIsDebugModeEnabled) return;
 	if (!MyChampion)
 	{
 		return;
@@ -1539,6 +1548,7 @@ void ALOL_PlayerController::DebugRecover()
 }
 void ALOL_PlayerController::Server_ToggleAutoRecover_Implementation()
 {
+	if (!bIsDebugModeEnabled) return;
 	DebugRecover();
 }
 
@@ -1555,6 +1565,8 @@ void ALOL_PlayerController::DoAutoRecover()
 
 void ALOL_PlayerController::DebugLevelUp()
 {
+	if (!bIsDebugModeEnabled) return;
+
 	if (!MyChampion || !MyChampion->StatComponent)
 	{
 		return;
@@ -1575,10 +1587,13 @@ void ALOL_PlayerController::DebugLevelUp()
 }
 void ALOL_PlayerController::Server_DebugLevelUp_Implementation()
 {
+	if (!bIsDebugModeEnabled) return;
 	DebugLevelUp();
 }
 void ALOL_PlayerController::DebugAddGold()
 {
+	if (!bIsDebugModeEnabled) return;
+
 	if (!MyChampion || !MyChampion->StatComponent)
 	{
 		return;
@@ -1594,10 +1609,12 @@ void ALOL_PlayerController::DebugAddGold()
 }
 void ALOL_PlayerController::Server_DebugAddGold_Implementation()
 {
+	if (!bIsDebugModeEnabled) return;
 	DebugAddGold();
 }
 void ALOL_PlayerController::DebugTeleport()
 {
+	if (!bIsDebugModeEnabled) return;
 	if (!MyChampion)
 	{
 		return;
@@ -1626,6 +1643,7 @@ void ALOL_PlayerController::DebugTeleport()
 }
 void ALOL_PlayerController::Server_DebugTeleport_Implementation(const FVector& Location)
 {
+	if (!bIsDebugModeEnabled) return;
 	if (!MyChampion)
 	{
 		return;
@@ -1638,6 +1656,7 @@ void ALOL_PlayerController::Server_DebugTeleport_Implementation(const FVector& L
 }
 void ALOL_PlayerController::DebugResetSkillCooldown()
 {
+	if (!bIsDebugModeEnabled) return;
 	if (!MyChampion || !MyChampion->SkillComponent)
 		return;
 
@@ -1670,6 +1689,7 @@ void ALOL_PlayerController::DebugResetSkillCooldown()
 
 void ALOL_PlayerController::Server_ToggleAutoResetCooldown_Implementation()
 {
+	if (!bIsDebugModeEnabled) return;
 	DebugResetSkillCooldown();
 }
 
@@ -1682,27 +1702,11 @@ void ALOL_PlayerController::DoAutoResetCooldown()
 
 	MyChampion->SkillComponent->DebugResetCooldowns();
 }
-void ALOL_PlayerController::DebugKill()
-{
-	if (!MyChampion || !MyChampion->StatComponent)
-	{
-		return;
-	}
 
-	if (!HasAuthority())
-	{
-		Server_DebugKill();
-		return;
-	}
-
-	MyChampion->StatComponent->SetHP(0.f);
-}
-void ALOL_PlayerController::Server_DebugKill_Implementation()
-{
-	DebugKill();
-}
 void ALOL_PlayerController::DebugRespawn()
 {
+	if (!bIsDebugModeEnabled) return;
+
 	if (!MyChampion)
 	{
 		return;
@@ -1721,10 +1725,12 @@ void ALOL_PlayerController::DebugRespawn()
 }
 void ALOL_PlayerController::Server_DebugRespawn_Implementation()
 {
+	if (!bIsDebugModeEnabled) return;
 	DebugRespawn();
 }
 void ALOL_PlayerController::DebugTestVision()
 {
+	if (!bIsDebugModeEnabled) return;
 	UE_LOG(
 		LogTemp,
 		Warning,
@@ -1733,6 +1739,7 @@ void ALOL_PlayerController::DebugTestVision()
 }
 void ALOL_PlayerController::DebugResetGame()
 {
+	if (!bIsDebugModeEnabled) return;
 	UE_LOG(
 		LogTemp,
 		Warning,
