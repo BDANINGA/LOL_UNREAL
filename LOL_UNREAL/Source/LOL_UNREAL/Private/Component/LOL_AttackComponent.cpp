@@ -273,16 +273,11 @@ void ULOL_AttackComponent::StartAttack()
             }
             else if (ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(OwnerPawn))
             {
-                JungleMonster->SetActorRotation(NewRotation);
-                if (JungleMonster->JungleMonsterResource.AttackMontage.Num() > 0 && JungleMonster->JungleMonsterResource.AttackMontage[0])
-                {
-                    if (UAnimInstance* AnimInst = JungleMonster->GetMesh()->GetAnimInstance())
-                    {
-                        AnimInst->Montage_Play(
-                            JungleMonster->JungleMonsterResource.AttackMontage[0],
-                            AttackMontagePlayRate);
-                    }
-                }
+                const auto& Montages = JungleMonster->JungleMonsterResource.AttackMontage;
+                JungleMonster->Multicast_PlayAttackMontage(
+                    Montages.IsValidIndex(0) ? Montages[0].Get() : nullptr,
+                    AttackMontagePlayRate,
+                    NewRotation);
             }
             else if (ABuilding_Turret* Turret = Cast<ABuilding_Turret>(OwnerPawn))
             {

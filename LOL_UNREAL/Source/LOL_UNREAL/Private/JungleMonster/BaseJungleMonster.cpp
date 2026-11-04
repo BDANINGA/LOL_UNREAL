@@ -169,6 +169,15 @@ void ABaseJungleMonster::Tick(float DeltaTime)
 	}
 }
 
+void ABaseJungleMonster::Multicast_PlayAttackMontage_Implementation(UAnimMontage* Montage, float PlayRate, FRotator TargetRotation)
+{
+	SetActorRotation(TargetRotation);
+	if (Montage)
+	{
+		PlayAnimMontage(Montage, PlayRate);
+	}
+}
+
 void ABaseJungleMonster::ApplyCrowdControl(float Duration)
 {
 	if (!HasAuthority())

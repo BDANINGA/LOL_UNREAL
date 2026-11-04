@@ -77,6 +77,9 @@ public:
 	void ApplyCrowdControl(float Duration);
 	void ApplyChaseMoveSpeed();
 
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayAttackMontage(UAnimMontage* Montage, float PlayRate, FRotator TargetRotation);
+
 protected:
 	FVector GetMeshScaleForMonster(FName RowName) const;
 	void StartReturnToSpawn();
