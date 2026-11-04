@@ -157,6 +157,19 @@ public:
     void CacheMinimapChampionImages();
     void UpdateMinimapChampions();
 
+    UPROPERTY(meta = (BindWidgetOptional)) class UImage* Minimap_Turret_Image_0;
+
+    TArray<class UImage*> CachedMinimapTurretImages;
+    TArray<class UImage*> CachedMinimapInhibitorImages;
+    TArray<class UImage*> CachedMinimapNexusImages;
+    TArray<class UImage*> CachedMinimapMonsterImages;
+
+    void CacheMinimapStructureImages();
+    void UpdateMinimapStructures();
+
+    void CacheMinimapMonsterImages();
+    void UpdateMinimapMonsters();
+
     void SetAttackDamage(float Value) { if (Txt_AD) Txt_AD->SetText(FText::AsNumber(Value)); }
     void SetAbilityPower(float Value) { if (Txt_AP) Txt_AP->SetText(FText::AsNumber(Value)); }
     void SetArmor(float Value) { if (Txt_Armor) Txt_Armor->SetText(FText::AsNumber(Value)); }

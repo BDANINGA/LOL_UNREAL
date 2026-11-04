@@ -9,12 +9,16 @@
 #include "Components/Widget.h"
 
 #include "Component/Champion_SkillComponent.h"
+#include "Component/LOL_StateComponent.h"
 
 #include "LOL_GameState.h"
 #include "LOL_PlayerState.h"
 #include "LOL_PlayerController.h"
 #include "BaseChampion.h"
-
+#include "Building/Building_Turret.h"
+#include "Building/Building_Inhibitor.h"
+#include "Building/Building_Nexus.h"
+#include "JungleMonster/BaseJungleMonster.h"
 
 #include "Kismet/GameplayStatics.h"
 
@@ -119,6 +123,8 @@ void ULOL_HUDWidget::NativeConstruct()
 
     CacheSummonerSpellWidgets();
     CacheMinimapChampionImages();
+    CacheMinimapStructureImages();
+    CacheMinimapMonsterImages();
 
     CacheItemSlotImages();
     CacheScoreboardTextBlocks();
@@ -240,6 +246,8 @@ void ULOL_HUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
     UpdateSkillLevelUpButtonStates();
     UpdateSkillDisableOverlays();
     UpdateMinimapChampions();
+    UpdateMinimapStructures();
+    UpdateMinimapMonsters();
 }
 
 void ULOL_HUDWidget::UpdateScoreboard()
@@ -725,6 +733,150 @@ void ULOL_HUDWidget::UpdateMinimapChampions()
 
                 // 초상화 적용 및 표시
                 SlotImage->SetBrushFromTexture(Champion->ChampionResource.Portrait_Circle, false);
+                SlotImage->SetVisibility(ESlateVisibility::Visible);
+            }
+            else
+            {
+                SlotImage->SetVisibility(ESlateVisibility::Collapsed);
+            }
+        }
+        else
+        {
+            SlotImage->SetVisibility(ESlateVisibility::Collapsed);
+        }
+    }
+}
+void ULOL_HUDWidget::CacheMinimapStructureImages()
+{
+    CachedMinimapTurretImages.Reset();
+    CachedMinimapInhibitorImages.Reset();
+    CachedMinimapNexusImages.Reset();
+
+    if (!WidgetTree) return;
+
+    // 예시: 위젯에 배치된 이름표(예: Minimap_Turret_0 ~ N)를 바인딩
+    auto AddTurretImage = [this](const FName& Name) {
+        if (UImage* Img = Cast<UImage>(WidgetTree->FindWidget(Name)))
+        {
+            CachedMinimapTurretImages.Add(Img);
+        }
+        };
+
+    // 준비된 위젯 이름에 맞춰 반복문 혹은 개별 추가
+    for (int32 i = 0; i < 20; ++i) // 포탑 총 개수에 맞춰 조절
+    {
+        AddTurretImage(*FString::Printf(TEXT("Minimap_Turret_Image_%d"), i));
+    }
+
+    // 억제기 및 넥서스도 동일한 방식으로 Add 인라인 람다 활용 가능
+}
+void ULOL_HUDWidget::UpdateMinimapStructures()
+{
+    if (!MiniMap) return;
+    ALOL_PlayerController* PC = Cast<ALOL_PlayerController>(GetOwningPlayer());
+    if (!PC) return;
+
+    const FVector2D MinimapSize = MiniMap->GetCachedGeometry().GetLocalSize();
+    if (MinimapSize.X <= 0.f || MinimapSize.Y <= 0.f) return;
+
+    // 예: 포탑 액터들 수집 (프로젝트의 실제 포탑 클래스명으로 변경)
+    TArray<AActor*> FoundTurrets;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABuilding_Turret::StaticClass(), FoundTurrets);
+
+    for (int32 i = 0; i < CachedMinimapTurretImages.Num(); ++i)
+    {
+        UImage* SlotImage = CachedMinimapTurretImages[i];
+        if (!SlotImage) continue;
+
+        if (FoundTurrets.IsValidIndex(i) && FoundTurrets[i])
+        {
+            ABuilding_Turret* Turret = Cast<ABuilding_Turret>(FoundTurrets[i]);
+            ULOL_StateComponent* StateComp = Turret->FindComponentByClass<ULOL_StateComponent>();
+            if (StateComp)
+            {
+                // 상태 태그 확인 (예: 사망 상태 체크)
+                if (!StateComp->HasStatusTag(LOLTags::State_Dead))
+                {
+                    FVector Loc = Turret->GetActorLocation();
+                    float NormX = FMath::GetRangePct(PC->MinimapWorldMin.X, PC->MinimapWorldMax.X, Loc.X);
+                    float NormY = FMath::GetRangePct(PC->MinimapWorldMin.Y, PC->MinimapWorldMax.Y, Loc.Y);
+
+                    NormX = FMath::Clamp(NormX, 0.0f, 1.0f);
+                    NormY = FMath::Clamp(NormY, 0.0f, 1.0f);
+                    if (PC->bInvertMinimapY) NormY = 1.0f - NormY;
+
+                    FVector2D LocalPosition(NormX * MinimapSize.X, NormY * MinimapSize.Y);
+                    if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(SlotImage->Slot))
+                    {
+                        CanvasSlot->SetPosition(LocalPosition);
+                    }
+                    SlotImage->SetVisibility(ESlateVisibility::Visible);
+                }
+            }
+            else
+            {
+                SlotImage->SetVisibility(ESlateVisibility::Collapsed); // 파괴 시 숨김
+            }
+        }
+        else
+        {
+            SlotImage->SetVisibility(ESlateVisibility::Collapsed);
+        }
+    }
+
+    // 억제기(Inhibitor)와 넥서스(Nexus)도 위와 동일한 구조로 반복 구현
+}
+void ULOL_HUDWidget::CacheMinimapMonsterImages()
+{
+    CachedMinimapMonsterImages.Reset();
+    if (!WidgetTree) return;
+
+    for (int32 i = 0; i < 15; ++i) // 정글 캠프/몬스터 최대 표시 개수
+    {
+        if (UImage* Img = Cast<UImage>(WidgetTree->FindWidget(*FString::Printf(TEXT("Minimap_Monster_Image_%d"), i))))
+        {
+            CachedMinimapMonsterImages.Add(Img);
+        }
+    }
+}
+
+void ULOL_HUDWidget::UpdateMinimapMonsters()
+{
+    if (!MiniMap) return;
+    ALOL_PlayerController* PC = Cast<ALOL_PlayerController>(GetOwningPlayer());
+    if (!PC) return;
+
+    const FVector2D MinimapSize = MiniMap->GetCachedGeometry().GetLocalSize();
+    if (MinimapSize.X <= 0.f) return;
+
+    TArray<AActor*> FoundMonsters;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABaseJungleMonster::StaticClass(), FoundMonsters);
+
+    for (int32 i = 0; i < CachedMinimapMonsterImages.Num(); ++i)
+    {
+        UImage* SlotImage = CachedMinimapMonsterImages[i];
+        if (!SlotImage) continue;
+
+        // 살아있는 몬스터만 필터링하거나 리스트를 압축해서 매핑할 수도 있습니다.
+        if (FoundMonsters.IsValidIndex(i) && FoundMonsters[i])
+        {
+            ABaseJungleMonster* Monster = Cast<ABaseJungleMonster>(FoundMonsters[i]);
+            // 예: 살아있고(스폰 상태이고) 대형 몬스터(바론, 드래곤, 레드/블루 등)인 경우만 표시 필터링 가능
+            if (Monster && Monster->StateComponent && !Monster->StateComponent->HasStatusTag(LOLTags::State_Dead))
+            {
+                FVector Loc = Monster->GetActorLocation();
+                float NormX = FMath::GetRangePct(PC->MinimapWorldMin.X, PC->MinimapWorldMax.X, Loc.X);
+                float NormY = FMath::GetRangePct(PC->MinimapWorldMin.Y, PC->MinimapWorldMax.Y, Loc.Y);
+
+                NormX = FMath::Clamp(NormX, 0.0f, 1.0f);
+                NormY = FMath::Clamp(NormY, 0.0f, 1.0f);
+                if (PC->bInvertMinimapY) NormY = 1.0f - NormY;
+
+                FVector2D LocalPosition(NormX * MinimapSize.X, NormY * MinimapSize.Y);
+                if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(SlotImage->Slot))
+                {
+                    CanvasSlot->SetPosition(LocalPosition);
+                }
                 SlotImage->SetVisibility(ESlateVisibility::Visible);
             }
             else
