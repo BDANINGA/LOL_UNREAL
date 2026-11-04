@@ -164,7 +164,7 @@ void AChampion_Ezreal::Server_Skill_Q_Implementation(FVector TargetLocation)
 
     const float Range = QData.Range.IsValidIndex(SkillLevelIdx)
         ? QData.Range[SkillLevelIdx]
-        : 1200.0f;
+        : 500.0f;
     const float BaseDamage = QData.BaseDamage.IsValidIndex(SkillLevelIdx)
         ? QData.BaseDamage[SkillLevelIdx]
         : 0.0f;

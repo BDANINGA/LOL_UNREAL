@@ -158,7 +158,7 @@ protected:
     float RWaveIntensity = 1.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
-    float QProjectileSpeed = 800.0f;
+    float QProjectileSpeed = 1300.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
     float WProjectileSpeed = 800.0f;
