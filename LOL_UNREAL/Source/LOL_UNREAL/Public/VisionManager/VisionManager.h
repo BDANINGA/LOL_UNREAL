@@ -8,6 +8,7 @@ class ULOL_VisionComponent;
 class UTextureRenderTarget2D;
 class UMaterialInterface;
 class UMaterialInstanceDynamic;
+class UWidgetComponent;
 
 UCLASS()
 class AVisionManager : public AActor
@@ -30,6 +31,25 @@ public:
 
 	void UpdateFoW();
 
+	// Shared by local rendering and server-side targeting; never depends on local hidden state.
+	bool CanTeamSeeActor(const AActor* Viewer, const AActor* Target) const;
+	bool CanSourceSeeActor(const ULOL_VisionComponent* Source, const AActor* Target) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Vision|Bush")
+	void RebuildBushRegions();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|Bush")
+	FString BushMeshName = TEXT("stylized_bush");
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|Bush", meta = (ClampMin = "0.1", ClampMax = "2.0"))
+	float BushFootprintScale = 0.75f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|Bush", meta = (ClampMin = "0.0"))
+	float BushHeight = 300.f;
+
+	// Also permits explicitly authored regions and deterministic gameplay tests.
+	void SetBushRegions(const TArray<FBox>& Regions);
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Vision|Render")
 	UTextureRenderTarget2D* FoWRenderTarget;
 
@@ -43,6 +63,9 @@ public:
 	FVector2D MapMaxBounds = FVector2D(5000.0f, 5000.0f);
 
 private:
+	TArray<FBox> BushRegions;
+	TArray<int32> BushGroups;
+	TMap<TWeakObjectPtr<UWidgetComponent>, bool> HiddenWidgetVisibility;
 	UPROPERTY()
 	TArray<ULOL_VisionComponent*> BlueVisionComponents;
 	UPROPERTY()

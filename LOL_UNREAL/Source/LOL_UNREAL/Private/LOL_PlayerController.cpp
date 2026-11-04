@@ -1005,7 +1005,7 @@ void ALOL_PlayerController::UpdateCursorSelection()
 		bool bIsEnemyTarget = false;
 		if (TargetActor && TargetActor != MyChampion && TargetActor->FindComponentByClass<ULOL_StateComponent>())
 		{
-			bIsEnemyTarget = MyChampion->IsEnemyActor(TargetActor);
+			bIsEnemyTarget = IsClickableAttackTarget(TargetActor);
 		}
 		if (bIsEnemyTarget && MyChampion->GetIsPressA())
 		{
@@ -1030,8 +1030,11 @@ void ALOL_PlayerController::UpdateCursorSelection()
 bool ALOL_PlayerController::GetTargetAwareHitUnderCursor(FHitResult& OutHit) const
 {
 	FHitResult VisibilityHit;
-	const bool bHasVisibilityHit =
-		GetHitResultUnderCursor(ECC_Visibility, false, VisibilityHit);
+    FCollisionQueryParams VisibleQuery(SCENE_QUERY_STAT(VisibleCursorTrace), false);
+    for (const auto& HiddenActor : HiddenActors) VisibleQuery.AddIgnoredActor(HiddenActor.Get());
+    FVector2D MousePosition;
+    const bool bHasVisibilityHit = GetMousePosition(MousePosition.X, MousePosition.Y) &&
+        GetHitResultAtScreenPosition(MousePosition, ECC_Visibility, VisibleQuery, VisibilityHit);
 
 	if (bHasVisibilityHit)
 	{
@@ -1057,6 +1060,7 @@ bool ALOL_PlayerController::GetTargetAwareHitUnderCursor(FHitResult& OutHit) con
 	TArray<FHitResult> Hits;
 	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(CursorExpandedTargetTrace), false);
 	QueryParams.AddIgnoredActor(MyChampion);
+    for (const auto& HiddenActor : HiddenActors) QueryParams.AddIgnoredActor(HiddenActor.Get());
 
 	const FVector TraceEnd =
 		WorldOrigin + WorldDirection.GetSafeNormal() * ExpandedTargetTraceDistance;
@@ -1100,6 +1104,11 @@ bool ALOL_PlayerController::GetTargetAwareHitUnderCursor(FHitResult& OutHit) con
 
 bool ALOL_PlayerController::IsClickableAttackTarget(AActor* TargetActor) const
 {
+    if (const auto* Manager = Cast<AVisionManager>(UGameplayStatics::GetActorOfClass(GetWorld(), AVisionManager::StaticClass())))
+    {
+        if (!Manager->CanTeamSeeActor(MyChampion, TargetActor)) return false;
+    }
+
 	return
 		MyChampion &&
 		TargetActor &&

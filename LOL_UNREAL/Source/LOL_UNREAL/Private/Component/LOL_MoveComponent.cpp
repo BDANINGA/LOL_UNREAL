@@ -7,6 +7,8 @@
 #include "Components/SphereComponent.h"
 
 #include "BaseChampion.h"
+#include "VisionManager/VisionManager.h"
+#include "Kismet/GameplayStatics.h"
 #include "JungleMonster/BaseJungleMonster.h"
 #include "Minion/BaseMinion.h"
 
@@ -64,6 +66,10 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
                     continue;
                 }
 
+                if (const auto* Manager = Cast<AVisionManager>(UGameplayStatics::GetActorOfClass(GetWorld(), AVisionManager::StaticClass())))
+                {
+                    if (!Manager->CanTeamSeeActor(Champion, Enemy)) continue;
+                }
                 float DistSquared = FVector::DistSquared(MyLoc, Enemy->GetActorLocation());
                 if (DistSquared < MinDistSquared)
                 {
@@ -111,7 +117,9 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
     }
     else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
     {
-        if (StateComp && StateComp->HasStatusTag(LOLTags::State_Moving))
+        if (Minion->HasAuthority() && StateComp && StateComp->HasStatusTag(LOLTags::State_Moving) &&
+            Minion->PathPoints.IsValidIndex(Minion->CurrentPathIndex) &&
+            TargetLocation.Equals(Minion->PathPoints[Minion->CurrentPathIndex]))
         {
             float Distance = FVector::Dist2D(OwnerPawn->GetActorLocation(), TargetLocation);
             if (Distance <= 100.f)

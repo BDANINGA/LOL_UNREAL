@@ -26,6 +26,7 @@
 #include "Component/LOL_UIComponent.h"
 #include "Component/LOL_StateComponent.h"
 #include "Component/LOL_VisionComponent.h"
+#include "VisionManager/VisionManager.h"
 
 #include "GamePlayTag/LOL_GamePlayTags.h"
 #include "Component/Champion_SkillComponent.h"
@@ -553,6 +554,11 @@ void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation
 	}
 
 	MoveComponent->bIsSearchAttack = bIsSearch;
+
+	if (const auto* Manager = Cast<AVisionManager>(UGameplayStatics::GetActorOfClass(GetWorld(), AVisionManager::StaticClass())))
+    {
+        if (TargetActor && !Manager->CanTeamSeeActor(this, TargetActor)) TargetActor = nullptr;
+    }
 
 	AActor* AttackTarget = nullptr;
 	if (TargetActor && TargetActor != this && IsEnemyActor(TargetActor) && TargetActor->FindComponentByClass<ULOL_StateComponent>())

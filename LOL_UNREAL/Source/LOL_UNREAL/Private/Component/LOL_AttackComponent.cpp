@@ -8,6 +8,7 @@
 #include "Components/CapsuleComponent.h"
 
 #include "BaseChampion.h"
+#include "VisionManager/VisionManager.h"
 #include "JungleMonster/BaseJungleMonster.h"
 #include "Minion/BaseMinion.h"
 #include "Minion/Minion_Caster.h"
@@ -50,6 +51,11 @@ bool ULOL_AttackComponent::IsValidAttackTarget(AActor* Target) const
     if (!OwnerPawn || !Target || Target == OwnerPawn)
     {
         return false;
+    }
+
+    if (const auto* Manager = Cast<AVisionManager>(UGameplayStatics::GetActorOfClass(GetWorld(), AVisionManager::StaticClass())))
+    {
+        if (!Manager->CanTeamSeeActor(OwnerPawn, Target)) return false;
     }
 
     if (const ABaseChampion* OwnerChampion = Cast<ABaseChampion>(OwnerPawn))
