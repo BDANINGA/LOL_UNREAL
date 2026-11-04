@@ -748,6 +748,21 @@ void ABaseChampion::StartRecall()
 	Server_StartRecall();
 }
 
+void ABaseChampion::DebugReturnToBase()
+{
+	if (!HasAuthority() || (StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead))) return;
+	CancelRecall();
+	if (AttackComponent)
+	{
+		AttackComponent->CancelAttack();
+		AttackComponent->CombatTarget = nullptr;
+		AttackComponent->HitTarget = nullptr;
+	}
+	if (MoveComponent) MoveComponent->StopMovement();
+	if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+	TeleportTo(RecallHomeLocation, RecallHomeRotation);
+}
+
 void ABaseChampion::Server_StartRecall_Implementation()
 {
 	if (bIsGrabbed) return;

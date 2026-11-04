@@ -119,6 +119,16 @@ void ULOL_SummonerSpellComponent::CastFlash(const FVector& TargetLocation)
 	Server_CastFlash(TargetLocation);
 }
 
+void ULOL_SummonerSpellComponent::DebugResetCooldowns()
+{
+	if (!GetOwner() || !GetOwner()->HasAuthority()) return;
+	if (ExhaustCooldownEndTime > GetWorld()->GetTimeSeconds())
+		Client_StartSummonerSpellCooldown(TEXT("Spell1"), 0.f);
+	if (FlashCooldownEndTime > GetWorld()->GetTimeSeconds())
+		Client_StartSummonerSpellCooldown(TEXT("Spell2"), 0.f);
+	FlashCooldownEndTime = ExhaustCooldownEndTime = 0.f;
+}
+
 bool ULOL_SummonerSpellComponent::CanCastSummonerSpell() const
 {
 	if (!OwnerChampion || !OwnerChampion->StateComponent)

@@ -16,6 +16,9 @@
 
 #include "Widget/LOL_CursorWidget.h"
 #include "Widget/LOL_QuitConfirmWidget.h"
+#include "Widget/LOL_DebugPanel.h"
+#include "Components/CapsuleComponent.h"
+#include "Misc/CommandLine.h"
 #include "Widget/LOL_DamageVignetteWidget.h"
 #include "Widget/LOL_GameResultWidget.h"
 #include "Widget/LOL_ShopInputProcessor.h"
@@ -144,6 +147,9 @@ void ALOL_PlayerController::GetLifetimeReplicatedProps(
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ALOL_PlayerController, SelectedChampionClass);
+	DOREPLIFETIME_CONDITION(ALOL_PlayerController, bIsDebugModeEnabled, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(ALOL_PlayerController, bIsAutoRecoverActive, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(ALOL_PlayerController, bIsAutoResetCooldownActive, COND_OwnerOnly);
 }
 
 void ALOL_PlayerController::MoveCameraToMinimapUV(const FVector2D& UV)
@@ -237,6 +243,7 @@ void ALOL_PlayerController::OnPossess(APawn* InPawn)
 
 void ALOL_PlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (DebugPanel) { DebugPanel->RemoveFromParent(); DebugPanel = nullptr; }
 	if (UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().ClearTimer(AutoRecoverTimerHandle);
@@ -375,7 +382,7 @@ void ALOL_PlayerController::SetupInputComponent()
 	InputComponent->BindKey(EKeys::Three, IE_Pressed, this, &ALOL_PlayerController::DebugAddGold);
 	InputComponent->BindKey(EKeys::Four, IE_Pressed, this, &ALOL_PlayerController::DebugTeleport);
 	InputComponent->BindKey(EKeys::Five, IE_Pressed, this, &ALOL_PlayerController::DebugResetSkillCooldown);
-	InputComponent->BindKey(EKeys::Six, IE_Pressed, this, &ALOL_PlayerController::DebugRespawn);
+	InputComponent->BindKey(EKeys::Six, IE_Pressed, this, &ALOL_PlayerController::DebugReturnToBase);
 	InputComponent->BindKey(EKeys::Seven, IE_Pressed, this, &ALOL_PlayerController::DebugTestVision);
 	InputComponent->BindKey(EKeys::Eight, IE_Pressed, this, &ALOL_PlayerController::DebugResetGame);
 }
@@ -472,6 +479,11 @@ void ALOL_PlayerController::OnRightClick()
 }
 void ALOL_PlayerController::OnLeftClick()
 {
+	if (bIsDebugModeEnabled && bPickingDebugDestination)
+	{
+		DebugTeleport();
+		return;
+	}
 	if (MyChampion && MyChampion->IsLocallyControlled())
 	{
 		if (MyChampion->GetIsPressA())
@@ -1563,10 +1575,73 @@ void ALOL_PlayerController::ChangeCursorType(FString NewStateName)
 
 void ALOL_PlayerController::ChangeModeDebugMode()
 {
-	bIsDebugModeEnabled = !bIsDebugModeEnabled;
+	if (!IsLocalController() || QuitConfirmWidget || GameResultWidget) return;
+	if (HasAuthority()) SetAuthorityDebugMode(!bIsDebugModeEnabled);
+	else Server_SetDebugMode(!bIsDebugModeEnabled);
+}
 
-	UE_LOG(LogTemp, Warning, TEXT("[DEBUG] Debug Mode %s"),
-		bIsDebugModeEnabled ? TEXT("ON") : TEXT("OFF"));
+void ALOL_PlayerController::Server_SetDebugMode_Implementation(bool bEnabled)
+{
+#if UE_BUILD_SHIPPING
+	// A public shipping server must explicitly opt in to remote debug controls.
+	if (bEnabled && !IsLocalController() && !FParse::Param(FCommandLine::Get(), TEXT("AllowDebugTools")))
+	{
+		ClientMessage(TEXT("이 서버에서는 디버그 모드를 사용할 수 없습니다."));
+		return;
+	}
+#endif
+	SetAuthorityDebugMode(bEnabled);
+}
+
+void ALOL_PlayerController::SetAuthorityDebugMode(bool bEnabled)
+{
+	bIsDebugModeEnabled = bEnabled;
+	if (!bEnabled)
+	{
+		bIsAutoRecoverActive = bIsAutoResetCooldownActive = false;
+		GetWorldTimerManager().ClearTimer(AutoRecoverTimerHandle);
+		GetWorldTimerManager().ClearTimer(AutoResetCooldownTimerHandle);
+	}
+	OnRep_DebugMode();
+	ForceNetUpdate();
+}
+
+void ALOL_PlayerController::OnRep_DebugMode()
+{
+	if (!IsLocalController()) return;
+	bPickingDebugDestination = false;
+	if (bIsDebugModeEnabled && !DebugPanel)
+	{
+		DebugPanel = CreateWidget<ULOL_DebugPanel>(this, ULOL_DebugPanel::StaticClass());
+		if (DebugPanel) DebugPanel->AddToPlayerScreen(150);
+	}
+	else if (!bIsDebugModeEnabled && DebugPanel)
+	{
+		DebugPanel->RemoveFromParent();
+		DebugPanel = nullptr;
+	}
+	RefreshDebugPanel();
+}
+
+void ALOL_PlayerController::RefreshDebugPanel()
+{
+	if (DebugPanel) DebugPanel->Refresh();
+}
+
+void ALOL_PlayerController::RunDebugPanelAction(int32 Row)
+{
+	if (!bIsDebugModeEnabled || !IsLocalController()) return;
+	if (Row != 4) bPickingDebugDestination = false;
+	switch (Row)
+	{
+	case 1: DebugRecover(); break;
+	case 2: DebugLevelUp(); break;
+	case 3: DebugAddGold(); break;
+	case 4: bPickingDebugDestination = !bPickingDebugDestination; break;
+	case 5: DebugResetSkillCooldown(); break;
+	case 6: DebugReturnToBase(); break;
+	}
+	RefreshDebugPanel();
 }
 
 void ALOL_PlayerController::DebugRecover()
@@ -1586,6 +1661,8 @@ void ALOL_PlayerController::DebugRecover()
 
 	// 스위치 토글 (ON <-> OFF)
 	bIsAutoRecoverActive = !bIsAutoRecoverActive;
+	RefreshDebugPanel();
+	ForceNetUpdate();
 	UWorld* World = GetWorld();
 	if (!World) return;
 
@@ -1690,7 +1767,9 @@ void ALOL_PlayerController::DebugTeleport()
 	{
 		return;
 	}
-	HitResult.ImpactPoint.Z += 50.f;
+	bPickingDebugDestination = false;
+	RefreshDebugPanel();
+	HitResult.ImpactPoint.Z += MyChampion->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 2.f;
 	if (!HasAuthority())
 	{
 		Server_DebugTeleport(HitResult.ImpactPoint);
@@ -1730,13 +1809,15 @@ void ALOL_PlayerController::DebugResetSkillCooldown()
 
 	// 스위치 토글 (ON <-> OFF)
 	bIsAutoResetCooldownActive = !bIsAutoResetCooldownActive;
+	RefreshDebugPanel();
+	ForceNetUpdate();
 	UWorld* World = GetWorld();
 	if (!World) return;
 
 	if (bIsAutoResetCooldownActive)
 	{
 		// 켜지는 순간 즉시 한 번 초기화 후 1초마다 반복 설정 (Looping = true)
-		MyChampion->SkillComponent->DebugResetCooldowns();
+		DoAutoResetCooldown();
 		World->GetTimerManager().SetTimer(AutoResetCooldownTimerHandle, this, &ALOL_PlayerController::DoAutoResetCooldown, 1.0f, true);
 		UE_LOG(LogTemp, Log, TEXT("[DEBUG] Auto Reset Skill Cooldown ON (1초마다 쿨타임 초기화)"));
 	}
@@ -1762,9 +1843,10 @@ void ALOL_PlayerController::DoAutoResetCooldown()
 	}
 
 	MyChampion->SkillComponent->DebugResetCooldowns();
+	if (MyChampion->SummonerSpellComponent) MyChampion->SummonerSpellComponent->DebugResetCooldowns();
 }
 
-void ALOL_PlayerController::DebugRespawn()
+void ALOL_PlayerController::DebugReturnToBase()
 {
 	if (!bIsDebugModeEnabled) return;
 
@@ -1775,19 +1857,16 @@ void ALOL_PlayerController::DebugRespawn()
 
 	if (!HasAuthority())
 	{
-		Server_DebugRespawn();
+		Server_DebugReturnToBase();
 		return;
 	}
 
-	if (MyChampion->LifeCycleComponent)
-	{
-		MyChampion->LifeCycleComponent->Respawn();
-	}
+	MyChampion->DebugReturnToBase();
 }
-void ALOL_PlayerController::Server_DebugRespawn_Implementation()
+void ALOL_PlayerController::Server_DebugReturnToBase_Implementation()
 {
 	if (!bIsDebugModeEnabled) return;
-	DebugRespawn();
+	DebugReturnToBase();
 }
 void ALOL_PlayerController::DebugTestVision()
 {

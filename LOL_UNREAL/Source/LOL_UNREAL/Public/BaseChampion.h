@@ -160,6 +160,7 @@ public:
 	bool IsCastingSkill() const { return bIsCastingSkill; }
 
 	void StartRecall();
+	void DebugReturnToBase();
 	void CancelRecall();
 
 	UFUNCTION(Server, Reliable)

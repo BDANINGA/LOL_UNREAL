@@ -226,6 +226,19 @@ private:
 	FString LastCursorState;
 
 	// Debug
+	friend class ULOL_DebugPanel;
+	UPROPERTY(Transient)
+	TObjectPtr<class ULOL_DebugPanel> DebugPanel;
+	bool bPickingDebugDestination = false;
+	void RunDebugPanelAction(int32 Row);
+	UFUNCTION()
+	void RefreshDebugPanel();
+	UFUNCTION(Server, Reliable)
+	void Server_SetDebugMode(bool bEnabled);
+	void SetAuthorityDebugMode(bool bEnabled);
+	UFUNCTION()
+	void OnRep_DebugMode();
+	UPROPERTY(ReplicatedUsing=OnRep_DebugMode)
 	bool bIsDebugModeEnabled = false;
 
 	void ChangeModeDebugMode();
@@ -234,7 +247,7 @@ private:
 	void DebugAddGold();
 	void DebugTeleport();
 	void DebugResetSkillCooldown();
-	void DebugRespawn();
+	void DebugReturnToBase();
 	void DebugTestVision();
 	void DebugResetGame();
 
@@ -248,14 +261,16 @@ private:
 	void Server_DebugTeleport(const FVector& Location);
 
 	UFUNCTION(Server, Reliable)
-	void Server_DebugRespawn();
+	void Server_DebugReturnToBase();
 
 	/*UFUNCTION(Server, Reliable)
 	void Server_DebugResetGame();*/
 
+	UPROPERTY(ReplicatedUsing=RefreshDebugPanel)
 	bool bIsAutoRecoverActive = false;
 	FTimerHandle AutoRecoverTimerHandle;
 
+	UPROPERTY(ReplicatedUsing=RefreshDebugPanel)
 	bool bIsAutoResetCooldownActive = false;
 	FTimerHandle AutoResetCooldownTimerHandle;
 
