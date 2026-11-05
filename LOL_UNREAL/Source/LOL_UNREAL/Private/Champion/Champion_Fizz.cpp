@@ -15,12 +15,18 @@
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInterface.h"
+#include "Particles/ParticleSystem.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "Net/UnrealNetwork.h"
 #include "UObject/ConstructorHelpers.h"
 
 AChampion_Fizz::AChampion_Fizz()
 {
 	ChampionName = TEXT("Fizz");
 	SetChampionData(ChampionName);
+	QWaterEffect = TSoftObjectPtr<UParticleSystem>(FSoftObjectPath(TEXT("/Game/VFX/Fizz/P_FizzQWater.P_FizzQWater")));
+	WWeaponEffect = TSoftObjectPtr<UParticleSystem>(FSoftObjectPath(TEXT("/Game/VFX/Fizz/P_FizzWWeapon.P_FizzWWeapon")));
+	WImpactEffect = TSoftObjectPtr<UParticleSystem>(FSoftObjectPath(TEXT("/Game/VFX/Fizz/P_FizzWImpact.P_FizzWImpact")));
 
 	static ConstructorHelpers::FObjectFinder<USkeletalMesh> SharkMeshAsset(
 		TEXT("/Game/Level/fizz/tex_fizz/fizz_r_shark.fizz_r_shark"));
@@ -157,6 +163,7 @@ void AChampion_Fizz::Server_Skill_Q_Implementation(AActor* Target)
 	QDashTarget = Target;
 	QDashElapsed = 0.0f;
 	bIsQDashing = true;
+	Multicast_SetQWater(true);
 
 	// Q must pass through the target capsule to finish on its far side.
 	GetCapsuleComponent()->IgnoreActorWhenMoving(Target, true);
@@ -178,6 +185,8 @@ void AChampion_Fizz::Server_Skill_W_Implementation()
 	if (!SkillComponent->TryCastSkill("W", 1)) return;
 
 	bWEmpowered = true;
+	OnRep_WEmpowered();
+	ForceNetUpdate();
 
 	// Fizz W is an empowered basic attack. Use W montage when supplied,
 	// otherwise use the normal attack montage as its activation animation.
@@ -363,6 +372,8 @@ void AChampion_Fizz::Server_Skill_R_Implementation(FVector TargetLocation)
 void AChampion_Fizz::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	if (QWaterComponent) UpdateQWater();
+	UpdateWVisual();
 
 	if (IsLocallyControlled() && bIsChasingForQ)
 	{
@@ -378,6 +389,59 @@ void AChampion_Fizz::Tick(float DeltaTime)
 	{
 		UpdateEDescent(DeltaTime);
 	}
+}
+
+void AChampion_Fizz::Multicast_SetQWater_Implementation(bool bActive)
+{
+	if (!bActive) { StopQWater(false); return; }
+	StopQWater(true);
+	if (GetNetMode() == NM_DedicatedServer ||
+		(StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead))) return;
+	if (UParticleSystem* Effect = QWaterEffect.LoadSynchronous())
+	{
+		QWaterComponent = UGameplayStatics::SpawnEmitterAttached(Effect, GetRootComponent(), NAME_None,
+			FVector(20, 0, -GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 45),
+			FRotator::ZeroRotator, FVector::OneVector, EAttachLocation::KeepRelativeOffset, false);
+		QWaterEmissionEnd = GetWorld()->GetTimeSeconds() + FMath::Max(QDashDuration, .01f) + .1f;
+		if (QWaterComponent) QWaterComponent->SetVisibility(!IsHidden());
+	}
+}
+
+void AChampion_Fizz::StopQWater(bool bImmediate)
+{
+	if (!QWaterComponent) return;
+	if (bImmediate)
+	{
+		QWaterComponent->DestroyComponent();
+		QWaterComponent = nullptr;
+		QWaterEmissionEnd = QWaterFadeEnd = 0.0;
+	}
+	else if (QWaterFadeEnd == 0.0)
+	{
+		QWaterComponent->DeactivateSystem();
+		QWaterEmissionEnd = 0.0;
+		QWaterFadeEnd = GetWorld()->GetTimeSeconds() + .5f;
+	}
+}
+
+void AChampion_Fizz::UpdateQWater()
+{
+	const double Now = GetWorld()->GetTimeSeconds();
+	if ((StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead)) ||
+		(QWaterFadeEnd > 0.0 && Now >= QWaterFadeEnd))
+	{
+		StopQWater(true);
+		return;
+	}
+	QWaterComponent->SetVisibility(!IsHidden());
+	if (QWaterEmissionEnd > 0.0 && Now >= QWaterEmissionEnd) StopQWater(false);
+}
+
+void AChampion_Fizz::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	StopQWater(true);
+	if (WWeaponComponent) { WWeaponComponent->DestroyComponent(); WWeaponComponent = nullptr; }
+	Super::EndPlay(EndPlayReason);
 }
 
 void AChampion_Fizz::UpdateQChaseToCast()
@@ -467,6 +531,7 @@ void AChampion_Fizz::FinishQDash()
 
 	AActor* Target = QDashTarget;
 	bIsQDashing = false;
+	Multicast_SetQWater(false);
 	QDashTarget = nullptr;
 
 	if (IsValid(Target))
@@ -529,6 +594,11 @@ void AChampion_Fizz::OnBasicAttackHit(ACharacter* Target)
 	const float BaseDamage = GetSkillValue(WData.BaseDamage, 0, 50.0f);
 	const float SkillDamage =
 		BaseDamage + StatComponent->GetStat().AbilityPower * WActiveAbilityPowerRatio;
+	// Emit before a lethal hit can hide or destroy the target.
+	FVector SplashLocation = Target->GetActorLocation();
+	if (Target->GetMesh() && Target->GetMesh()->GetSkeletalMeshAsset())
+		SplashLocation = Target->GetMesh()->Bounds.Origin;
+	Multicast_WWaterImpact(SplashLocation);
 
 	UGameplayStatics::ApplyDamage(
 		Target,
@@ -538,8 +608,7 @@ void AChampion_Fizz::OnBasicAttackHit(ACharacter* Target)
 		ULOL_DamageMagic::StaticClass()
 	);
 
-	bWEmpowered = false;
-	GetWorldTimerManager().ClearTimer(WEmpowerTimerHandle);
+	EndWEmpower();
 }
 
 void AChampion_Fizz::StartWPassiveBleed(ACharacter* Target)
@@ -607,6 +676,54 @@ void AChampion_Fizz::StartWPassiveBleed(ACharacter* Target)
 void AChampion_Fizz::EndWEmpower()
 {
 	bWEmpowered = false;
+	GetWorldTimerManager().ClearTimer(WEmpowerTimerHandle);
+	OnRep_WEmpowered();
+	ForceNetUpdate();
+}
+
+void AChampion_Fizz::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AChampion_Fizz, bWEmpowered);
+}
+
+void AChampion_Fizz::OnRep_WEmpowered()
+{
+	if (!bWEmpowered)
+	{
+		if (WWeaponComponent) { WWeaponComponent->DestroyComponent(); WWeaponComponent = nullptr; }
+		return;
+	}
+	if (GetNetMode() == NM_DedicatedServer || !GetMesh() || WWeaponComponent ||
+		(StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead))) return;
+	if (UParticleSystem* Effect = WWeaponEffect.LoadSynchronous())
+	{
+		const FName Socket = GetMesh()->DoesSocketExist(TEXT("BUFFBONE_CSTM_WEAPON_1"))
+			? FName(TEXT("BUFFBONE_CSTM_WEAPON_1")) : FName(TEXT("Weapon"));
+		WWeaponComponent = UGameplayStatics::SpawnEmitterAttached(Effect, GetMesh(), Socket,
+			FVector::ZeroVector, FRotator::ZeroRotator, FVector::OneVector,
+			EAttachLocation::SnapToTarget, false);
+		if (WWeaponComponent) WWeaponComponent->SetVisibility(!IsHidden());
+	}
+}
+
+void AChampion_Fizz::UpdateWVisual()
+{
+	if (StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead))
+	{
+		if (HasAuthority() && bWEmpowered) EndWEmpower();
+		if (WWeaponComponent) { WWeaponComponent->DestroyComponent(); WWeaponComponent = nullptr; }
+		return;
+	}
+	if (WWeaponComponent) WWeaponComponent->SetVisibility(!IsHidden());
+}
+
+void AChampion_Fizz::Multicast_WWaterImpact_Implementation(FVector Location)
+{
+	if (GetNetMode() == NM_DedicatedServer || IsHidden()) return;
+	if (UParticleSystem* Effect = WImpactEffect.LoadSynchronous())
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), Effect, Location,
+			GetActorRotation(), FVector::OneVector, true);
 }
 
 void AChampion_Fizz::BeginEDescent()
