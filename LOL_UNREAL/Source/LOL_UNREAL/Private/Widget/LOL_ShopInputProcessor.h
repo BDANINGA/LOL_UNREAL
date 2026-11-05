@@ -21,6 +21,19 @@ public:
 		ItemButtons.Add(Button, ItemName);
 	}
 
+	void ResetInventorySlots()
+	{
+		InventorySlots.Reset();
+	}
+
+	void AddInventorySlot(UWidget* Widget, int32 SlotIndex)
+	{
+		if (Widget)
+		{
+			InventorySlots.Add(Widget, SlotIndex);
+		}
+	}
+
 	void ResetInputState()
 	{
 		PressedLeftButton.Reset();
@@ -49,7 +62,7 @@ public:
 
 		if (Event.GetEffectingButton() == EKeys::LeftMouseButton)
 		{
-			UButton* Button = FindItemButton(SlateApp, Event);
+			UButton* Button = Cast<UButton>(FindShortcutWidget(SlateApp, Event));
 			LastClickedLeftButton = Button == PressedLeftButton.Get() ? Button : nullptr;
 			PressedLeftButton.Reset();
 		}
@@ -57,7 +70,7 @@ public:
 	}
 
 private:
-	UButton* FindItemButton(FSlateApplication& SlateApp, const FPointerEvent& Event) const
+	UWidget* FindShortcutWidget(FSlateApplication& SlateApp, const FPointerEvent& Event) const
 	{
 		if (!Controller.IsValid() || !Shop.IsValid() || !Shop->IsInViewport() || Event.IsTouchEvent())
 		{
@@ -72,6 +85,18 @@ private:
 			if (!Path.Widgets[Index].Widget->IsEnabled())
 			{
 				return nullptr;
+			}
+		}
+		for (const auto& Entry : InventorySlots)
+		{
+			UWidget* Slot = Entry.Key.Get();
+			if (Slot && Slot->GetIsEnabled())
+			{
+				const TSharedPtr<SWidget> Widget = Slot->GetCachedWidget();
+				if (Widget.IsValid() && Path.ContainsWidget(Widget.Get()))
+				{
+					return Slot;
+				}
 			}
 		}
 		for (const auto& Entry : ItemButtons)
@@ -92,8 +117,22 @@ private:
 	bool HandlePress(FSlateApplication& SlateApp, const FPointerEvent& Event, bool bDoubleClick)
 	{
 		const FKey Key = Event.GetEffectingButton();
-		UButton* Button = FindItemButton(SlateApp, Event);
-		const bool bBuy = Button && (Key == EKeys::RightMouseButton ||
+		UWidget* HitWidget = FindShortcutWidget(SlateApp, Event);
+		if (Key == EKeys::RightMouseButton)
+		{
+			if (const int32* SlotIndex = InventorySlots.Find(HitWidget))
+			{
+				LastClickedLeftButton.Reset();
+				PressedLeftButton.Reset();
+				// Consume both edges so selling never also issues a move command.
+				ConsumedButtons.Add(Key);
+				Controller->SelectInventoryItem(*SlotIndex);
+				Controller->SellSelectedShopItem();
+				return true;
+			}
+		}
+		UButton* Button = Cast<UButton>(HitWidget);
+		const bool bBuy = Button && ItemButtons.Contains(Button) && (Key == EKeys::RightMouseButton ||
 			(Key == EKeys::LeftMouseButton && bDoubleClick && LastClickedLeftButton.Get() == Button));
 		LastClickedLeftButton.Reset();
 		PressedLeftButton = Key == EKeys::LeftMouseButton && !bBuy ? Button : nullptr;
@@ -112,6 +151,7 @@ private:
 	TWeakObjectPtr<ALOL_PlayerController> Controller;
 	TWeakObjectPtr<UUserWidget> Shop;
 	TMap<TWeakObjectPtr<UButton>, FName> ItemButtons;
+	TMap<TWeakObjectPtr<UWidget>, int32> InventorySlots;
 	TWeakObjectPtr<UButton> PressedLeftButton;
 	TWeakObjectPtr<UButton> LastClickedLeftButton;
 	TSet<FKey> ConsumedButtons;

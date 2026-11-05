@@ -24,6 +24,7 @@
 #include "Component/LOL_UIComponent.h"
 #include "Component/LOL_StateComponent.h"
 #include "Component/LOL_VisionComponent.h"
+#include "VisionManager/VisionManager.h"
 
 #include "GamePlayTag/LOL_GamePlayTags.h"
 #include "Component/Champion_SkillComponent.h"
@@ -551,6 +552,11 @@ void ABaseChampion::Server_ProcessMoveInput_Implementation(FVector ClickLocation
 
 	MoveComponent->bIsSearchAttack = bIsSearch;
 
+	if (const auto* Manager = Cast<AVisionManager>(UGameplayStatics::GetActorOfClass(GetWorld(), AVisionManager::StaticClass())))
+    {
+        if (TargetActor && !Manager->CanTeamSeeActor(this, TargetActor)) TargetActor = nullptr;
+    }
+
 	AActor* AttackTarget = nullptr;
 	if (TargetActor && TargetActor != this && IsEnemyActor(TargetActor) && TargetActor->FindComponentByClass<ULOL_StateComponent>())
 	{
@@ -627,6 +633,10 @@ void ABaseChampion::PressSkill(const uint8 skilltype)
 //스턴 로직
 void ABaseChampion::ApplyStun(float Duration)
 {
+	// A non-positive timer rate clears the timer instead of calling ClearStun.
+	// Ignore it before changing state so an existing stun can still expire.
+	if (Duration <= 0.0f) return;
+
 	bIsStunned = true;
 
 	StopAnimMontage();
@@ -927,7 +937,10 @@ void ABaseChampion::CheckKnockbackWall()
 
 		GetCharacterMovement()->StopMovementImmediately();
 		EndKnockback();
-		Multicast_ApplyStun(PendingWallStunDuration);
+		if (PendingWallStunDuration > 0.0f)
+		{
+			Multicast_ApplyStun(PendingWallStunDuration);
+		}
 		return;
 	}
 }

@@ -14,13 +14,14 @@ ULOL_StateComponent::ULOL_StateComponent()
 void ULOL_StateComponent::BeginPlay()
 {
 	Super::BeginPlay();
+	OnRep_StatusTags();
 }
 void ULOL_StateComponent::AddStatusTag(FGameplayTag Tag)
 {
 	if (GetOwnerRole() == ROLE_Authority && Tag.IsValid())
 	{
 		StatusTags.AddTag(Tag);
-		OnStateTagsChanged.Broadcast();
+		OnRep_StatusTags();
 	}
 }
 
@@ -29,7 +30,7 @@ void ULOL_StateComponent::RemoveStatusTag(FGameplayTag Tag)
 	if (GetOwnerRole() == ROLE_Authority && Tag.IsValid())
 	{
 		StatusTags.RemoveTag(Tag);
-		OnStateTagsChanged.Broadcast();
+		OnRep_StatusTags();
 	}
 }
 
