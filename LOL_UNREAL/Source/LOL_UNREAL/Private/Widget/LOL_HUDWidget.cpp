@@ -803,12 +803,13 @@ void ULOL_HUDWidget::UpdateMinimapStructures()
     if (!MiniMap) return;
     ALOL_PlayerController* PC = Cast<ALOL_PlayerController>(GetOwningPlayer());
     if (!PC) return;
+    ABaseChampion* LocalPlayer = Cast<ABaseChampion>(PC->GetPawn());
 
     const FVector2D MinimapSize = MiniMap->GetCachedGeometry().GetLocalSize();
     if (MinimapSize.X <= 0.f || MinimapSize.Y <= 0.f) return;
 
     // 공통 구조물 위치 계산 람다
-    auto UpdateStructurePosition = [PC, MinimapSize](AActor* Actor, UImage* SlotImage)
+    auto UpdateStructurePosition = [PC, LocalPlayer, MinimapSize](AActor* Actor, UImage* SlotImage, UTexture2D* AllyTex, UTexture2D* EnemyTex)
     {
         if (!Actor || !SlotImage) return;
 
@@ -817,6 +818,15 @@ void ULOL_HUDWidget::UpdateMinimapStructures()
         {
             SlotImage->SetVisibility(ESlateVisibility::Collapsed);
             return;
+        }
+        if (LocalPlayer && LocalPlayer->StateComponent && StateComp)
+        {
+            bool bIsEnemy = LocalPlayer->StateComponent->IsEnemy(StateComp);
+            UTexture2D* TargetTex = bIsEnemy ? EnemyTex : AllyTex;
+            if (TargetTex)
+            {
+                SlotImage->SetBrushFromTexture(TargetTex, false);
+            }
         }
 
         FVector Loc = Actor->GetActorLocation();
@@ -842,7 +852,7 @@ void ULOL_HUDWidget::UpdateMinimapStructures()
     {
         if (FoundTurrets.IsValidIndex(i) && FoundTurrets[i])
         {
-            UpdateStructurePosition(FoundTurrets[i], CachedMinimapTurretImages[i]);
+            UpdateStructurePosition(FoundTurrets[i], CachedMinimapTurretImages[i], AllyTurretIcon, EnemyTurretIcon);
         }
         else if (CachedMinimapTurretImages[i])
         {
@@ -857,7 +867,7 @@ void ULOL_HUDWidget::UpdateMinimapStructures()
     {
         if (FoundInhibitors.IsValidIndex(i) && FoundInhibitors[i])
         {
-            UpdateStructurePosition(FoundInhibitors[i], CachedMinimapInhibitorImages[i]);
+            UpdateStructurePosition(FoundInhibitors[i], CachedMinimapInhibitorImages[i], AllyInhibitorIcon, EnemyInhibitorIcon);
         }
         else if (CachedMinimapInhibitorImages[i])
         {
@@ -872,7 +882,7 @@ void ULOL_HUDWidget::UpdateMinimapStructures()
     {
         if (FoundNexuses.IsValidIndex(i) && FoundNexuses[i])
         {
-            UpdateStructurePosition(FoundNexuses[i], CachedMinimapNexusImages[i]);
+            UpdateStructurePosition(FoundNexuses[i], CachedMinimapNexusImages[i], AllyNexusIcon, EnemyNexusIcon);
         }
         else if (CachedMinimapNexusImages[i])
         {
@@ -1264,6 +1274,7 @@ int32 ULOL_HUDWidget::NativePaint(const FPaintArgs& Args, const FGeometry& Allot
 
     ALOL_PlayerController* PC = Cast<ALOL_PlayerController>(GetOwningPlayer());
     if (!PC) return MaxLayerId;
+    ABaseChampion* LocalPlayer = Cast<ABaseChampion>(PC->GetPawn());
 
     // 미니맵 위젯의 Screen Space Geometry 가져오기
     const FGeometry MinimapGeometry = MiniMap->GetCachedGeometry();
@@ -1300,9 +1311,13 @@ int32 ULOL_HUDWidget::NativePaint(const FPaintArgs& Args, const FGeometry& Allot
 
         FVector2D LocalPos(NormX * MinimapSize.X + (DotSize.X / 2) + 8.0f, NormY * MinimapSize.Y + (DotSize.Y / 2) + 8.0f);
 
-        // 팀 색상 구분 (예시)
-        /*FLinearColor DotColor = (Minion->GetTeam() == ETeam::Blue) ? FLinearColor::Blue : FLinearColor::Red;*/
         FLinearColor DotColor = FLinearColor::Red;
+        if (LocalPlayer && LocalPlayer->StateComponent)
+        {
+            // 적 팀인지 판정하여 색상 분기 (적이면 빨간색, 아군이면 파란색)
+            bool bIsEnemy = LocalPlayer->StateComponent->IsEnemy(StateComp);
+            DotColor = bIsEnemy ? FLinearColor::Red : FLinearColor::Blue;
+        }
 
         // Slate 렌더링 레이어에 사각형(점) 추가 지정
         FSlateDrawElement::MakeBox(

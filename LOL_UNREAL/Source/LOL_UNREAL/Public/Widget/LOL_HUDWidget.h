@@ -171,6 +171,24 @@ public:
     void CacheMinimapMonsterImages();
     void UpdateMinimapMonsters();
 
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
+    class UTexture2D* AllyTurretIcon;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
+    class UTexture2D* EnemyTurretIcon;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
+    class UTexture2D* AllyInhibitorIcon;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
+    class UTexture2D* EnemyInhibitorIcon;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
+    class UTexture2D* AllyNexusIcon;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
+    class UTexture2D* EnemyNexusIcon;
+
     void SetAttackDamage(float Value) { if (Txt_AD) Txt_AD->SetText(FText::AsNumber(Value)); }
     void SetAbilityPower(float Value) { if (Txt_AP) Txt_AP->SetText(FText::AsNumber(Value)); }
     void SetArmor(float Value) { if (Txt_Armor) Txt_Armor->SetText(FText::AsNumber(Value)); }
