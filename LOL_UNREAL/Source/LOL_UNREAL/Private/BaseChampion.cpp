@@ -636,6 +636,10 @@ void ABaseChampion::PressSkill(const uint8 skilltype)
 //스턴 로직
 void ABaseChampion::ApplyStun(float Duration)
 {
+	// A non-positive timer rate clears the timer instead of calling ClearStun.
+	// Ignore it before changing state so an existing stun can still expire.
+	if (Duration <= 0.0f) return;
+
 	bIsStunned = true;
 
 	StopAnimMontage();
@@ -941,7 +945,10 @@ void ABaseChampion::CheckKnockbackWall()
 
 		GetCharacterMovement()->StopMovementImmediately();
 		EndKnockback();
-		Multicast_ApplyStun(PendingWallStunDuration);
+		if (PendingWallStunDuration > 0.0f)
+		{
+			Multicast_ApplyStun(PendingWallStunDuration);
+		}
 		return;
 	}
 }
