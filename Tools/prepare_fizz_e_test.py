@@ -1,0 +1,31 @@
+"""Unsaved E takeoff, natural landing, recast, visibility and cleanup fixture."""
+import unreal as u
+editor=u.get_editor_subsystem(u.LevelEditorSubsystem)
+assert not editor.is_in_play_in_editor()
+assert not u.EditorLoadingAndSavingUtils.get_dirty_map_packages()
+assert not u.EditorLoadingAndSavingUtils.get_dirty_content_packages()
+world=u.EditorLoadingAndSavingUtils.new_blank_map(False)
+world.get_world_settings().set_editor_property('default_game_mode',u.GameModeBase)
+actors=u.get_editor_subsystem(u.EditorActorSubsystem)
+pos=u.Vector(80,-1050,850)
+cam=actors.spawn_actor_from_class(u.CameraActor,pos,u.MathLibrary.find_look_at_rotation(pos,u.Vector(40,0,70)))
+cam.camera_component.set_field_of_view(55)
+actors.spawn_actor_from_class(u.DirectionalLight,u.Vector(0,0,800),u.Rotator(pitch=-60,yaw=-20))
+floor=actors.spawn_actor_from_class(u.StaticMeshActor,u.Vector())
+floor.static_mesh_component.set_static_mesh(u.load_asset('/Engine/BasicShapes/Plane'))
+floor.set_actor_scale3d(u.Vector(250,250,1))
+# Transient plain ground makes the water legible without saving preview assets.
+ground=u.new_object(u.Material)
+ground.set_editor_property('shading_model',u.MaterialShadingModel.MSM_UNLIT)
+tint=u.MaterialEditingLibrary.create_material_expression(ground,u.MaterialExpressionConstant3Vector,0,0)
+tint.set_editor_property('constant',u.LinearColor(.025,.045,.055,1))
+assert u.MaterialEditingLibrary.connect_material_property(tint,'',u.MaterialProperty.MP_EMISSIVE_COLOR)
+u.MaterialEditingLibrary.recompile_material(ground)
+floor.static_mesh_component.set_material(0,ground)
+for i,name in enumerate(['Natural','Fast','Hidden','Death','Unlearned','Destroy']):
+    actor=actors.spawn_actor_from_class(u.Champion_Fizz,u.Vector(-180,i*1600,100))
+    actor.set_actor_label(name);actor.set_editor_property('tags',[name]);actor.set_editor_property('auto_possess_ai',u.AutoPossessAI.DISABLED)
+for label,pos in [('Inside',u.Vector(340,0,100)),('Outside',u.Vector(1600,0,100))]:
+    actor=actors.spawn_actor_from_class(u.Champion_Ezreal,pos)
+    actor.set_actor_label(label);actor.set_editor_property('tags',[label]);actor.set_editor_property('auto_possess_ai',u.AutoPossessAI.DISABLED)
+editor.editor_request_begin_play()

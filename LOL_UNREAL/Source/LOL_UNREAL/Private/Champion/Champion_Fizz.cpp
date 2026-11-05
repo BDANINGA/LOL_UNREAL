@@ -5,6 +5,8 @@
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_StateComponent.h"
+#include "Component/FizzEWaterVisualComponent.h"
+#include "Component/FizzRWaterVisualComponent.h"
 #include "Animation/AnimMontage.h"
 #include "Animation/AnimSequence.h"
 #include "Components/CapsuleComponent.h"
@@ -12,7 +14,6 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInterface.h"
 #include "Particles/ParticleSystem.h"
@@ -22,6 +23,8 @@
 
 AChampion_Fizz::AChampion_Fizz()
 {
+	RWaterVisual = CreateDefaultSubobject<UFizzRWaterVisualComponent>(TEXT("RWaterVisual"));
+	EWaterVisual = CreateDefaultSubobject<UFizzEWaterVisualComponent>(TEXT("EWaterVisual"));
 	ChampionName = TEXT("Fizz");
 	SetChampionData(ChampionName);
 	QWaterEffect = TSoftObjectPtr<UParticleSystem>(FSoftObjectPath(TEXT("/Game/VFX/Fizz/P_FizzQWater.P_FizzQWater")));
@@ -42,19 +45,7 @@ AChampion_Fizz::AChampion_Fizz()
 		SharkAnimation = SharkAnimationAsset.Object;
 	}
 
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> RThrowMeshAsset(
-		TEXT("/Game/Level/fizz/tex_fizz/fizz_r_throw.fizz_r_throw"));
-	if (RThrowMeshAsset.Succeeded())
-	{
-		RThrowMesh = RThrowMeshAsset.Object;
-	}
 
-	static ConstructorHelpers::FObjectFinder<UMaterialInterface> RThrowMaterialAsset(
-		TEXT("/Game/Level/fizz/tex_fizz/m_fizz_r.m_fizz_r"));
-	if (RThrowMaterialAsset.Succeeded())
-	{
-		RThrowMaterial = RThrowMaterialAsset.Object;
-	}
 }
 
 void AChampion_Fizz::Skill_Q()
@@ -261,6 +252,7 @@ void AChampion_Fizz::Server_Skill_E_Implementation(FVector TargetLocation)
 
 	// First E animation: EMontage[0] (Playful/ascent).
 	Multicast_PlayFizzSkillAnimation(2, 0, 1.0f, FacingRotation);
+	Multicast_EWaterSplash(false, GetActorLocation() - FVector(0,0,GetCapsuleComponent()->GetScaledCapsuleHalfHeight()), 110.f);
 
 	const float Duration = GetSkillValue(EData.Duration, 0, 1.2f);
 	const float AscentDuration = FMath::Max(0.1f, Duration - EDescentDuration);
@@ -356,9 +348,8 @@ void AChampion_Fizz::Server_Skill_R_Implementation(FVector TargetLocation)
 	const float TravelTime =
 		FVector::Dist2D(Start, ProjectileEnd) /
 		FMath::Max(RProjectileSpeed, 1.0f);
-	Multicast_SpawnRProjectile(Start, ProjectileEnd, TravelTime);
-
 	const float Delay = GetSkillValue(RData.Duration, 0, 2.0f);
+	Multicast_SpawnRProjectile(Start, ProjectileEnd, TravelTime, Delay > 0.f ? Delay : 2.f, RAttachedTarget, RExplosionLocation);
 	GetWorldTimerManager().ClearTimer(RExplosionTimerHandle);
 	GetWorldTimerManager().SetTimer(
 		RExplosionTimerHandle,
@@ -726,6 +717,11 @@ void AChampion_Fizz::Multicast_WWaterImpact_Implementation(FVector Location)
 			GetActorRotation(), FVector::OneVector, true);
 }
 
+void AChampion_Fizz::Multicast_EWaterSplash_Implementation(bool bLanding, FVector FootLocation, float Radius)
+{
+	if (EWaterVisual) EWaterVisual->PlaySplash(bLanding, FootLocation, Radius);
+}
+
 void AChampion_Fizz::BeginEDescent()
 {
 	if (!HasAuthority() || !bEActive || bEDescending) return;
@@ -820,6 +816,7 @@ void AChampion_Fizz::FinishPlayfulTrickster()
 
 	const FSkillData& EData = SkillComponent->GetE_Data();
 	const float BaseDamage = GetSkillValue(EData.BaseDamage, 0, 70.0f);
+	Multicast_EWaterSplash(true, GetActorLocation() - FVector(0,0,GetCapsuleComponent()->GetScaledCapsuleHalfHeight()), EDamageRadius);
 	const float SkillDamage =
 		BaseDamage + StatComponent->GetStat().AbilityPower * EAbilityPowerRatio;
 
@@ -943,6 +940,8 @@ void AChampion_Fizz::Multicast_SpawnSharkEffect_Implementation(
 	FVector SpawnLocation,
 	FRotator SpawnRotation)
 {
+	if (GetNetMode() == NM_DedicatedServer) return;
+	if (RWaterVisual) RWaterVisual->Erupt(SpawnLocation);
 	if (!SharkMesh || !SharkAnimation || !GetWorld()) return;
 
 	SpawnLocation.Z += RSharkZOffset;
@@ -1000,95 +999,10 @@ void AChampion_Fizz::Multicast_SpawnSharkEffect_Implementation(
 }
 
 void AChampion_Fizz::Multicast_SpawnRProjectile_Implementation(
-	FVector StartLocation,
-	FVector EndLocation,
-	float TravelTime)
+    FVector StartLocation, FVector EndLocation, float TravelTime, float WarningTime, AActor* AttachedTarget, FVector FallbackLocation)
 {
-	if (!RThrowMesh || !GetWorld()) return;
-
-	const FVector Direction = (EndLocation - StartLocation).GetSafeNormal();
-	if (Direction.IsNearlyZero()) return;
-
-	FActorSpawnParameters SpawnParameters;
-	SpawnParameters.Owner = this;
-	SpawnParameters.Instigator = this;
-	SpawnParameters.SpawnCollisionHandlingOverride =
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-	AActor* ProjectileActor = GetWorld()->SpawnActor<AActor>(
-		AActor::StaticClass(),
-		StartLocation,
-		Direction.Rotation(),
-		SpawnParameters
-	);
-	if (!ProjectileActor) return;
-
-	UStaticMeshComponent* ProjectileMesh = NewObject<UStaticMeshComponent>(
-		ProjectileActor,
-		TEXT("FizzRThrowMesh")
-	);
-	if (!ProjectileMesh)
-	{
-		ProjectileActor->Destroy();
-		return;
-	}
-
-	ProjectileActor->AddInstanceComponent(ProjectileMesh);
-	ProjectileActor->SetRootComponent(ProjectileMesh);
-	ProjectileMesh->SetStaticMesh(RThrowMesh);
-	if (RThrowMaterial)
-	{
-		ProjectileMesh->SetMaterial(0, RThrowMaterial);
-	}
-	ProjectileMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	ProjectileMesh->SetGenerateOverlapEvents(false);
-	ProjectileMesh->SetCastShadow(false);
-	ProjectileMesh->RegisterComponent();
-
-	ProjectileActor->SetActorLocationAndRotation(
-		StartLocation,
-		Direction.Rotation(),
-		false,
-		nullptr,
-		ETeleportType::TeleportPhysics
-	);
-	ProjectileMesh->SetRelativeRotation(RProjectileRotationOffset);
-
-	const float MeshRadius = RThrowMesh->GetBounds().SphereRadius;
-	const float BoundsScale = MeshRadius > KINDA_SMALL_NUMBER
-		? RProjectileVisualRadius / MeshRadius
-		: 1.0f;
-	ProjectileMesh->SetWorldScale3D(FVector(BoundsScale * RProjectileScale));
-	ProjectileMesh->SetVisibility(true, true);
-	ProjectileMesh->SetHiddenInGame(false, true);
-
-	UProjectileMovementComponent* ProjectileMovement =
-		NewObject<UProjectileMovementComponent>(
-			ProjectileActor,
-			TEXT("FizzRProjectileMovement")
-		);
-	if (!ProjectileMovement)
-	{
-		ProjectileActor->Destroy();
-		return;
-	}
-
-	const float VisualSpeed =
-		FVector::Distance(StartLocation, EndLocation) /
-		FMath::Max(TravelTime, KINDA_SMALL_NUMBER);
-
-	ProjectileActor->AddInstanceComponent(ProjectileMovement);
-	ProjectileMovement->SetUpdatedComponent(ProjectileMesh);
-	ProjectileMovement->bInitialVelocityInLocalSpace = false;
-	ProjectileMovement->InitialSpeed = VisualSpeed;
-	ProjectileMovement->MaxSpeed = VisualSpeed;
-	ProjectileMovement->Velocity = Direction * VisualSpeed;
-	ProjectileMovement->ProjectileGravityScale = 0.0f;
-	ProjectileMovement->bRotationFollowsVelocity = false;
-	ProjectileMovement->RegisterComponent();
-	ProjectileMovement->Activate(true);
-
-	ProjectileActor->SetLifeSpan(FMath::Max(TravelTime + 0.1f, 0.2f));
+    if (RWaterVisual) RWaterVisual->Start(StartLocation, EndLocation, TravelTime, WarningTime,
+        RExplosionRadius, AttachedTarget, FallbackLocation, RProjectileScale * RProjectileVisualRadius / 70.f, RProjectileRotationOffset);
 }
 
 float AChampion_Fizz::TakeDamage(

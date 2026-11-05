@@ -35,7 +35,7 @@ template<typename T> T* Module(UParticleSystem* System)
 
 void AddLayer(UParticleSystem* System, UMaterialInterface* Material, FName Name,
     int32 Count, float LifeMin, float LifeMax, FVector Size, FVector Color,
-    float Radius, float RadialVelocity, bool bStretched, float StartScale, float EndScale, float SpawnRate, bool bTrail, FVector VelocityMin, FVector VelocityMax, float Gravity = 0.f)
+    float Radius, float RadialVelocity, bool bStretched, float StartScale, float EndScale, float SpawnRate, bool bTrail, FVector VelocityMin, FVector VelocityMax, float Gravity = 0.f, bool bFlatRing = false)
 {
     auto* Emitter = NewObject<UParticleSpriteEmitter>(System, NAME_None, RF_Transactional);
     Emitter->SetEmitterName(Name);
@@ -83,6 +83,7 @@ void AddLayer(UParticleSystem* System, UMaterialInterface* Material, FName Name,
         R->Constant = Radius;
         Sphere->StartRadius.Distribution = R;
         Sphere->SurfaceOnly = true;
+        if (bFlatRing) { Sphere->Positive_Z = false; Sphere->Negative_Z = false; }
         Sphere->Velocity = true;
         auto* V = NewObject<UDistributionFloatConstant>(Sphere);
         V->Constant = RadialVelocity;
@@ -140,7 +141,8 @@ void Build(int32 Kind)
     auto* Drop = LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/VFX/Fizz/M_FizzQDroplet.M_FizzQDroplet"));
     auto* Foam = LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/VFX/Fizz/M_FizzQFoam.M_FizzQFoam"));
     if (!Sheet || !Drop || !Foam) return;
-    const FString Name=Kind == 1 ? TEXT("P_FizzWWeapon") : Kind == 2 ? TEXT("P_FizzWImpact") : TEXT("P_FizzQWater");
+    const FString Names[] = {TEXT("P_FizzQWater"), TEXT("P_FizzWWeapon"), TEXT("P_FizzWImpact"), TEXT("P_FizzETakeoff"), TEXT("P_FizzELanding"), TEXT("P_FizzRWake")};
+    const FString Name=Names[Kind];
     const FString Path=TEXT("/Game/VFX/Fizz/")+Name;
     UPackage* Package=CreatePackage(*Path);
     Package->FullyLoad();
@@ -172,7 +174,7 @@ void Build(int32 Kind)
         AddLayer(System,Foam,TEXT("03_TridentFoam"),1,.5f,.65f,FVector(55),FVector(1.1),
             7,0,false,.45f,1.0f,3,false,FVector(-3,-3,0),FVector(3,3,5));
     }
-    else
+    else if (Kind == 2)
     {
         AddLayer(System,Sheet,TEXT("01_WaterCut"),7,.2f,.35f,FVector(105,145,105),FVector(1.3),
             16,5,true,.55f,1.2f,0,true,FVector(-70,-150,20),FVector(70,150,100));
@@ -181,14 +183,43 @@ void Build(int32 Kind)
         AddLayer(System,Foam,TEXT("03_FoamBurst"),3,.28f,.42f,FVector(120),FVector(1.1),
             10,1,false,.3f,1.6f,0,true,FVector(-15,-15,0),FVector(15,15,15));
     }
+    else if (Kind == 3)
+    {
+        AddLayer(System,Sheet,TEXT("01_TridentWaterColumn"),7,.25f,.45f,FVector(48,130,48),FVector(1.2),
+            18,.8f,true,.55f,1.0f,0,true,FVector(-35,-35,180),FVector(35,35,300),-650,true);
+        AddLayer(System,Drop,TEXT("02_PlayfulSplash"),26,.3f,.5f,FVector(8,18,8),FVector(1.3),
+            24,2,true,.9f,.15f,0,true,FVector(-115,-115,150),FVector(115,115,260),-850,true);
+        AddLayer(System,Foam,TEXT("03_FootFoam"),3,.3f,.42f,FVector(95,60,95),FVector(1.1),
+            18,1,false,.5f,1.4f,0,true,FVector(-20,-20,5),FVector(20,20,35));
+    }
+    else if (Kind == 4)
+    {
+        AddLayer(System,Sheet,TEXT("01_LandingWaterCrown"),22,.25f,.48f,FVector(100,170,100),FVector(1.25),
+            42,14.0f,true,.65f,1.3f,0,true,FVector(-120,-120,140),FVector(120,120,280),-800,true);
+        AddLayer(System,Drop,TEXT("02_RadialSpray"),75,.3f,.6f,FVector(10,24,10),FVector(1.3),
+            48,10.f,true,1,.15f,0,true,FVector(-180,-180,120),FVector(180,180,330),-850,true);
+        AddLayer(System,Foam,TEXT("03_BrokenWhiteFoam"),10,.3f,.55f,FVector(100,65,100),FVector(1.15),
+            65,3.5f,false,.45f,1.5f,0,true,FVector(-110,-110,25),FVector(110,110,95),-300,true);
+    }
+    else if (Kind == 5)
+    {
+        AddLayer(System,Drop,TEXT("01_FinWhiteSpray"),8,.25f,.42f,FVector(7,17,7),FVector(1.1),
+            18,1.5f,true,.8f,.12f,65,true,FVector(-80,-95,75),FVector(-20,95,155),-600,true);
+        AddLayer(System,Foam,TEXT("02_FinFoamTrail"),2,.3f,.6f,FVector(50,32,50),FVector(.9,1,1),
+            14,0,false,.45f,1.5f,20,true,FVector(-35,-18,3),FVector(-10,18,10));
+    }
     System->UpdateAllModuleLists(); System->BuildEmitters(); System->PostEditChange();
     Package->MarkPackageDirty();
     FSavePackageArgs Args; Args.TopLevelFlags=RF_Public|RF_Standalone;
     const FString File=FPackageName::LongPackageNameToFilename(Path,FPackageName::GetAssetPackageExtension());
     UE_LOG(LogTemp,Display,TEXT("Fizz water saved: %d"),UPackage::SavePackage(Package,System,*File,Args));
 }
+static void BuildR() { Build(5); }
+static FAutoConsoleCommand BuildRCommand(TEXT("LOL.Fizz.BuildRWater"),TEXT("Build Fizz R fin spray."),FConsoleCommandDelegate::CreateStatic(&BuildR));
 static void BuildQ() { Build(0); }
 static void BuildW() { Build(1); Build(2); }
+static void BuildE() { Build(3); Build(4); }
+static FAutoConsoleCommand BuildECommand(TEXT("LOL.Fizz.BuildEWater"),TEXT("Build Fizz E takeoff and landing water."),FConsoleCommandDelegate::CreateStatic(&BuildE));
 static FAutoConsoleCommand BuildWCommand(TEXT("LOL.Fizz.BuildWWater"),TEXT("Build Fizz W weapon and impact water."),FConsoleCommandDelegate::CreateStatic(&BuildW));
 static FAutoConsoleCommand BuildCommand(TEXT("LOL.Fizz.BuildQWater"),TEXT("Build Fizz Q water spray."),FConsoleCommandDelegate::CreateStatic(&BuildQ));
 }

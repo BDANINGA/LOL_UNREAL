@@ -55,8 +55,14 @@ protected:
 	void Multicast_SpawnRProjectile(
 		FVector StartLocation,
 		FVector EndLocation,
-		float TravelTime
+		float TravelTime,
+		float WarningTime,
+		AActor* AttachedTarget,
+		FVector FallbackLocation
 	);
+
+	UPROPERTY(VisibleAnywhere, Category = "Fizz | R")
+	TObjectPtr<class UFizzRWaterVisualComponent> RWaterVisual;
 
 	void UpdateQChaseToCast();
 	void UpdateQDash(float DeltaTime);
@@ -85,6 +91,10 @@ protected:
 	TObjectPtr<class UParticleSystemComponent> WWeaponComponent;
 	void StartWPassiveBleed(ACharacter* Target);
 	void BeginEDescent();
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_EWaterSplash(bool bLanding, FVector FootLocation, float Radius);
+	UPROPERTY(VisibleAnywhere, Category = "Fizz | E")
+	TObjectPtr<class UFizzEWaterVisualComponent> EWaterVisual;
 	void UpdateEDescent(float DeltaTime);
 	void FinishPlayfulTrickster();
 	void ResetPlayfulTricksterState(bool bRestoreMovement);
@@ -109,12 +119,6 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<class UAnimSequence> SharkAnimation;
-
-	UPROPERTY()
-	TObjectPtr<class UStaticMesh> RThrowMesh;
-
-	UPROPERTY()
-	TObjectPtr<class UMaterialInterface> RThrowMaterial;
 
 	bool bIsChasingForQ = false;
 	bool bIsQDashing = false;
