@@ -19,6 +19,7 @@
 #include "Building/Building_Inhibitor.h"
 #include "Building/Building_Nexus.h"
 #include "JungleMonster/BaseJungleMonster.h"
+#include "Minion/BaseMinion.h"
 
 #include "Kismet/GameplayStatics.h"
 
@@ -1249,6 +1250,72 @@ FReply ULOL_HUDWidget::NativeOnMouseButtonDown(
     }
 
     return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
+}
+
+int32 ULOL_HUDWidget::NativePaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
+{
+    // 기본 위젯 패널 요소들 먼저 그리기
+    int32 MaxLayerId = Super::NativePaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
+
+    if (!MiniMap || !GetWorld())
+    {
+        return MaxLayerId;
+    }
+
+    ALOL_PlayerController* PC = Cast<ALOL_PlayerController>(GetOwningPlayer());
+    if (!PC) return MaxLayerId;
+
+    // 미니맵 위젯의 Screen Space Geometry 가져오기
+    const FGeometry MinimapGeometry = MiniMap->GetCachedGeometry();
+    const FVector2D MinimapSize = MinimapGeometry.GetLocalSize();
+    if (MinimapSize.X <= 0.f || MinimapSize.Y <= 0.f) return MaxLayerId;
+
+    // 월드의 모든 미니언 찾기 (성능을 위해 GameState의 미니언 배열을 참조하는 것을 권장)
+    TArray<AActor*> FoundMinions;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABaseMinion::StaticClass(), FoundMinions);
+
+    // 미니언 점 크기 (예: 3x3 픽셀 사각형)
+    const FVector2D DotSize(4.0f, 4.0f);
+
+    for (AActor* MinionActor : FoundMinions)
+    {
+        ABaseMinion* Minion = Cast<ABaseMinion>(MinionActor);
+        if (!Minion) continue;
+
+        // 사망 체크
+        ULOL_StateComponent* StateComp = Minion->FindComponentByClass<ULOL_StateComponent>();
+        if (StateComp && StateComp->HasStatusTag(LOLTags::State_Dead))
+        {
+            continue;
+        }
+
+        // 월드 좌표 -> 미니맵 UV 좌표 변환
+        FVector Loc = Minion->GetActorLocation();
+        float NormX = FMath::GetRangePct(PC->MinimapWorldMin.X, PC->MinimapWorldMax.X, Loc.X);
+        float NormY = FMath::GetRangePct(PC->MinimapWorldMin.Y, PC->MinimapWorldMax.Y, Loc.Y);
+
+        NormX = FMath::Clamp(NormX, 0.0f, 1.0f);
+        NormY = FMath::Clamp(NormY, 0.0f, 1.0f);
+        if (PC->bInvertMinimapY) NormY = 1.0f - NormY;
+
+        FVector2D LocalPos(NormX * MinimapSize.X + (DotSize.X / 2) + 8.0f, NormY * MinimapSize.Y + (DotSize.Y / 2) + 8.0f);
+
+        // 팀 색상 구분 (예시)
+        /*FLinearColor DotColor = (Minion->GetTeam() == ETeam::Blue) ? FLinearColor::Blue : FLinearColor::Red;*/
+        FLinearColor DotColor = FLinearColor::Red;
+
+        // Slate 렌더링 레이어에 사각형(점) 추가 지정
+        FSlateDrawElement::MakeBox(
+            OutDrawElements,
+            MaxLayerId + 1, // 기존 미니맵 레이어 위에 그리도록 지정
+            MinimapGeometry.ToPaintGeometry(DotSize, FSlateLayoutTransform(LocalPos)),
+            FCoreStyle::Get().GetBrush("WhiteBrush"), // 단색 브러시
+            ESlateDrawEffect::None,
+            DotColor
+        );
+    }
+
+    return MaxLayerId + 1;
 }
 
 void ULOL_HUDWidget::CacheItemSlotImages()

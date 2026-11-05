@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Rendering/DrawElements.h"
 #include "Components/TextBlock.h"
 #include "Components/Image.h"
 #include "LOL_HUDWidget.generated.h"
@@ -348,4 +349,13 @@ protected:
     virtual FReply NativeOnMouseButtonDown(
         const FGeometry& InGeometry,
         const FPointerEvent& InMouseEvent) override;
+
+    virtual int32 NativePaint(
+        const FPaintArgs& Args,
+        const FGeometry& AllottedGeometry,
+        const FSlateRect& MyCullingRect,
+        FSlateWindowElementList& OutDrawElements,
+        int32 LayerId,
+        const FWidgetStyle& InWidgetStyle,
+        bool bParentEnabled) const override;
 };
