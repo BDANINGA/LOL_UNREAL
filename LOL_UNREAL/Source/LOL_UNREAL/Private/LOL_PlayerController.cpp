@@ -15,6 +15,7 @@
 #include "VisionManager/VisionManager.h"
 
 #include "Widget/LOL_CursorWidget.h"
+#include "Widget/LOL_HUDWidget.h"
 #include "Widget/LOL_QuitConfirmWidget.h"
 #include "Widget/LOL_GameResultWidget.h"
 #include "Widget/LOL_ShopInputProcessor.h"
@@ -697,6 +698,19 @@ void ALOL_PlayerController::OnToggleShop()
 	ShopWidget->AddToViewport();
 	if (ShopInputProcessor.IsValid())
 	{
+		ShopInputProcessor->ResetInventorySlots();
+		if (ALOL_HUD* LOLHUD = Cast<ALOL_HUD>(GetHUD()))
+		{
+			if (LOLHUD->MainHUDWidget && LOLHUD->MainHUDWidget->WidgetTree)
+			{
+				for (int32 SlotIndex = 0; SlotIndex < 6; ++SlotIndex)
+				{
+					const FName SlotName(*FString::Printf(TEXT("ItemSlot_%d"), SlotIndex + 1));
+					ShopInputProcessor->AddInventorySlot(
+						LOLHUD->MainHUDWidget->WidgetTree->FindWidget(SlotName), SlotIndex);
+				}
+			}
+		}
 		FSlateApplication::Get().RegisterInputPreProcessor(ShopInputProcessor);
 	}
 	bShowMouseCursor = true;
@@ -1232,71 +1246,28 @@ bool ALOL_PlayerController::FindItemData(FName ItemName, FItemData& OutItemData)
 	return false;
 }
 
-UTexture2D* ALOL_PlayerController::LoadItemIconTexture(FName ItemName) const
+UTexture2D* ALOL_PlayerController::LoadItemIconTexture(FName ItemName)
 {
-	static const TMap<FName, FString> ItemIconIds =
+	// Inventory can be refreshed before the player first opens the shop.
+	// Initialize its bindings without adding the widget to the viewport.
+	if (!ShopWidget && ShopWidgetClass)
 	{
-		{ FName("Boots"), TEXT("1001") },
-		{ FName("GiantsBelt"), TEXT("1011") },
-		{ FName("BlastingWand"), TEXT("1026") },
-		{ FName("BFSword"), TEXT("1038") },
-		{ FName("NegatronCloak"), TEXT("1057") },
-		{ FName("Pickaxe"), TEXT("1037") },
-		{ FName("NeedlesslyLargeRod"), TEXT("1058") },
-		{ FName("VampiricScepter"), TEXT("1053") },
-		{ FName("Dagger"), TEXT("1042") },
-		{ FName("LongSword"), TEXT("1036") },
-		{ FName("AmplifyingTome"), TEXT("1052") },
-		{ FName("BerserkersGreaves"), TEXT("3006") },
-		{ FName("BootsOfSwiftness"), TEXT("3009") },
-		{ FName("SorcerersShoes"), TEXT("3020") },
-		{ FName("PlatedSteelcaps"), TEXT("3047") },
-		{ FName("MercurysTreads"), TEXT("3111") },
-		{ FName("Kindlegem"), TEXT("3067") },
-		{ FName("Sheen"), TEXT("3057") },
-		{ FName("ClothArmor"), TEXT("1029") },
-		{ FName("NullMagicMantle"), TEXT("1033") },
-		{ FName("Zeal"), TEXT("3086") },
-		{ FName("ForbiddenIdol"), TEXT("3114") },
-		{ FName("GlowingMote"), TEXT("2022") },
-		{ FName("RubyCrystal"), TEXT("1028") },
-		{ FName("LocketOfTheIronSolari"), TEXT("3190") },
-		{ FName("KnightsVow"), TEXT("3109") },
-		{ FName("ZekesConvergence"), TEXT("3050") },
-		{ FName("Thornmail"), TEXT("3075") },
-		{ FName("BlackCleaver"), TEXT("3071") },
-		{ FName("SteraksGage"), TEXT("3053") },
-		{ FName("MikaelsBlessing"), TEXT("3222") },
-		{ FName("Stridebreaker"), TEXT("3077") },
-		{ FName("ForceOfNature"), TEXT("3065") },
-		{ FName("JakShoTheProtean"), TEXT("3193") },
-		{ FName("IcebornGauntlet"), TEXT("3024") },
-		{ FName("VoidStaff"), TEXT("3135") },
-		{ FName("RabadonsDeathcap"), TEXT("3089") },
-		{ FName("Stormsurge"), TEXT("3100") },
-		{ FName("Shadowflame"), TEXT("3135") },
-		{ FName("CosmicDrive"), TEXT("3116") },
-		{ FName("LordDominiksRegards"), TEXT("3036") },
-		{ FName("InfinityEdge"), TEXT("3031") },
-		{ FName("GuinsoosRageblade"), TEXT("3124") },
-		{ FName("KrakenSlayer"), TEXT("3085") },
-		{ FName("TrinityForce"), TEXT("3078") },
-		{ FName("SunderedSky"), TEXT("3078") },
-		{ FName("Bloodthirster"), TEXT("3072") }
-	};
+		ShopWidget = CreateWidget<UUserWidget>(this, ShopWidgetClass);
+	}
+	BindShopWidgetButtons();
 
-	const FString* IconId = ItemIconIds.Find(ItemName);
-	if (!IconId)
+	const TWeakObjectPtr<UButton>* ItemButton = ShopItemButtons.Find(ItemName);
+	if (!ItemButton || !ItemButton->IsValid())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Item icon id is not mapped. Item=%s"), *ItemName.ToString());
+		UE_LOG(LogTemp, Warning, TEXT("Shop item button not found for inventory icon. Item=%s"), *ItemName.ToString());
 		return nullptr;
 	}
 
-	const FString IconPath = FString::Printf(TEXT("/Game/LOL_Data/Img_Item/%s.%s"), **IconId, **IconId);
-	UTexture2D* IconTexture = LoadObject<UTexture2D>(nullptr, *IconPath);
+	// Use the exact artwork displayed by the button bound to this purchase.
+	UTexture2D* IconTexture = Cast<UTexture2D>(ItemButton->Get()->GetStyle().Normal.GetResourceObject());
 	if (!IconTexture)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Item icon texture not found. Item=%s Path=%s"), *ItemName.ToString(), *IconPath);
+		UE_LOG(LogTemp, Warning, TEXT("Shop item button has no inventory texture. Item=%s"), *ItemName.ToString());
 	}
 
 	return IconTexture;
@@ -1403,6 +1374,7 @@ void ALOL_PlayerController::BindShopWidgetButtons()
 	}
 
 	ShopInputProcessor = MakeShared<FLOL_ShopInputProcessor>(this, ShopWidget);
+	ShopItemButtons.Reset();
 	int32 ItemIndex = 0;
 	for (UButton* Button : Buttons)
 	{
@@ -1418,6 +1390,7 @@ void ALOL_PlayerController::BindShopWidgetButtons()
 
 		ULOL_ShopButtonBinding* Binding = NewObject<ULOL_ShopButtonBinding>(this);
 		Binding->Initialize(this, ItemNames[ItemIndex], false);
+		ShopItemButtons.Add(ItemNames[ItemIndex], Button);
 		ShopInputProcessor->AddItemButton(Button, ItemNames[ItemIndex]);
 		Button->OnClicked.AddDynamic(Binding, &ULOL_ShopButtonBinding::HandleClicked);
 		ShopButtonBindings.Add(Binding);

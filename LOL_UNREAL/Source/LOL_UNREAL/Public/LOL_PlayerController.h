@@ -175,7 +175,7 @@ private:
 	bool IsExpandedClickableAttackTarget(AActor* TargetActor) const;
 	bool IsInShopRange() const;
 	bool FindItemData(FName ItemName, struct FItemData& OutItemData) const;
-	class UTexture2D* LoadItemIconTexture(FName ItemName) const;
+	class UTexture2D* LoadItemIconTexture(FName ItemName);
 	void BindShopWidgetButtons();
 	bool DoesButtonLookLikeBuyButton(class UButton* Button) const;
 	bool DoesButtonLookLikeSellButton(class UButton* Button) const;
@@ -211,6 +211,7 @@ private:
 	TArray<FName> PurchasedItemNames;
 
 	bool bShopButtonsBound = false;
+	TMap<FName, TWeakObjectPtr<class UButton>> ShopItemButtons;
 	TSharedPtr<class FLOL_ShopInputProcessor> ShopInputProcessor;
 
 	FString LastCursorState;
