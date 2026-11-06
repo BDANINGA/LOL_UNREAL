@@ -7,6 +7,7 @@
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_StateComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/MaterialBillboardComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -14,6 +15,9 @@
 #include "JungleMonster/BaseJungleMonster.h"
 #include "Kismet/GameplayStatics.h"
 #include "Minion/BaseMinion.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Net/UnrealNetwork.h"
+#include "GamePlayTag/LOL_GamePlayTags.h"
 #include "UObject/ConstructorHelpers.h"
 
 AChampion_LeeSin::AChampion_LeeSin()
@@ -22,11 +26,21 @@ AChampion_LeeSin::AChampion_LeeSin()
 	SetChampionData(ChampionName);
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> ProjectileMeshAsset(
-		TEXT("/Game/Level/leesin/leesin_tex/leesin_q.leesin_q"));
+		TEXT("/Engine/BasicShapes/Plane.Plane"));
 	if (ProjectileMeshAsset.Succeeded())
 	{
-		DefaultQProjectileMesh = ProjectileMeshAsset.Object;
+		SkillEffectPlane = ProjectileMeshAsset.Object;
 	}
+
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> Wave(
+		TEXT("/Game/VFX/LeeSin/M_LeeSinSonicWave.M_LeeSinSonicWave"));
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> Mark(
+		TEXT("/Game/VFX/LeeSin/M_LeeSinResonanceMark.M_LeeSinResonanceMark"));
+	QWaveMaterial = Wave.Object;
+	QMarkMaterial = Mark.Object;
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> Dash(
+		TEXT("/Game/VFX/LeeSin/M_LeeSinWDash.M_LeeSinWDash"));
+	WDashMaterial = Dash.Object;
 
 	GetMesh()->SetRelativeScale3D(FVector(0.8f, 0.8f, 0.8f));
 }
@@ -181,8 +195,13 @@ void AChampion_LeeSin::Server_Skill_W_Implementation(FVector TargetLocation)
 		? GetActorRotation()
 		: Direction.Rotation();
 
-	Multicast_PlayLeeSinSkillAnimation(1, 0, 1.0f, FacingRotation);
+	// Dash setup cancels the current attack montage. Play W after that cancellation.
 	StartWDash(Destination);
+	const UAnimMontage* DashMontage = GetLeeSinMontage(1, 0);
+	const float PlayRate = DashMontage && WDashDuration > KINDA_SMALL_NUMBER && DashMontage->RateScale > 0.f
+		? DashMontage->GetPlayLength() / (WDashDuration * DashMontage->RateScale)
+		: 1.f;
+	Multicast_PlayLeeSinSkillAnimation(1, 0, PlayRate, FacingRotation);
 
 	const float BaseShield = GetSkillValue(WData.BaseDamage, 0, 60.0f);
 	const float ShieldAmount =
@@ -373,6 +392,15 @@ void AChampion_LeeSin::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (IsValid(QMarkVisual) && IsValid(QMarkedTarget))
+	{
+		const auto* State = QMarkedTarget->FindComponentByClass<ULOL_StateComponent>();
+		if (State && State->HasStatusTag(LOLTags::State_Dead))
+		{
+			RemoveQMarkVisual();
+		}
+	}
+
 	if (HasAuthority() && bIsQDashing)
 	{
 		UpdateQDash(DeltaTime);
@@ -386,6 +414,23 @@ void AChampion_LeeSin::Tick(float DeltaTime)
 	if (HasAuthority() && bIsWDashing)
 	{
 		UpdateWDash(DeltaTime);
+	}
+
+	if (WDashVisual)
+	{
+		constexpr float FadeSeconds = .16f;
+		const bool bArrived = WVisualFadeStart >= 0.0;
+		const float Opacity = bArrived
+			? 1.f - (GetWorld()->GetTimeSeconds() - WVisualFadeStart) / FadeSeconds
+			: 1.f;
+		if (Opacity <= 0.f || (StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead)))
+		{
+			RemoveWDashVisual();
+		}
+		else
+		{
+			UpdateWDashVisual(bArrived ? WVisualArrival : GetActorLocation(), Opacity);
+		}
 	}
 
 	if (HasAuthority() && bRKnockbackActive)
@@ -403,6 +448,8 @@ void AChampion_LeeSin::MarkQTarget(AActor* Target)
 {
 	QMarkedTarget = Target;
 	bQMarkActive = IsValid(Target);
+	OnRep_QMarkedTarget();
+	ForceNetUpdate();
 
 	GetWorldTimerManager().ClearTimer(QMarkTimerHandle);
 	if (bQMarkActive)
@@ -421,6 +468,50 @@ void AChampion_LeeSin::ClearQMark()
 {
 	bQMarkActive = false;
 	QMarkedTarget = nullptr;
+	OnRep_QMarkedTarget();
+	ForceNetUpdate();
+}
+
+void AChampion_LeeSin::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AChampion_LeeSin, QMarkedTarget);
+}
+
+void AChampion_LeeSin::OnRep_QMarkedTarget()
+{
+	RemoveQMarkVisual();
+	ACharacter* Target = Cast<ACharacter>(QMarkedTarget);
+	if (GetNetMode() == NM_DedicatedServer || !IsValid(Target) || !QMarkMaterial) return;
+
+	UCapsuleComponent* Capsule = Target->GetCapsuleComponent();
+	QMarkVisual = NewObject<UMaterialBillboardComponent>(Target);
+	QMarkVisual->SetupAttachment(Capsule);
+	QMarkVisual->SetAbsolute(false, true, true);
+	QMarkVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	QMarkVisual->SetGenerateOverlapEvents(false);
+	QMarkVisual->SetCanEverAffectNavigation(false);
+	QMarkVisual->SetCastShadow(false);
+	auto* Material = UMaterialInstanceDynamic::Create(QMarkMaterial, QMarkVisual);
+	Material->SetScalarParameterValue(TEXT("StartTime"), GetWorld()->GetTimeSeconds());
+	QMarkVisual->AddElement(Material, nullptr, false, 48.f, 48.f, nullptr);
+	QMarkVisual->RegisterComponent();
+	QMarkVisual->SetWorldLocation(Capsule->GetComponentLocation() +
+		FVector::UpVector * (Capsule->GetScaledCapsuleHalfHeight() + 58.f));
+}
+
+void AChampion_LeeSin::RemoveQMarkVisual()
+{
+	if (IsValid(QMarkVisual)) QMarkVisual->DestroyComponent();
+	QMarkVisual = nullptr;
+}
+
+void AChampion_LeeSin::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	RemoveWDashVisual();
+	RemoveQMarkVisual();
+	if (IsValid(QProjectileVisualActor)) QProjectileVisualActor->Destroy();
+	Super::EndPlay(EndPlayReason);
 }
 
 void AChampion_LeeSin::UpdateQProjectile(float DeltaTime)
@@ -532,7 +623,7 @@ void AChampion_LeeSin::StartQDash(AActor* Target)
 	GetWorldTimerManager().ClearTimer(QMarkTimerHandle);
 	GetWorldTimerManager().ClearTimer(SkillMovementLockTimerHandle);
 	bSkillMovementLocked = false;
-	bQMarkActive = false;
+	ClearQMark();
 	QDashTarget = Target;
 	QDashStart = GetActorLocation();
 	QDashElapsed = 0.0f;
@@ -683,7 +774,6 @@ void AChampion_LeeSin::FinishQDash()
 	AActor* Target = QDashTarget;
 	bIsQDashing = false;
 	QDashTarget = nullptr;
-	QMarkedTarget = nullptr;
 
 	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
 	{
@@ -751,6 +841,10 @@ void AChampion_LeeSin::StartWDash(FVector Destination)
 	WDashEnd.Z = WDashStart.Z;
 	WDashElapsed = 0.0f;
 	bIsWDashing = true;
+	if (!WDashStart.Equals(WDashEnd, 1.f))
+	{
+		Multicast_BeginWDashVisual(WDashStart, WDashEnd);
+	}
 
 	if (MoveComponent)
 	{
@@ -820,6 +914,7 @@ void AChampion_LeeSin::FinishWDash()
 	if (!bIsWDashing) return;
 
 	bIsWDashing = false;
+	Multicast_EndWDashVisual(GetActorLocation());
 
 	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
 	{
@@ -854,6 +949,54 @@ void AChampion_LeeSin::FinishWDash()
 void AChampion_LeeSin::EndWShield()
 {
 	WShieldRemaining = 0.0f;
+}
+
+void AChampion_LeeSin::Multicast_BeginWDashVisual_Implementation(FVector Start, FVector Destination)
+{
+	if (GetNetMode() == NM_DedicatedServer || !SkillEffectPlane || !WDashMaterial) return;
+	RemoveWDashVisual();
+	WVisualStart = Start;
+	WVisualDirection = (Destination - Start).GetSafeNormal2D();
+	WVisualFadeStart = -1.0;
+
+	WDashVisual = NewObject<UStaticMeshComponent>(this);
+	WDashVisual->SetMobility(EComponentMobility::Movable);
+	WDashVisual->SetStaticMesh(SkillEffectPlane);
+	WDashVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	WDashVisual->SetGenerateOverlapEvents(false);
+	WDashVisual->SetCanEverAffectNavigation(false);
+	WDashVisual->SetCastShadow(false);
+	WDashVisual->bReceivesDecals = false;
+	WDashVisual->SetWorldRotation(WVisualDirection.Rotation());
+	WDashVisual->SetWorldScale3D(FVector(4.f, 2.f, 1.f));
+	WDashMID = WDashVisual->CreateDynamicMaterialInstance(0, WDashMaterial);
+	WDashMID->SetScalarParameterValue(TEXT("StartTime"), GetWorld()->GetTimeSeconds());
+	UpdateWDashVisual(Start, 1.f);
+	WDashVisual->RegisterComponent();
+}
+
+void AChampion_LeeSin::UpdateWDashVisual(FVector Location, float Opacity)
+{
+	// The crescent sits at the shoulders. Only reveal the ribbons over ground already crossed.
+	const float Travel = FMath::Max(0.f, static_cast<float>(FVector::DotProduct(Location - WVisualStart, WVisualDirection)));
+	WDashVisual->SetWorldLocation(Location - WVisualDirection * 100.f - FVector(0, 0, 25.f));
+	WDashMID->SetScalarParameterValue(TEXT("Travel"), Travel);
+	WDashMID->SetScalarParameterValue(TEXT("Fade"), Opacity);
+}
+
+void AChampion_LeeSin::Multicast_EndWDashVisual_Implementation(FVector Arrival)
+{
+	if (!WDashVisual) return;
+	WVisualArrival = Arrival;
+	WVisualFadeStart = GetWorld()->GetTimeSeconds();
+	UpdateWDashVisual(Arrival, 1.f);
+}
+
+void AChampion_LeeSin::RemoveWDashVisual()
+{
+	if (WDashVisual) WDashVisual->DestroyComponent();
+	WDashVisual = nullptr;
+	WDashMID = nullptr;
 }
 
 void AChampion_LeeSin::RestoreTargetMoveSpeed(
@@ -1051,7 +1194,7 @@ void AChampion_LeeSin::Multicast_SpawnQProjectile_Implementation(
 	FVector EndLocation,
 	float TravelTime)
 {
-	if (!GetWorld()) return;
+	if (!GetWorld() || GetNetMode() == NM_DedicatedServer || !QWaveMaterial) return;
 
 	if (IsValid(QProjectileVisualActor))
 	{
@@ -1059,7 +1202,7 @@ void AChampion_LeeSin::Multicast_SpawnQProjectile_Implementation(
 		QProjectileVisualActor = nullptr;
 	}
 
-	UStaticMesh* ProjectileMeshAsset = DefaultQProjectileMesh.Get();
+	UStaticMesh* ProjectileMeshAsset = SkillEffectPlane.Get();
 	if (!ProjectileMeshAsset) return;
 
 	const FVector Direction =
@@ -1095,26 +1238,24 @@ void AChampion_LeeSin::Multicast_SpawnQProjectile_Implementation(
 	ProjectileActor->AddInstanceComponent(ProjectileMesh);
 	ProjectileActor->SetRootComponent(ProjectileMesh);
 	ProjectileMesh->SetStaticMesh(ProjectileMeshAsset);
+	ProjectileMesh->SetMaterial(0, QWaveMaterial);
+	ProjectileMesh->SetCanEverAffectNavigation(false);
 	ProjectileMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	ProjectileMesh->SetGenerateOverlapEvents(false);
 	ProjectileMesh->SetCastShadow(false);
 	ProjectileMesh->RegisterComponent();
 
+	// The leading pulse is at UV x = .73. Keep it on the server's sweep centre.
+	const float Size = QProjectileVisualRadius * QProjectileVisualScale;
+	const FQuat Orientation = Direction.Rotation().Quaternion() * QProjectileRotationOffset.Quaternion();
 	ProjectileActor->SetActorLocationAndRotation(
-		StartLocation,
-		Direction.Rotation(),
+		StartLocation - Orientation.GetForwardVector() * (.46f * 2.4f * Size),
+		Orientation,
 		false,
 		nullptr,
 		ETeleportType::TeleportPhysics
 	);
-	ProjectileMesh->SetRelativeRotation(QProjectileRotationOffset);
-
-	const float MeshRadius =
-		ProjectileMeshAsset->GetBounds().SphereRadius;
-	const float ProjectileScale = MeshRadius > KINDA_SMALL_NUMBER
-		? QProjectileVisualRadius / MeshRadius
-		: 1.0f;
-	ProjectileMesh->SetWorldScale3D(FVector(ProjectileScale * QProjectileVisualScale));
+	ProjectileMesh->SetWorldScale3D(FVector(4.8f * Size / 100.f, 2.25f * Size / 100.f, 1.f));
 	ProjectileMesh->SetVisibility(true, true);
 	ProjectileMesh->SetHiddenInGame(false, true);
 
