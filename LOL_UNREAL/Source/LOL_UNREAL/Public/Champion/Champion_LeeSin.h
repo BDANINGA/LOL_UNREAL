@@ -98,6 +98,17 @@ protected:
 	void UpdateRKnockback(float DeltaTime);
 	void CheckRKnockbackCollision();
 	void FinishRKnockbackCollision();
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_BeginKickVisual(ABaseChampion* Target, FVector Contact, FVector_NetQuantizeNormal Direction);
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_KickCollisionVisual(ABaseChampion* Target, FVector Contact);
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_EndKickVisual();
+	void ShowKickImpact(ABaseChampion* Target, FVector Location, float Size);
+	void ReleaseKickTrail();
+	UPROPERTY() TObjectPtr<class UMaterialInterface> KickImpactMaterial;
+	UPROPERTY() TObjectPtr<class UMaterialInterface> KickTrailMaterial;
+	UPROPERTY(Transient) TObjectPtr<class UStaticMeshComponent> KickTrail;
 	FVector ClampTargetLocation(FVector TargetLocation, float MaxRange) const;
 	float GetSkillValue(const TArray<float>& Values, int32 Index, float Fallback) const;
 	bool HasCastData(const struct FSkillData& SkillData) const;
@@ -206,6 +217,10 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | E")
 	float EBonusADRatio = 1.0f;
+
+	// Seconds from cast start. The ground impact occurs at ~0.26 s at 2x playback.
+	UPROPERTY(EditDefaultsOnly, Category = "LeeSin | E", meta = (ClampMin = "0.05", Units = "s"))
+	float EMovementLockDuration = 0.30f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | E")
 	float ESlowRatio = 0.3f;

@@ -41,6 +41,12 @@ AChampion_LeeSin::AChampion_LeeSin()
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> Dash(
 		TEXT("/Game/VFX/LeeSin/M_LeeSinWDash.M_LeeSinWDash"));
 	WDashMaterial = Dash.Object;
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> KickImpact(
+		TEXT("/Game/VFX/LeeSin/M_LeeSinRImpact.M_LeeSinRImpact"));
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> KickWake(
+		TEXT("/Game/VFX/LeeSin/M_LeeSinRKnockback.M_LeeSinRKnockback"));
+	KickImpactMaterial = KickImpact.Object;
+	KickTrailMaterial = KickWake.Object;
 
 	GetMesh()->SetRelativeScale3D(FVector(0.8f, 0.8f, 0.8f));
 }
@@ -236,9 +242,7 @@ void AChampion_LeeSin::Server_Skill_E_Implementation()
 	if (!HasCastData(EData)) return;
 	if (!SkillComponent->TryCastSkill("E", 1)) return;
 
-	BeginSkillMovementLock(
-		GetSkillMovementLockDuration(2, 0, 0.7f)
-	);
+	BeginSkillMovementLock(EMovementLockDuration);
 	Multicast_PlayLeeSinSkillAnimation(2, 0, 2.0f, GetActorRotation());
 
 	const float Radius = GetSkillValue(EData.Range, 0, 350.0f);
@@ -364,6 +368,7 @@ void AChampion_LeeSin::Server_Skill_R_Implementation(ABaseChampion* Target)
 	bRKnockbackActive = true;
 	RAirborneTargets.Empty();
 
+	Multicast_BeginKickVisual(Target, RKnockbackStart, Direction);
 	Target->SetIsKnockedBack(true);
 	if (UCharacterMovementComponent* TargetMovement =
 		Target->GetCharacterMovement())
@@ -508,6 +513,7 @@ void AChampion_LeeSin::RemoveQMarkVisual()
 
 void AChampion_LeeSin::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (IsValid(KickTrail)) KickTrail->DestroyComponent();
 	RemoveWDashVisual();
 	RemoveQMarkVisual();
 	if (IsValid(QProjectileVisualActor)) QProjectileVisualActor->Destroy();
@@ -1135,6 +1141,7 @@ void AChampion_LeeSin::CheckRKnockbackCollision()
 		}
 
 		RAirborneTargets.Add(HitChampion);
+		Multicast_KickCollisionVisual(HitChampion, HitChampion->GetActorLocation());
 		HitChampion->StartKnockbackWithWallCheck(
 			FVector(0.0f, 0.0f, RCollisionAirborneVelocity),
 			RCollisionAirborneDuration,
@@ -1145,6 +1152,7 @@ void AChampion_LeeSin::CheckRKnockbackCollision()
 
 void AChampion_LeeSin::FinishRKnockbackCollision()
 {
+	if (bRKnockbackActive) Multicast_EndKickVisual();
 	if (IsValid(RKnockbackTarget))
 	{
 		RKnockbackTarget->SetIsKnockedBack(false);
@@ -1160,6 +1168,77 @@ void AChampion_LeeSin::FinishRKnockbackCollision()
 	bRKnockbackActive = false;
 	RKnockbackTarget = nullptr;
 	RAirborneTargets.Empty();
+}
+
+namespace
+{
+void RegisterKickLayer(UPrimitiveComponent* Layer, float Lifetime)
+{
+	Layer->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Layer->SetGenerateOverlapEvents(false);
+	Layer->SetCanEverAffectNavigation(false);
+	Layer->SetCastShadow(false);
+	Layer->bReceivesDecals = false;
+	Layer->RegisterComponent();
+	FTimerHandle Handle;
+	Layer->GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(
+		Layer, [Layer]() { Layer->DestroyComponent(); }), Lifetime, false);
+}
+}
+
+void AChampion_LeeSin::ShowKickImpact(ABaseChampion* Target, FVector Location, float Size)
+{
+	if (!IsValid(Target) || !KickImpactMaterial || GetNetMode() == NM_DedicatedServer) return;
+	auto* Flash = NewObject<UMaterialBillboardComponent>(Target);
+	auto* Material = UMaterialInstanceDynamic::Create(KickImpactMaterial, Flash);
+	Material->SetScalarParameterValue(TEXT("StartTime"), GetWorld()->GetTimeSeconds());
+	Flash->AddElement(Material, nullptr, false, Size, Size, nullptr);
+	Flash->SetWorldLocation(Location);
+	RegisterKickLayer(Flash, .33f);
+}
+
+void AChampion_LeeSin::Multicast_BeginKickVisual_Implementation(
+	ABaseChampion* Target, FVector Contact, FVector_NetQuantizeNormal Direction)
+{
+	if (GetNetMode() == NM_DedicatedServer || !IsValid(Target)) return;
+	ShowKickImpact(Target, Contact - Direction * Target->GetCapsuleComponent()->GetScaledCapsuleRadius(), 132.f);
+	ReleaseKickTrail();
+	if (!KickTrailMaterial || !SkillEffectPlane) return;
+
+	KickTrail = NewObject<UStaticMeshComponent>(Target);
+	KickTrail->SetupAttachment(Target->GetRootComponent());
+	KickTrail->SetAbsolute(false, true, true);
+	KickTrail->SetWorldRotation(Direction.Rotation());
+	KickTrail->SetWorldScale3D(FVector(5.9f, 2.1f, 1.f));
+	KickTrail->SetStaticMesh(SkillEffectPlane);
+	auto* Material = KickTrail->CreateDynamicMaterialInstance(0, KickTrailMaterial);
+	const float Now = GetWorld()->GetTimeSeconds();
+	Material->SetScalarParameterValue(TEXT("StartTime"), Now);
+	Material->SetScalarParameterValue(TEXT("EndTime"), Now + RKnockbackDuration);
+	RegisterKickLayer(KickTrail, RKnockbackDuration + .15f);
+}
+
+void AChampion_LeeSin::Multicast_KickCollisionVisual_Implementation(ABaseChampion* Target, FVector Contact)
+{
+	ShowKickImpact(Target, Contact, 88.f);
+}
+
+void AChampion_LeeSin::Multicast_EndKickVisual_Implementation()
+{
+	ReleaseKickTrail();
+}
+
+void AChampion_LeeSin::ReleaseKickTrail()
+{
+	if (IsValid(KickTrail))
+	{
+		KickTrail->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+		if (auto* Material = Cast<UMaterialInstanceDynamic>(KickTrail->GetMaterial(0)))
+		{
+			Material->SetScalarParameterValue(TEXT("EndTime"), GetWorld()->GetTimeSeconds());
+		}
+	}
+	KickTrail = nullptr;
 }
 
 float AChampion_LeeSin::TakeDamage(
