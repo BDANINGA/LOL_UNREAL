@@ -1042,59 +1042,39 @@ void AChampion_LeeSin::UpdateRKnockback(float DeltaTime)
 	DesiredLocation.Z +=
 		FMath::Sin(Alpha * PI) * RKnockbackArcHeight;
 
-	const float Radius =
-		RKnockbackTarget->GetCapsuleComponent()
-			->GetScaledCapsuleRadius();
-	const float HalfHeight =
-		RKnockbackTarget->GetCapsuleComponent()
-			->GetScaledCapsuleHalfHeight();
-
-	FHitResult WallHit;
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(this);
+	UCapsuleComponent* Capsule = RKnockbackTarget->GetCapsuleComponent();
+	const FVector CurrentLocation = Capsule->GetComponentLocation();
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(LeeSinKickObstacles), false, this);
 	QueryParams.AddIgnoredActor(RKnockbackTarget);
 
-	FCollisionObjectQueryParams ObjectParams;
-	ObjectParams.AddObjectTypesToQuery(ECC_WorldStatic);
+	// Buildings use Pawn and some barriers use WorldDynamic. Respect the victim's
+	// walking collision, while allowing other champions to be struck along the arc.
+	TArray<FHitResult> Hits;
+	GetWorld()->SweepMultiByObjectType(Hits, CurrentLocation, DesiredLocation,
+		Capsule->GetComponentQuat(), FCollisionObjectQueryParams::AllObjects,
+		Capsule->GetCollisionShape(), QueryParams);
 
-	const bool bWorldHit = GetWorld()->SweepSingleByObjectType(
-		WallHit,
-		RKnockbackTarget->GetActorLocation(),
-		DesiredLocation,
-		RKnockbackTarget->GetActorQuat(),
-		ObjectParams,
-		FCollisionShape::MakeCapsule(
-			Radius * 0.9f,
-			HalfHeight * 0.9f
-		),
-		QueryParams
-	);
-	const bool bHitWall =
-		bWorldHit &&
-		(WallHit.bStartPenetrating ||
-			FMath::Abs(WallHit.ImpactNormal.Z) < 0.5f);
-
-	if (bHitWall)
+	const FHitResult* Obstacle = nullptr;
+	for (const FHitResult& Hit : Hits)
 	{
-		RKnockbackTarget->SetActorLocation(
-			WallHit.Location,
-			false,
-			nullptr,
-			ETeleportType::TeleportPhysics
-		);
-		CheckRKnockbackCollision();
-		FinishRKnockbackCollision();
-		return;
+		UPrimitiveComponent* Other = Hit.GetComponent();
+		if (!Other || Cast<ACharacter>(Hit.GetActor()) ||
+			Capsule->GetCollisionResponseToComponent(Other) != ECR_Block)
+		{
+			continue;
+		}
+		if (Hit.bStartPenetrating &&
+			FVector::DotProduct(DesiredLocation - CurrentLocation, Hit.Normal) > 0.f)
+		{
+			continue;
+		}
+		if (!Obstacle || Hit.Time < Obstacle->Time) Obstacle = &Hit;
 	}
 
-	RKnockbackTarget->SetActorLocation(
-		DesiredLocation,
-		false,
-		nullptr,
-		ETeleportType::TeleportPhysics
-	);
+	const FVector SafeLocation = Obstacle ? FVector(Obstacle->Location) : DesiredLocation;
+	RKnockbackTarget->SetActorLocation(SafeLocation, false, nullptr, ETeleportType::TeleportPhysics);
 
-	if (Alpha >= 1.0f)
+	if (Obstacle || Alpha >= 1.0f)
 	{
 		CheckRKnockbackCollision();
 		FinishRKnockbackCollision();
