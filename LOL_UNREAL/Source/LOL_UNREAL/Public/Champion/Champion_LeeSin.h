@@ -17,6 +17,8 @@ public:
 	virtual void Skill_E() override;
 	virtual void Skill_R() override;
 	virtual void Tick(float DeltaTime) override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual bool IsMoveInputBlocked() const override;
 	virtual float TakeDamage(
 		float DamageAmount,
@@ -67,6 +69,23 @@ protected:
 	void StartWDash(FVector Destination);
 	void UpdateWDash(float DeltaTime);
 	void FinishWDash();
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_BeginWDashVisual(FVector Start, FVector Destination);
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_EndWDashVisual(FVector Arrival);
+	void UpdateWDashVisual(FVector Location, float Opacity);
+	void RemoveWDashVisual();
+
+	UPROPERTY()
+	TObjectPtr<class UMaterialInterface> WDashMaterial;
+	UPROPERTY(Transient)
+	TObjectPtr<class UStaticMeshComponent> WDashVisual;
+	UPROPERTY(Transient)
+	TObjectPtr<class UMaterialInstanceDynamic> WDashMID;
+	FVector WVisualStart = FVector::ZeroVector;
+	FVector WVisualDirection = FVector::ForwardVector;
+	FVector WVisualArrival = FVector::ZeroVector;
+	double WVisualFadeStart = -1.0;
 	void BeginSkillMovementLock(float Duration);
 	void EndSkillMovementLock();
 	float GetSkillMovementLockDuration(
@@ -79,13 +98,37 @@ protected:
 	void UpdateRKnockback(float DeltaTime);
 	void CheckRKnockbackCollision();
 	void FinishRKnockbackCollision();
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_BeginKickVisual(ABaseChampion* Target, FVector Contact, FVector_NetQuantizeNormal Direction);
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_KickCollisionVisual(ABaseChampion* Target, FVector Contact);
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_EndKickVisual();
+	void ShowKickImpact(ABaseChampion* Target, FVector Location, float Size);
+	void ReleaseKickTrail();
+	UPROPERTY() TObjectPtr<class UMaterialInterface> KickImpactMaterial;
+	UPROPERTY() TObjectPtr<class UMaterialInterface> KickTrailMaterial;
+	UPROPERTY(Transient) TObjectPtr<class UStaticMeshComponent> KickTrail;
 	FVector ClampTargetLocation(FVector TargetLocation, float MaxRange) const;
 	float GetSkillValue(const TArray<float>& Values, int32 Index, float Fallback) const;
 	bool HasCastData(const struct FSkillData& SkillData) const;
 	UAnimMontage* GetLeeSinMontage(uint8 SkillIndex, int32 MontageIndex) const;
 
-	UPROPERTY()
+	UFUNCTION()
+	void OnRep_QMarkedTarget();
+	void RemoveQMarkVisual();
+
+	UPROPERTY(ReplicatedUsing = OnRep_QMarkedTarget)
 	TObjectPtr<AActor> QMarkedTarget;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UMaterialBillboardComponent> QMarkVisual;
+
+	UPROPERTY()
+	TObjectPtr<class UMaterialInterface> QWaveMaterial;
+
+	UPROPERTY()
+	TObjectPtr<class UMaterialInterface> QMarkMaterial;
 
 	UPROPERTY()
 	TObjectPtr<AActor> QDashTarget;
@@ -94,7 +137,7 @@ protected:
 	TObjectPtr<AActor> QProjectileVisualActor;
 
 	UPROPERTY()
-	TObjectPtr<class UStaticMesh> DefaultQProjectileMesh;
+	TObjectPtr<class UStaticMesh> SkillEffectPlane;
 
 	UPROPERTY()
 	TObjectPtr<ABaseChampion> RKnockbackTarget;
@@ -174,6 +217,10 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | E")
 	float EBonusADRatio = 1.0f;
+
+	// Seconds from cast start. The ground impact occurs at ~0.26 s at 2x playback.
+	UPROPERTY(EditDefaultsOnly, Category = "LeeSin | E", meta = (ClampMin = "0.05", Units = "s"))
+	float EMovementLockDuration = 0.30f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LeeSin | E")
 	float ESlowRatio = 0.3f;

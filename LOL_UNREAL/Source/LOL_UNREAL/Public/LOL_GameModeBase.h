@@ -21,6 +21,8 @@ public:
 
     void RequestRespawn(class ABaseChampion* DeadChampion);
     void RequestJungleMonsterRespawn(FName MonsterRowName, FVector SpawnLocation, FRotator SpawnRotation, float RespawnDelay);
+    void NotifyInhibitorDestroyed(const class ABuilding_Inhibitor* Inhibitor);
+    void NotifyNexusDestroyed(const class ABuilding_Nexus* Nexus);
 
     virtual void BeginPlay() override;
 protected:
@@ -46,10 +48,19 @@ protected:
     TSubclassOf<AHUD> DefaultHUDClass;
 
 private:
+    friend class FInhibitorSuperMinionTest;
+    friend class FGameResultTest;
+
     FTimerHandle MinionSpawnTimerHandle;
 
     UPROPERTY()
     TArray<TSubclassOf<class ABaseMinion>> CurrentWaveMinions;
+
+    // Spawn lane indices: blue top/mid/bot = 0..2, red top/mid/bot = 3..5.
+    // Keep the result after the destroyed inhibitor actor has despawned.
+    TSet<int32> SuperMinionLanes;
+    TSet<int32> CurrentWaveSuperMinionLanes;
+    bool bCurrentWaveHasSiegeMinion = false;
 
     int32 SpawnedMinionCount{};
     int32 MinionWaveCount{};

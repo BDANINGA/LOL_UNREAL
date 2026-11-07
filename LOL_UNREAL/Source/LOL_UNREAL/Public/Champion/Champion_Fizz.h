@@ -17,6 +17,8 @@ public:
 	virtual void Skill_E() override;
 	virtual void Skill_R() override;
 	virtual void Tick(float DeltaTime) override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void OnBasicAttackHit(ACharacter* Target) override;
 	virtual float TakeDamage(
 		float DamageAmount,
@@ -53,15 +55,46 @@ protected:
 	void Multicast_SpawnRProjectile(
 		FVector StartLocation,
 		FVector EndLocation,
-		float TravelTime
+		float TravelTime,
+		float WarningTime,
+		AActor* AttachedTarget,
+		FVector FallbackLocation
 	);
+
+	UPROPERTY(VisibleAnywhere, Category = "Fizz | R")
+	TObjectPtr<class UFizzRWaterVisualComponent> RWaterVisual;
 
 	void UpdateQChaseToCast();
 	void UpdateQDash(float DeltaTime);
 	void FinishQDash();
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_SetQWater(bool bActive);
+	void UpdateQWater();
+	void StopQWater(bool bImmediate);
+	UPROPERTY(EditDefaultsOnly, Category = "Fizz | Q")
+	TSoftObjectPtr<class UParticleSystem> QWaterEffect;
+	UPROPERTY(Transient)
+	TObjectPtr<class UParticleSystemComponent> QWaterComponent;
+	double QWaterEmissionEnd = 0.0;
+	double QWaterFadeEnd = 0.0;
 	void EndWEmpower();
+	UFUNCTION()
+	void OnRep_WEmpowered();
+	void UpdateWVisual();
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_WWaterImpact(FVector Location);
+	UPROPERTY(EditDefaultsOnly, Category = "Fizz | W")
+	TSoftObjectPtr<class UParticleSystem> WWeaponEffect;
+	UPROPERTY(EditDefaultsOnly, Category = "Fizz | W")
+	TSoftObjectPtr<class UParticleSystem> WImpactEffect;
+	UPROPERTY(Transient)
+	TObjectPtr<class UParticleSystemComponent> WWeaponComponent;
 	void StartWPassiveBleed(ACharacter* Target);
 	void BeginEDescent();
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_EWaterSplash(bool bLanding, FVector FootLocation, float Radius);
+	UPROPERTY(VisibleAnywhere, Category = "Fizz | E")
+	TObjectPtr<class UFizzEWaterVisualComponent> EWaterVisual;
 	void UpdateEDescent(float DeltaTime);
 	void FinishPlayfulTrickster();
 	void ResetPlayfulTricksterState(bool bRestoreMovement);
@@ -87,14 +120,9 @@ protected:
 	UPROPERTY()
 	TObjectPtr<class UAnimSequence> SharkAnimation;
 
-	UPROPERTY()
-	TObjectPtr<class UStaticMesh> RThrowMesh;
-
-	UPROPERTY()
-	TObjectPtr<class UMaterialInterface> RThrowMaterial;
-
 	bool bIsChasingForQ = false;
 	bool bIsQDashing = false;
+	UPROPERTY(ReplicatedUsing = OnRep_WEmpowered)
 	bool bWEmpowered = false;
 	bool bEActive = false;
 	bool bEDescending = false;

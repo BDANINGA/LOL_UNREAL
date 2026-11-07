@@ -225,12 +225,17 @@ void ULOL_UIComponent::HideRangeIndicator()
 
 void ULOL_UIComponent::UpdateHpFromStat(float NewHp)
 {
-    if (CachedMaxHP <= 0.f || !OwnerPawn) return;
+    if (!OwnerPawn || !ActorWidget) return;
 
     ULOL_StatComponent* StatComp = OwnerPawn->FindComponentByClass<ULOL_StatComponent>();
     if (!StatComp) return;
 
-    float Percent = NewHp / StatComp->GetStat().MaxHP;
+    // A client's BeginPlay can run before the building's stats are replicated.
+    // Use the current replicated maximum instead of the initial cached value.
+    const float MaxHP = StatComp->GetStat().MaxHP;
+    if (MaxHP <= 0.f) return;
+
+    const float Percent = FMath::Clamp(NewHp / MaxHP, 0.f, 1.f);
     UUserWidget* UserWidgetObj = ActorWidget->GetUserWidgetObject();
     if (!UserWidgetObj) return;
 

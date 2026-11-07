@@ -8,6 +8,7 @@
 #include "Components/CapsuleComponent.h"
 
 #include "BaseChampion.h"
+#include "VisionManager/VisionManager.h"
 #include "JungleMonster/BaseJungleMonster.h"
 #include "Minion/BaseMinion.h"
 #include "Minion/Minion_Caster.h"
@@ -50,6 +51,11 @@ bool ULOL_AttackComponent::IsValidAttackTarget(AActor* Target) const
     if (!OwnerPawn || !Target || Target == OwnerPawn)
     {
         return false;
+    }
+
+    if (const auto* Manager = Cast<AVisionManager>(UGameplayStatics::GetActorOfClass(GetWorld(), AVisionManager::StaticClass())))
+    {
+        if (!Manager->CanTeamSeeActor(OwnerPawn, Target)) return false;
     }
 
     if (const ABaseChampion* OwnerChampion = Cast<ABaseChampion>(OwnerPawn))
@@ -267,16 +273,11 @@ void ULOL_AttackComponent::StartAttack()
             }
             else if (ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(OwnerPawn))
             {
-                JungleMonster->SetActorRotation(NewRotation);
-                if (JungleMonster->JungleMonsterResource.AttackMontage.Num() > 0 && JungleMonster->JungleMonsterResource.AttackMontage[0])
-                {
-                    if (UAnimInstance* AnimInst = JungleMonster->GetMesh()->GetAnimInstance())
-                    {
-                        AnimInst->Montage_Play(
-                            JungleMonster->JungleMonsterResource.AttackMontage[0],
-                            AttackMontagePlayRate);
-                    }
-                }
+                const auto& Montages = JungleMonster->JungleMonsterResource.AttackMontage;
+                JungleMonster->Multicast_PlayAttackMontage(
+                    Montages.IsValidIndex(0) ? Montages[0].Get() : nullptr,
+                    AttackMontagePlayRate,
+                    NewRotation);
             }
             else if (ABuilding_Turret* Turret = Cast<ABuilding_Turret>(OwnerPawn))
             {

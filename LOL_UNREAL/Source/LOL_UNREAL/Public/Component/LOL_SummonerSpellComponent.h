@@ -14,6 +14,7 @@ public:
 
 	void CastExhaust(AActor* Target);
 	void CastFlash(const FVector& TargetLocation);
+	void DebugResetCooldowns();
 	float GetOutgoingDamageMultiplier() const { return OutgoingDamageMultiplier; }
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 

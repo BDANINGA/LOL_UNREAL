@@ -62,6 +62,7 @@ public:
 
 	void CancelQuitGame();
 	void ConfirmQuitGame();
+	bool GetMatchVictory(bool& bOutVictory) const;
 
 	// Sent only to the controller owning the damaged champion, before death handling.
 	UFUNCTION(Client, Unreliable)
@@ -172,6 +173,11 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<class ULOL_DamageVignetteWidget> DamageVignetteWidget;
 
+	void UpdateMatchResult();
+
+	UPROPERTY(Transient)
+	class ULOL_GameResultWidget* GameResultWidget = nullptr;
+
 	bool IsSkillLevelUpInputDown() const;
 	void HandleSkillInput(uint8 SkillKey, FName SkillName);
 	bool GetTargetAwareHitUnderCursor(FHitResult& OutHit) const;
@@ -179,7 +185,7 @@ private:
 	bool IsExpandedClickableAttackTarget(AActor* TargetActor) const;
 	bool IsInShopRange() const;
 	bool FindItemData(FName ItemName, struct FItemData& OutItemData) const;
-	class UTexture2D* LoadItemIconTexture(FName ItemName) const;
+	class UTexture2D* LoadItemIconTexture(FName ItemName);
 	void BindShopWidgetButtons();
 	bool DoesButtonLookLikeBuyButton(class UButton* Button) const;
 	bool DoesButtonLookLikeSellButton(class UButton* Button) const;
@@ -215,10 +221,25 @@ private:
 	TArray<FName> PurchasedItemNames;
 
 	bool bShopButtonsBound = false;
+	TMap<FName, TWeakObjectPtr<class UButton>> ShopItemButtons;
+	TSharedPtr<class FLOL_ShopInputProcessor> ShopInputProcessor;
 
 	FString LastCursorState;
 
 	// Debug
+	friend class ULOL_DebugPanel;
+	UPROPERTY(Transient)
+	TObjectPtr<class ULOL_DebugPanel> DebugPanel;
+	bool bPickingDebugDestination = false;
+	void RunDebugPanelAction(int32 Row);
+	UFUNCTION()
+	void RefreshDebugPanel();
+	UFUNCTION(Server, Reliable)
+	void Server_SetDebugMode(bool bEnabled);
+	void SetAuthorityDebugMode(bool bEnabled);
+	UFUNCTION()
+	void OnRep_DebugMode();
+	UPROPERTY(ReplicatedUsing=OnRep_DebugMode)
 	bool bIsDebugModeEnabled = false;
 
 	void ChangeModeDebugMode();
@@ -227,7 +248,7 @@ private:
 	void DebugAddGold();
 	void DebugTeleport();
 	void DebugResetSkillCooldown();
-	void DebugRespawn();
+	void DebugReturnToBase();
 	void DebugTestVision();
 	void DebugResetGame();
 
@@ -241,14 +262,16 @@ private:
 	void Server_DebugTeleport(const FVector& Location);
 
 	UFUNCTION(Server, Reliable)
-	void Server_DebugRespawn();
+	void Server_DebugReturnToBase();
 
 	/*UFUNCTION(Server, Reliable)
 	void Server_DebugResetGame();*/
 
+	UPROPERTY(ReplicatedUsing=RefreshDebugPanel)
 	bool bIsAutoRecoverActive = false;
 	FTimerHandle AutoRecoverTimerHandle;
 
+	UPROPERTY(ReplicatedUsing=RefreshDebugPanel)
 	bool bIsAutoResetCooldownActive = false;
 	FTimerHandle AutoResetCooldownTimerHandle;
 

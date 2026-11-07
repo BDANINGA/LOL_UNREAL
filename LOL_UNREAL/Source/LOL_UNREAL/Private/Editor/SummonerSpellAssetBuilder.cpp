@@ -33,7 +33,7 @@ template<typename T> T* Module(UParticleSystem* System)
 
 void AddBurst(UParticleSystem* System, UMaterialInterface* Material, FName Name,
     int32 Count, float LifeMin, float LifeMax, FVector Size, FVector Color,
-    float Radius, float RadialVelocity, bool bStretched, float StartScale, float EndScale, float SpawnRate = 0.f)
+    float Radius, float RadialVelocity, bool bStretched, float StartScale, float EndScale, float SpawnRate = 0.f, bool bReadableFlash = false)
 {
     auto* Emitter = NewObject<UParticleSpriteEmitter>(System, NAME_None, RF_Transactional);
     Emitter->SetEmitterName(Name);
@@ -69,7 +69,7 @@ void AddBurst(UParticleSystem* System, UMaterialInterface* Material, FName Name,
 
     auto* InitialSize = Module<UParticleModuleSize>(System);
     auto* Sizes = NewObject<UDistributionVectorUniform>(InitialSize);
-    Sizes->Min = Size * 0.75f;
+    Sizes->Min = Size * (bReadableFlash ? 0.9f : 0.75f);
     Sizes->Max = Size;
     InitialSize->StartSize.Distribution = Sizes;
     LOD->Modules.Add(InitialSize);
@@ -96,7 +96,8 @@ void AddBurst(UParticleSystem* System, UMaterialInterface* Material, FName Name,
     auto* Alpha = NewObject<UDistributionFloatConstantCurve>(Fade);
     Alpha->ConstantCurve.AddPoint(0.f, SpawnRate > 0.f ? 0.f : 0.85f);
     Alpha->ConstantCurve.AddPoint(0.15f, 1.f);
-    Alpha->ConstantCurve.AddPoint(0.5f, 0.4f);
+    Alpha->ConstantCurve.AddPoint(0.5f, bReadableFlash ? 0.8f : 0.4f);
+    if (bReadableFlash) Alpha->ConstantCurve.AddPoint(0.8f, 0.35f);
     Alpha->ConstantCurve.AddPoint(1.f, 0.f);
     Fade->AlphaOverLife.Distribution = Alpha;
     LOD->Modules.Add(Fade);
@@ -154,14 +155,16 @@ void Build(int32 Kind)
     else
     {
         const bool Arrival = Kind == 1;
-        const FVector Lemon(1.f, .94f, .015f);
-        // A sharp diagonal snap and angular fragments, without an expanding ring.
-        AddBurst(System, Star, TEXT("01_WhiteSnap"), 1, .105f, .105f,
-            FVector(Arrival ? 280.f : 230.f), FVector(1.f, 1.f, .83f), 0.f, 0.f, false, 1.f, .6f);
-        AddBurst(System, Slash, TEXT("02_LemonRift"), 1, .22f, .22f,
-            FVector(Arrival ? 270.f : 215.f), Lemon, 0.f, 0.f, false, 1.f, .25f);
-        AddBurst(System, Chip, TEXT("03_AngularChips"), Arrival ? 20 : 12, .12f, .25f,
-            FVector(7.f, 16.f, 7.f), Lemon, Arrival ? 12.f : 40.f, Arrival ? 18.f : -3.f, true, 1.f, .05f);
+        const FVector Lemon(1.f, .85f, .025f);
+        // Readable from the gameplay camera: a larger snap, broad rift and a half-second tail.
+        AddBurst(System, Star, TEXT("01_WhiteSnap"), 1, .24f, .24f,
+            FVector(Arrival ? 440.f : 380.f), FVector(1.f, 1.f, .8f), 0.f, 0.f, false, 1.f, .7f, 0.f, true);
+        AddBurst(System, Slash, TEXT("02_LemonRift"), 1, .48f, .48f,
+            FVector(Arrival ? 420.f : 360.f), Lemon, 0.f, 0.f, false, 1.f, .55f, 0.f, true);
+        AddBurst(System, Chip, TEXT("03_AngularChips"), Arrival ? 34 : 26, .32f, .55f,
+            FVector(12.f, 28.f, 12.f), Lemon, Arrival ? 18.f : 65.f, Arrival ? 8.f : -1.2f, true, 1.f, .15f, 0.f, true);
+        AddBurst(System, Flash, TEXT("04_GoldenCore"), 1, .20f, .20f,
+            FVector(Arrival ? 150.f : 125.f), FVector(1.f, .68f, .08f), 0.f, 0.f, false, .65f, 1.15f, 0.f, true);
     }
     System->UpdateAllModuleLists();
     System->BuildEmitters();

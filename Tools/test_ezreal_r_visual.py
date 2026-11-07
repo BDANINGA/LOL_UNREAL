@@ -25,7 +25,7 @@ def missiles():
 
 def fire(kind=2):
     champ.call_method('Multicast_SpawnEzrealProjectile',
-                     (kind, u.Vector(-550, 0, 150), u.Vector(650, 0, 150), 1.5, 280.0, 0.0, None, True))
+                     (kind, u.Vector(-550, 0, 150), u.Vector(650, 0, 150), 1.5, 280.0, 0.0, None, True, -1))
 
 fire()
 assert len(missiles()) == 1 and len(emitters()) == 1

@@ -6,6 +6,8 @@
 
 #include "LOL_PlayerController.h"
 #include "LOL_HUD.h"
+#include "LOL_GameState.h"
+#include "LOL_PlayerState.h"
 #include "BaseChampion.h"
 #include "Minion/BaseMinion.h"
 #include "JungleMonster/BaseJungleMonster.h"
@@ -13,8 +15,14 @@
 #include "VisionManager/VisionManager.h"
 
 #include "Widget/LOL_CursorWidget.h"
+#include "Widget/LOL_HUDWidget.h"
 #include "Widget/LOL_QuitConfirmWidget.h"
+#include "Widget/LOL_DebugPanel.h"
+#include "Components/CapsuleComponent.h"
+#include "Misc/CommandLine.h"
 #include "Widget/LOL_DamageVignetteWidget.h"
+#include "Widget/LOL_GameResultWidget.h"
+#include "Widget/LOL_ShopInputProcessor.h"
 
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_StateComponent.h"
@@ -140,6 +148,9 @@ void ALOL_PlayerController::GetLifetimeReplicatedProps(
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ALOL_PlayerController, SelectedChampionClass);
+	DOREPLIFETIME_CONDITION(ALOL_PlayerController, bIsDebugModeEnabled, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(ALOL_PlayerController, bIsAutoRecoverActive, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(ALOL_PlayerController, bIsAutoResetCooldownActive, COND_OwnerOnly);
 }
 
 void ALOL_PlayerController::MoveCameraToMinimapUV(const FVector2D& UV)
@@ -233,6 +244,7 @@ void ALOL_PlayerController::OnPossess(APawn* InPawn)
 
 void ALOL_PlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (DebugPanel) { DebugPanel->RemoveFromParent(); DebugPanel = nullptr; }
 	if (UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().ClearTimer(AutoRecoverTimerHandle);
@@ -244,6 +256,16 @@ void ALOL_PlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		DamageVignetteWidget->RemoveFromParent();
 		DamageVignetteWidget = nullptr;
 	}
+	if (GameResultWidget)
+	{
+		GameResultWidget->RemoveFromParent();
+		GameResultWidget = nullptr;
+	}
+	if (ShopInputProcessor.IsValid() && FSlateApplication::IsInitialized())
+	{
+		FSlateApplication::Get().UnregisterInputPreProcessor(ShopInputProcessor);
+	}
+	ShopInputProcessor.Reset();
 	if (QuitConfirmWidget)
 	{
 		QuitConfirmWidget->RemoveFromParent();
@@ -276,6 +298,7 @@ void ALOL_PlayerController::PlayerTick(float DeltaTime)
 
 	if (IsLocalController())
 	{
+		UpdateMatchResult();
 		UpdateCursorSelection();
 		FreeCameraEdgeScroll(DeltaTime);
 
@@ -293,6 +316,41 @@ void ALOL_PlayerController::PlayerTick(float DeltaTime)
 	}
 
 	FreeCameraEdgeScroll(DeltaTime);
+}
+
+bool ALOL_PlayerController::GetMatchVictory(bool& bOutVictory) const
+{
+	bOutVictory = false;
+	const ALOL_GameState* GS = GetWorld()->GetGameState<ALOL_GameState>();
+	if (!GS || !GS->HasMatchFinished()) return false;
+
+	const ALOL_PlayerState* PS = GetPlayerState<ALOL_PlayerState>();
+	uint8 TeamID = PS ? PS->TeamID : 0;
+	if (TeamID != 1 && TeamID != 2)
+	{
+		// Standalone PIE can have no lobby team assigned yet.
+		const ULOL_StateComponent* State = GetPawn() ? GetPawn()->FindComponentByClass<ULOL_StateComponent>() : nullptr;
+		const bool bBlue = State && State->HasStatusTag(LOLTags::Team_Blue);
+		const bool bRed = State && State->HasStatusTag(LOLTags::Team_Red);
+		if (bBlue == bRed) return false;
+		TeamID = bBlue ? 1 : 2;
+	}
+	bOutVictory = GS->GetWinningTeamID() == TeamID;
+	return true;
+}
+
+void ALOL_PlayerController::UpdateMatchResult()
+{
+	if (!IsLocalController() || GameResultWidget) return;
+	bool bVictory = false;
+	// Retry until both replicated result and local team are available, including late joins.
+	if (!GetMatchVictory(bVictory)) return;
+	GameResultWidget = CreateWidget<ULOL_GameResultWidget>(this, ULOL_GameResultWidget::StaticClass());
+	if (GameResultWidget)
+	{
+		GameResultWidget->SetVictory(bVictory);
+		GameResultWidget->AddToPlayerScreen(5000);
+	}
 }
 
 void ALOL_PlayerController::SetupInputComponent()
@@ -325,7 +383,7 @@ void ALOL_PlayerController::SetupInputComponent()
 	InputComponent->BindKey(EKeys::Three, IE_Pressed, this, &ALOL_PlayerController::DebugAddGold);
 	InputComponent->BindKey(EKeys::Four, IE_Pressed, this, &ALOL_PlayerController::DebugTeleport);
 	InputComponent->BindKey(EKeys::Five, IE_Pressed, this, &ALOL_PlayerController::DebugResetSkillCooldown);
-	InputComponent->BindKey(EKeys::Six, IE_Pressed, this, &ALOL_PlayerController::DebugRespawn);
+	InputComponent->BindKey(EKeys::Six, IE_Pressed, this, &ALOL_PlayerController::DebugReturnToBase);
 	InputComponent->BindKey(EKeys::Seven, IE_Pressed, this, &ALOL_PlayerController::DebugTestVision);
 	InputComponent->BindKey(EKeys::Eight, IE_Pressed, this, &ALOL_PlayerController::DebugResetGame);
 }
@@ -422,6 +480,11 @@ void ALOL_PlayerController::OnRightClick()
 }
 void ALOL_PlayerController::OnLeftClick()
 {
+	if (bIsDebugModeEnabled && bPickingDebugDestination)
+	{
+		DebugTeleport();
+		return;
+	}
 	if (MyChampion && MyChampion->IsLocallyControlled())
 	{
 		if (MyChampion->GetIsPressA())
@@ -651,6 +714,11 @@ void ALOL_PlayerController::OnToggleShop()
 
 	if (ShopWidget->IsInViewport())
 	{
+		if (ShopInputProcessor.IsValid())
+		{
+			FSlateApplication::Get().UnregisterInputPreProcessor(ShopInputProcessor);
+			ShopInputProcessor->ResetInputState();
+		}
 		SelectedShopItemName = NAME_None;
 		SelectedInventoryItemSlotIndex = INDEX_NONE;
 		ShopWidget->RemoveFromParent();
@@ -665,6 +733,23 @@ void ALOL_PlayerController::OnToggleShop()
 	SelectedShopItemName = NAME_None;
 	SelectedInventoryItemSlotIndex = INDEX_NONE;
 	ShopWidget->AddToViewport();
+	if (ShopInputProcessor.IsValid())
+	{
+		ShopInputProcessor->ResetInventorySlots();
+		if (ALOL_HUD* LOLHUD = Cast<ALOL_HUD>(GetHUD()))
+		{
+			if (LOLHUD->MainHUDWidget && LOLHUD->MainHUDWidget->WidgetTree)
+			{
+				for (int32 SlotIndex = 0; SlotIndex < 6; ++SlotIndex)
+				{
+					const FName SlotName(*FString::Printf(TEXT("ItemSlot_%d"), SlotIndex + 1));
+					ShopInputProcessor->AddInventorySlot(
+						LOLHUD->MainHUDWidget->WidgetTree->FindWidget(SlotName), SlotIndex);
+				}
+			}
+		}
+		FSlateApplication::Get().RegisterInputPreProcessor(ShopInputProcessor);
+	}
 	bShowMouseCursor = true;
 
 	FInputModeGameAndUI InputMode;
@@ -971,7 +1056,7 @@ void ALOL_PlayerController::UpdateCursorSelection()
 		bool bIsEnemyTarget = false;
 		if (TargetActor && TargetActor != MyChampion && TargetActor->FindComponentByClass<ULOL_StateComponent>())
 		{
-			bIsEnemyTarget = MyChampion->IsEnemyActor(TargetActor);
+			bIsEnemyTarget = IsClickableAttackTarget(TargetActor);
 		}
 		if (bIsEnemyTarget && MyChampion->GetIsPressA())
 		{
@@ -996,8 +1081,11 @@ void ALOL_PlayerController::UpdateCursorSelection()
 bool ALOL_PlayerController::GetTargetAwareHitUnderCursor(FHitResult& OutHit) const
 {
 	FHitResult VisibilityHit;
-	const bool bHasVisibilityHit =
-		GetHitResultUnderCursor(ECC_Visibility, false, VisibilityHit);
+    FCollisionQueryParams VisibleQuery(SCENE_QUERY_STAT(VisibleCursorTrace), false);
+    for (const auto& HiddenActor : HiddenActors) VisibleQuery.AddIgnoredActor(HiddenActor.Get());
+    FVector2D MousePosition;
+    const bool bHasVisibilityHit = GetMousePosition(MousePosition.X, MousePosition.Y) &&
+        GetHitResultAtScreenPosition(MousePosition, ECC_Visibility, VisibleQuery, VisibilityHit);
 
 	if (bHasVisibilityHit)
 	{
@@ -1023,6 +1111,7 @@ bool ALOL_PlayerController::GetTargetAwareHitUnderCursor(FHitResult& OutHit) con
 	TArray<FHitResult> Hits;
 	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(CursorExpandedTargetTrace), false);
 	QueryParams.AddIgnoredActor(MyChampion);
+    for (const auto& HiddenActor : HiddenActors) QueryParams.AddIgnoredActor(HiddenActor.Get());
 
 	const FVector TraceEnd =
 		WorldOrigin + WorldDirection.GetSafeNormal() * ExpandedTargetTraceDistance;
@@ -1066,6 +1155,11 @@ bool ALOL_PlayerController::GetTargetAwareHitUnderCursor(FHitResult& OutHit) con
 
 bool ALOL_PlayerController::IsClickableAttackTarget(AActor* TargetActor) const
 {
+    if (const auto* Manager = Cast<AVisionManager>(UGameplayStatics::GetActorOfClass(GetWorld(), AVisionManager::StaticClass())))
+    {
+        if (!Manager->CanTeamSeeActor(MyChampion, TargetActor)) return false;
+    }
+
 	return
 		MyChampion &&
 		TargetActor &&
@@ -1189,71 +1283,28 @@ bool ALOL_PlayerController::FindItemData(FName ItemName, FItemData& OutItemData)
 	return false;
 }
 
-UTexture2D* ALOL_PlayerController::LoadItemIconTexture(FName ItemName) const
+UTexture2D* ALOL_PlayerController::LoadItemIconTexture(FName ItemName)
 {
-	static const TMap<FName, FString> ItemIconIds =
+	// Inventory can be refreshed before the player first opens the shop.
+	// Initialize its bindings without adding the widget to the viewport.
+	if (!ShopWidget && ShopWidgetClass)
 	{
-		{ FName("Boots"), TEXT("1001") },
-		{ FName("GiantsBelt"), TEXT("1011") },
-		{ FName("BlastingWand"), TEXT("1026") },
-		{ FName("BFSword"), TEXT("1038") },
-		{ FName("NegatronCloak"), TEXT("1057") },
-		{ FName("Pickaxe"), TEXT("1037") },
-		{ FName("NeedlesslyLargeRod"), TEXT("1058") },
-		{ FName("VampiricScepter"), TEXT("1053") },
-		{ FName("Dagger"), TEXT("1042") },
-		{ FName("LongSword"), TEXT("1036") },
-		{ FName("AmplifyingTome"), TEXT("1052") },
-		{ FName("BerserkersGreaves"), TEXT("3006") },
-		{ FName("BootsOfSwiftness"), TEXT("3009") },
-		{ FName("SorcerersShoes"), TEXT("3020") },
-		{ FName("PlatedSteelcaps"), TEXT("3047") },
-		{ FName("MercurysTreads"), TEXT("3111") },
-		{ FName("Kindlegem"), TEXT("3067") },
-		{ FName("Sheen"), TEXT("3057") },
-		{ FName("ClothArmor"), TEXT("1029") },
-		{ FName("NullMagicMantle"), TEXT("1033") },
-		{ FName("Zeal"), TEXT("3086") },
-		{ FName("ForbiddenIdol"), TEXT("3114") },
-		{ FName("GlowingMote"), TEXT("2022") },
-		{ FName("RubyCrystal"), TEXT("1028") },
-		{ FName("LocketOfTheIronSolari"), TEXT("3190") },
-		{ FName("KnightsVow"), TEXT("3109") },
-		{ FName("ZekesConvergence"), TEXT("3050") },
-		{ FName("Thornmail"), TEXT("3075") },
-		{ FName("BlackCleaver"), TEXT("3071") },
-		{ FName("SteraksGage"), TEXT("3053") },
-		{ FName("MikaelsBlessing"), TEXT("3222") },
-		{ FName("Stridebreaker"), TEXT("3077") },
-		{ FName("ForceOfNature"), TEXT("3065") },
-		{ FName("JakShoTheProtean"), TEXT("3193") },
-		{ FName("IcebornGauntlet"), TEXT("3024") },
-		{ FName("VoidStaff"), TEXT("3135") },
-		{ FName("RabadonsDeathcap"), TEXT("3089") },
-		{ FName("Stormsurge"), TEXT("3100") },
-		{ FName("Shadowflame"), TEXT("3135") },
-		{ FName("CosmicDrive"), TEXT("3116") },
-		{ FName("LordDominiksRegards"), TEXT("3036") },
-		{ FName("InfinityEdge"), TEXT("3031") },
-		{ FName("GuinsoosRageblade"), TEXT("3124") },
-		{ FName("KrakenSlayer"), TEXT("3085") },
-		{ FName("TrinityForce"), TEXT("3078") },
-		{ FName("SunderedSky"), TEXT("3078") },
-		{ FName("Bloodthirster"), TEXT("3072") }
-	};
+		ShopWidget = CreateWidget<UUserWidget>(this, ShopWidgetClass);
+	}
+	BindShopWidgetButtons();
 
-	const FString* IconId = ItemIconIds.Find(ItemName);
-	if (!IconId)
+	const TWeakObjectPtr<UButton>* ItemButton = ShopItemButtons.Find(ItemName);
+	if (!ItemButton || !ItemButton->IsValid())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Item icon id is not mapped. Item=%s"), *ItemName.ToString());
+		UE_LOG(LogTemp, Warning, TEXT("Shop item button not found for inventory icon. Item=%s"), *ItemName.ToString());
 		return nullptr;
 	}
 
-	const FString IconPath = FString::Printf(TEXT("/Game/LOL_Data/Img_Item/%s.%s"), **IconId, **IconId);
-	UTexture2D* IconTexture = LoadObject<UTexture2D>(nullptr, *IconPath);
+	// Use the exact artwork displayed by the button bound to this purchase.
+	UTexture2D* IconTexture = Cast<UTexture2D>(ItemButton->Get()->GetStyle().Normal.GetResourceObject());
 	if (!IconTexture)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Item icon texture not found. Item=%s Path=%s"), *ItemName.ToString(), *IconPath);
+		UE_LOG(LogTemp, Warning, TEXT("Shop item button has no inventory texture. Item=%s"), *ItemName.ToString());
 	}
 
 	return IconTexture;
@@ -1359,6 +1410,8 @@ void ALOL_PlayerController::BindShopWidgetButtons()
 		}
 	}
 
+	ShopInputProcessor = MakeShared<FLOL_ShopInputProcessor>(this, ShopWidget);
+	ShopItemButtons.Reset();
 	int32 ItemIndex = 0;
 	for (UButton* Button : Buttons)
 	{
@@ -1374,6 +1427,8 @@ void ALOL_PlayerController::BindShopWidgetButtons()
 
 		ULOL_ShopButtonBinding* Binding = NewObject<ULOL_ShopButtonBinding>(this);
 		Binding->Initialize(this, ItemNames[ItemIndex], false);
+		ShopItemButtons.Add(ItemNames[ItemIndex], Button);
+		ShopInputProcessor->AddItemButton(Button, ItemNames[ItemIndex]);
 		Button->OnClicked.AddDynamic(Binding, &ULOL_ShopButtonBinding::HandleClicked);
 		ShopButtonBindings.Add(Binding);
 		++ItemIndex;
@@ -1502,10 +1557,73 @@ void ALOL_PlayerController::ChangeCursorType(FString NewStateName)
 
 void ALOL_PlayerController::ChangeModeDebugMode()
 {
-	bIsDebugModeEnabled = !bIsDebugModeEnabled;
+	if (!IsLocalController() || QuitConfirmWidget || GameResultWidget) return;
+	if (HasAuthority()) SetAuthorityDebugMode(!bIsDebugModeEnabled);
+	else Server_SetDebugMode(!bIsDebugModeEnabled);
+}
 
-	UE_LOG(LogTemp, Warning, TEXT("[DEBUG] Debug Mode %s"),
-		bIsDebugModeEnabled ? TEXT("ON") : TEXT("OFF"));
+void ALOL_PlayerController::Server_SetDebugMode_Implementation(bool bEnabled)
+{
+#if UE_BUILD_SHIPPING
+	// A public shipping server must explicitly opt in to remote debug controls.
+	if (bEnabled && !IsLocalController() && !FParse::Param(FCommandLine::Get(), TEXT("AllowDebugTools")))
+	{
+		ClientMessage(TEXT("이 서버에서는 디버그 모드를 사용할 수 없습니다."));
+		return;
+	}
+#endif
+	SetAuthorityDebugMode(bEnabled);
+}
+
+void ALOL_PlayerController::SetAuthorityDebugMode(bool bEnabled)
+{
+	bIsDebugModeEnabled = bEnabled;
+	if (!bEnabled)
+	{
+		bIsAutoRecoverActive = bIsAutoResetCooldownActive = false;
+		GetWorldTimerManager().ClearTimer(AutoRecoverTimerHandle);
+		GetWorldTimerManager().ClearTimer(AutoResetCooldownTimerHandle);
+	}
+	OnRep_DebugMode();
+	ForceNetUpdate();
+}
+
+void ALOL_PlayerController::OnRep_DebugMode()
+{
+	if (!IsLocalController()) return;
+	bPickingDebugDestination = false;
+	if (bIsDebugModeEnabled && !DebugPanel)
+	{
+		DebugPanel = CreateWidget<ULOL_DebugPanel>(this, ULOL_DebugPanel::StaticClass());
+		if (DebugPanel) DebugPanel->AddToPlayerScreen(150);
+	}
+	else if (!bIsDebugModeEnabled && DebugPanel)
+	{
+		DebugPanel->RemoveFromParent();
+		DebugPanel = nullptr;
+	}
+	RefreshDebugPanel();
+}
+
+void ALOL_PlayerController::RefreshDebugPanel()
+{
+	if (DebugPanel) DebugPanel->Refresh();
+}
+
+void ALOL_PlayerController::RunDebugPanelAction(int32 Row)
+{
+	if (!bIsDebugModeEnabled || !IsLocalController()) return;
+	if (Row != 4) bPickingDebugDestination = false;
+	switch (Row)
+	{
+	case 1: DebugRecover(); break;
+	case 2: DebugLevelUp(); break;
+	case 3: DebugAddGold(); break;
+	case 4: bPickingDebugDestination = !bPickingDebugDestination; break;
+	case 5: DebugResetSkillCooldown(); break;
+	case 6: DebugReturnToBase(); break;
+	}
+	RefreshDebugPanel();
 }
 
 void ALOL_PlayerController::DebugRecover()
@@ -1525,6 +1643,8 @@ void ALOL_PlayerController::DebugRecover()
 
 	// 스위치 토글 (ON <-> OFF)
 	bIsAutoRecoverActive = !bIsAutoRecoverActive;
+	RefreshDebugPanel();
+	ForceNetUpdate();
 	UWorld* World = GetWorld();
 	if (!World) return;
 
@@ -1629,7 +1749,9 @@ void ALOL_PlayerController::DebugTeleport()
 	{
 		return;
 	}
-	HitResult.ImpactPoint.Z += 50.f;
+	bPickingDebugDestination = false;
+	RefreshDebugPanel();
+	HitResult.ImpactPoint.Z += MyChampion->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 2.f;
 	if (!HasAuthority())
 	{
 		Server_DebugTeleport(HitResult.ImpactPoint);
@@ -1669,13 +1791,15 @@ void ALOL_PlayerController::DebugResetSkillCooldown()
 
 	// 스위치 토글 (ON <-> OFF)
 	bIsAutoResetCooldownActive = !bIsAutoResetCooldownActive;
+	RefreshDebugPanel();
+	ForceNetUpdate();
 	UWorld* World = GetWorld();
 	if (!World) return;
 
 	if (bIsAutoResetCooldownActive)
 	{
 		// 켜지는 순간 즉시 한 번 초기화 후 1초마다 반복 설정 (Looping = true)
-		MyChampion->SkillComponent->DebugResetCooldowns();
+		DoAutoResetCooldown();
 		World->GetTimerManager().SetTimer(AutoResetCooldownTimerHandle, this, &ALOL_PlayerController::DoAutoResetCooldown, 1.0f, true);
 		UE_LOG(LogTemp, Log, TEXT("[DEBUG] Auto Reset Skill Cooldown ON (1초마다 쿨타임 초기화)"));
 	}
@@ -1701,9 +1825,10 @@ void ALOL_PlayerController::DoAutoResetCooldown()
 	}
 
 	MyChampion->SkillComponent->DebugResetCooldowns();
+	if (MyChampion->SummonerSpellComponent) MyChampion->SummonerSpellComponent->DebugResetCooldowns();
 }
 
-void ALOL_PlayerController::DebugRespawn()
+void ALOL_PlayerController::DebugReturnToBase()
 {
 	if (!bIsDebugModeEnabled) return;
 
@@ -1714,19 +1839,16 @@ void ALOL_PlayerController::DebugRespawn()
 
 	if (!HasAuthority())
 	{
-		Server_DebugRespawn();
+		Server_DebugReturnToBase();
 		return;
 	}
 
-	if (MyChampion->LifeCycleComponent)
-	{
-		MyChampion->LifeCycleComponent->Respawn();
-	}
+	MyChampion->DebugReturnToBase();
 }
-void ALOL_PlayerController::Server_DebugRespawn_Implementation()
+void ALOL_PlayerController::Server_DebugReturnToBase_Implementation()
 {
 	if (!bIsDebugModeEnabled) return;
-	DebugRespawn();
+	DebugReturnToBase();
 }
 void ALOL_PlayerController::DebugTestVision()
 {

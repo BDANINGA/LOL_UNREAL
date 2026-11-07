@@ -7,6 +7,8 @@
 #include "Components/SphereComponent.h"
 
 #include "BaseChampion.h"
+#include "VisionManager/VisionManager.h"
+#include "Kismet/GameplayStatics.h"
 #include "JungleMonster/BaseJungleMonster.h"
 #include "Minion/BaseMinion.h"
 
@@ -44,7 +46,7 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
     ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn);
     if (Champion)
     {
-        if(Champion->bIsStunned || Champion->bIsKnockedBack) return;
+        if(Champion->bIsStunned || Champion->bIsKnockedBack || Champion->IsGrabbed()) return;
         if (Champion->AttackComponent->CombatTarget) return;
 
         if (bIsSearchAttack && Champion->EnemiesInRange.Num() > 0)
@@ -64,6 +66,10 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
                     continue;
                 }
 
+                if (const auto* Manager = Cast<AVisionManager>(UGameplayStatics::GetActorOfClass(GetWorld(), AVisionManager::StaticClass())))
+                {
+                    if (!Manager->CanTeamSeeActor(Champion, Enemy)) continue;
+                }
                 float DistSquared = FVector::DistSquared(MyLoc, Enemy->GetActorLocation());
                 if (DistSquared < MinDistSquared)
                 {
@@ -111,7 +117,9 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
     }
     else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
     {
-        if (StateComp && StateComp->HasStatusTag(LOLTags::State_Moving))
+        if (Minion->HasAuthority() && StateComp && StateComp->HasStatusTag(LOLTags::State_Moving) &&
+            Minion->PathPoints.IsValidIndex(Minion->CurrentPathIndex) &&
+            TargetLocation.Equals(Minion->PathPoints[Minion->CurrentPathIndex]))
         {
             float Distance = FVector::Dist2D(OwnerPawn->GetActorLocation(), TargetLocation);
             if (Distance <= 100.f)
@@ -160,6 +168,10 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
 void ULOL_MoveComponent::SetMoveTarget(FVector NewLocation, AActor* TargetActor)
 {
     if (!OwnerPawn) return;
+    if (const ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
+    {
+        if (Champion->IsGrabbed()) return;
+    }
     TargetLocation = NewLocation;
 
     if (ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
@@ -311,6 +323,7 @@ void ULOL_MoveComponent::SetMoveTarget(FVector NewLocation, AActor* TargetActor)
 
 void ULOL_MoveComponent::StopMovement()
 {
+    if (!OwnerPawn) OwnerPawn = Cast<APawn>(GetOwner());
     if (!OwnerPawn) return;
 
     bUsingDirectMovement = false;
@@ -366,6 +379,16 @@ void ULOL_MoveComponent::Client_SetNavigationPath_Implementation(
         return;
     }
 
+    if (NewPathPoints.IsEmpty())
+    {
+        StopMovement();
+        bIsSearchAttack = false;
+        return;
+    }
+    if (const ABaseChampion* Champion = Cast<ABaseChampion>(OwnerPawn))
+    {
+        if (Champion->IsGrabbed()) return;
+    }
     SetLocalNavigationPath(NewPathPoints);
 }
 

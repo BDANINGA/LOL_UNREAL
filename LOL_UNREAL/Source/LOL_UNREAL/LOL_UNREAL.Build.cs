@@ -15,6 +15,7 @@ public class LOL_UNREAL : ModuleRules
 			"NavigationSystem" });
 
         PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+        if (Target.bBuildEditor) PrivateDependencyModuleNames.AddRange(new string[] { "MeshDescription", "StaticMeshDescription" });
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });

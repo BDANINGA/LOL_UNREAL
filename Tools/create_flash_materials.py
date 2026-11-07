@@ -6,9 +6,9 @@ shapes = {
     'M_FlashStar': '''
 float2 p = UV*2-1;
 float2 a = float2(dot(p,float2(.83,.56)),dot(p,float2(-.56,.83)));
-float longRay = pow(saturate(1-abs(a.x)),.65)*exp(-abs(a.y)*65);
-float shortRay = pow(saturate(1-abs(a.y)*1.45),1.3)*exp(-abs(a.x)*95);
-float core = exp(-(abs(a.x)+abs(a.y))*24);
+float longRay = pow(saturate(1-abs(a.x)),.65)*exp(-abs(a.y)*30);
+float shortRay = pow(saturate(1-abs(a.y)*1.45),1.3)*exp(-abs(a.x)*44);
+float core = exp(-(abs(a.x)+abs(a.y))*15);
 return saturate(longRay+shortRay+core);
 ''',
     'M_FlashSlash': '''
@@ -16,9 +16,9 @@ float2 p = UV*2-1;
 float x = p.x*.83+p.y*.56;
 float y = -p.x*.56+p.y*.83;
 float kink = .11*saturate(1-abs(x)*4);
-float width = .012+.025*saturate(1-abs(x));
+float width = .03+.055*saturate(1-abs(x));
 float blade = saturate(1-abs(y-kink)/width)*pow(saturate(1-abs(x)),.45);
-float echo = exp(-abs(y+.12-kink)*95)*saturate(1-abs(x)*1.65)*.35;
+float echo = exp(-abs(y+.16-kink)*45)*saturate(1-abs(x)*1.65)*.45;
 return saturate(blade+echo);
 ''',
     'M_FlashChip': '''
@@ -46,7 +46,7 @@ for name, code in shapes.items():
     shape.set_editor_property('inputs',[inp]);shape.set_editor_property('code',code)
     assert lib.connect_material_expressions(uv,'',shape,'UV')
     color=node(u.MaterialExpressionParticleColor,-700,-100)
-    glow=node(u.MaterialExpressionMultiply,-220,-100);glow.set_editor_property('const_b',4.0)
+    glow=node(u.MaterialExpressionMultiply,-220,-100);glow.set_editor_property('const_b',5.0)
     assert lib.connect_material_expressions(color,'RGB',glow,'A')
     alpha=node(u.MaterialExpressionMultiply,-220,180)
     assert lib.connect_material_expressions(shape,'',alpha,'A')

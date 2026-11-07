@@ -13,8 +13,21 @@ void ALOL_GameState::BeginPlay()
 
 void ALOL_GameState::TickOneSecond()
 {
+    if (HasMatchFinished()) return;
     OnOneSecondEvent.Broadcast();
     CurrentMatchTime += 1;
+}
+
+bool ALOL_GameState::FinishMatch(uint8 InWinningTeamID)
+{
+    if (!HasAuthority() || HasMatchFinished() || (InWinningTeamID != 1 && InWinningTeamID != 2))
+    {
+        return false;
+    }
+    WinningTeamID = InWinningTeamID;
+    GetWorldTimerManager().ClearTimer(OneSecondTimerHandle);
+    ForceNetUpdate();
+    return true;
 }
 
 void ALOL_GameState::AddTeamKill(bool bBlueTeam)
@@ -59,4 +72,5 @@ void ALOL_GameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
     DOREPLIFETIME(ALOL_GameState, CurrentMatchTime);
     DOREPLIFETIME(ALOL_GameState, BlueTeamKills);
     DOREPLIFETIME(ALOL_GameState, RedTeamKills);
+    DOREPLIFETIME(ALOL_GameState, WinningTeamID);
 }

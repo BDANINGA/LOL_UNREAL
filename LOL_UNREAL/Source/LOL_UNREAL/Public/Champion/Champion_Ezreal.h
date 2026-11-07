@@ -7,6 +7,7 @@
 
 struct FEzrealProjectileDamageData
 {
+    int32 ProjectileId = INDEX_NONE;
     float Damage = 0.0f;
     TSubclassOf<UDamageType> DamageType = nullptr;
     bool bHitMultiple = false;
@@ -56,8 +57,12 @@ protected:
         float CollisionRadius,
         float Damage,
         TSubclassOf<UDamageType> DamageType,
-        bool bHitMultiple
+        bool bHitMultiple,
+        int32 ProjectileId = -1
     );
+
+    UFUNCTION(NetMulticast, Reliable)
+    void Multicast_DestroyQProjectile(int32 ProjectileId);
 
     UFUNCTION()
     void OnEzrealProjectileOverlap(
@@ -88,10 +93,12 @@ protected:
         float CollisionRadius,
         float Damage,
         TSubclassOf<UDamageType> DamageType,
-        bool bHitMultiple
+        bool bHitMultiple,
+        int32 ProjectileId = -1
     );
 
     TMap<AActor*, FEzrealProjectileDamageData> ActiveProjectiles;
+    int32 NextQProjectileId = 0;
 
     UPROPERTY()
     TObjectPtr<class UStaticMesh> QProjectileMesh;
@@ -151,7 +158,7 @@ protected:
     float RWaveIntensity = 1.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
-    float QProjectileSpeed = 800.0f;
+    float QProjectileSpeed = 1300.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ezreal | Projectile")
     float WProjectileSpeed = 800.0f;

@@ -11,6 +11,7 @@ class AChampion_Blitz : public ABaseChampion
 	
 public:
     AChampion_Blitz();
+    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
     virtual void Skill_Q() override;
     virtual void Skill_W() override;
@@ -22,6 +23,12 @@ public:
 
 
 protected:
+    friend class ABlitzQProjectile;
+    friend class FBlitzQPullReleaseTest;
+
+    UPROPERTY()
+    TObjectPtr<class ABlitzQProjectile> ActiveQProjectile;
+
     // --- Q 천천히 끌어오기 관련 변수 및 함수 선언 ---
     FTimerHandle PullTimerHandle;
     FTimerHandle PullTimeoutTimerHandle;
@@ -35,6 +42,9 @@ protected:
     ECollisionEnabled::Type GrabbedTargetPreviousCollisionEnabled =
         ECollisionEnabled::QueryAndPhysics;
     ECollisionResponse GrabbedTargetPreviousPawnResponse = ECR_Block;
+    TEnumAsByte<EMovementMode> GrabbedTargetPreviousMovementMode = MOVE_Walking;
+    uint8 GrabbedTargetPreviousCustomMode = 0;
+    FVector PullDirection = FVector::ForwardVector;
 
     // 숫자가 낮을수록 더 천천히 끌려옵니다 (테스트 후 조절 가능)
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Skills")
@@ -60,7 +70,7 @@ protected:
     TObjectPtr<class UStaticMesh> QProjectileMesh;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Projectile")
-    float QProjectileSpeed = 800.0f;
+    float QProjectileSpeed = 1200.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Projectile")
     float QProjectileVisualRadius = 30.0f;
@@ -71,12 +81,9 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Projectile")
     FRotator QProjectileRotationOffset = FRotator::ZeroRotator;
 
-    UFUNCTION(NetMulticast, Unreliable)
-    void Multicast_SpawnQProjectileVisual(FVector StartLocation, FVector EndLocation, float TravelTime);
-
-    void SpawnQProjectileVisual(FVector StartLocation, FVector EndLocation, float TravelTime);
-    void BeginPullTarget(ACharacter* Target, FVector SkillDirection);
+    void BeginPullTarget(ACharacter* Target);
     void FinishPullTarget();
+    FVector GetSafePullDestination() const;
     void RestoreGrabbedTargetCollision();
     bool IsValidBlitzSkillTarget(AActor* TargetActor) const;
 

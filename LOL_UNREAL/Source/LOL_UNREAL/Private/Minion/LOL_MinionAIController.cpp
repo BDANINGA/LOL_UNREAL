@@ -5,6 +5,8 @@
 #include "Component/LOL_AttackComponent.h"
 #include "Component/LOL_StateComponent.h"
 #include "GamePlayTag/LOL_GamePlayTags.h"
+#include "VisionManager/VisionManager.h"
+#include "Kismet/GameplayStatics.h"
 
 #include "Engine/World.h"
 #include "Engine/OverlapResult.h"
@@ -103,16 +105,20 @@ AActor* ALOL_MinionAIController::ScanForClosestEnemy()
 
 	if (bHit)
 	{
+		const auto* VisionManager = Cast<AVisionManager>(
+			UGameplayStatics::GetActorOfClass(GetWorld(), AVisionManager::StaticClass()));
+		ULOL_StateComponent* MyState = ControlledPawn->FindComponentByClass<ULOL_StateComponent>();
 		for (const FOverlapResult& Hit : Overlaps)
 		{
 			AActor* HitActor = Hit.GetActor();
 			if (!IsValid(HitActor) || HitActor == ControlledPawn) continue;
 
-			ULOL_StateComponent* MyState = ControlledPawn->FindComponentByClass<ULOL_StateComponent>();
 			ULOL_StateComponent* TargetState = HitActor->FindComponentByClass<ULOL_StateComponent>();
 
 			if (TargetState && !TargetState->HasStatusTag(LOLTags::State_Dead) && MyState && MyState->IsEnemy(TargetState))
 			{
+				if (VisionManager && !VisionManager->CanTeamSeeActor(ControlledPawn, HitActor)) continue;
+
 				int32 CurrentPriority = 999;
 				if (Cast<ABaseMinion>(HitActor)) CurrentPriority = 1;
 				else if (Cast<ABaseChampion>(HitActor)) CurrentPriority = 2;
