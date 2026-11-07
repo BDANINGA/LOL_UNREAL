@@ -892,14 +892,23 @@ void ULOL_HUDWidget::UpdateMinimapStructures()
 }
 void ULOL_HUDWidget::CacheMinimapMonsterImages()
 {
-    CachedMinimapMonsterImages.Reset();
+    CachedMinimapMonsterImages.SetNum(6);
+
     if (!WidgetTree) return;
 
-    for (int32 i = 0; i < 15; ++i) // 정글 캠프/몬스터 최대 표시 개수
+    for (int32 i = 0; i < 6; ++i)
     {
-        if (UImage* Img = Cast<UImage>(WidgetTree->FindWidget(*FString::Printf(TEXT("Minimap_Monster_Image_%d"), i))))
+        const FString WidgetName =
+            FString::Printf(TEXT("Minimap_Monster_Image_%d"), i + 1);
+
+        UImage* Img = Cast<UImage>(
+            WidgetTree->FindWidget(*WidgetName));
+
+        CachedMinimapMonsterImages[i] = Img;
+
+        if (Img)
         {
-            CachedMinimapMonsterImages.Add(Img);
+            Img->SetVisibility(ESlateVisibility::Collapsed);
         }
     }
 }
@@ -907,51 +916,155 @@ void ULOL_HUDWidget::CacheMinimapMonsterImages()
 void ULOL_HUDWidget::UpdateMinimapMonsters()
 {
     if (!MiniMap) return;
-    ALOL_PlayerController* PC = Cast<ALOL_PlayerController>(GetOwningPlayer());
+
+    ALOL_PlayerController* PC =
+        Cast<ALOL_PlayerController>(GetOwningPlayer());
+
     if (!PC) return;
 
-    const FVector2D MinimapSize = MiniMap->GetCachedGeometry().GetLocalSize();
-    if (MinimapSize.X <= 0.f) return;
+    const FVector2D MinimapSize =
+        MiniMap->GetCachedGeometry().GetLocalSize();
+
+    if (MinimapSize.X <= 0.f || MinimapSize.Y <= 0.f)
+    {
+        return;
+    }
+
+    // 기존 이미지 숨기기
+    for (UImage* Image : CachedMinimapMonsterImages)
+    {
+        if (Image)
+        {
+            Image->SetVisibility(ESlateVisibility::Collapsed);
+        }
+    }
 
     TArray<AActor*> FoundMonsters;
-    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABaseJungleMonster::StaticClass(), FoundMonsters);
 
-    for (int32 i = 0; i < CachedMinimapMonsterImages.Num(); ++i)
+    UGameplayStatics::GetAllActorsOfClass(
+        GetWorld(),
+        ABaseJungleMonster::StaticClass(),
+        FoundMonsters
+    );
+
+    // 레드와 블루는 각각 2마리
+    int32 RedCount = 0;
+    int32 BlueCount = 0;
+
+    for (AActor* MonsterActor : FoundMonsters)
     {
-        UImage* SlotImage = CachedMinimapMonsterImages[i];
-        if (!SlotImage) continue;
+        ABaseJungleMonster* Monster =
+            Cast<ABaseJungleMonster>(MonsterActor);
 
-        // 살아있는 몬스터만 필터링하거나 리스트를 압축해서 매핑할 수도 있습니다.
-        if (FoundMonsters.IsValidIndex(i) && FoundMonsters[i])
+        if (!Monster)
         {
-            ABaseJungleMonster* Monster = Cast<ABaseJungleMonster>(FoundMonsters[i]);
-            // 예: 살아있고(스폰 상태이고) 대형 몬스터(바론, 드래곤, 레드/블루 등)인 경우만 표시 필터링 가능
-            if (Monster && Monster->StateComponent && !Monster->StateComponent->HasStatusTag(LOLTags::State_Dead))
-            {
-                FVector Loc = Monster->GetActorLocation();
-                float NormX = FMath::GetRangePct(PC->MinimapWorldMin.X, PC->MinimapWorldMax.X, Loc.X);
-                float NormY = FMath::GetRangePct(PC->MinimapWorldMin.Y, PC->MinimapWorldMax.Y, Loc.Y);
+            continue;
+        }
 
-                NormX = FMath::Clamp(NormX, 0.0f, 1.0f);
-                NormY = FMath::Clamp(NormY, 0.0f, 1.0f);
-                if (PC->bInvertMinimapY) NormY = 1.0f - NormY;
+        // 사망한 몬스터 제외
+        if (Monster->StateComponent &&
+            Monster->StateComponent->HasStatusTag(LOLTags::State_Dead))
+        {
+            continue;
+        }
 
-                FVector2D LocalPosition(NormX * MinimapSize.X, NormY * MinimapSize.Y);
-                if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(SlotImage->Slot))
-                {
-                    CanvasSlot->SetPosition(LocalPosition);
-                }
-                SlotImage->SetVisibility(ESlateVisibility::Visible);
-            }
-            else
-            {
-                SlotImage->SetVisibility(ESlateVisibility::Collapsed);
-            }
+        const FName MonsterName = Monster->GetJungleMonsterName();
+
+        int32 SlotIndex = INDEX_NONE;
+        UPaperSprite* MonsterSprite = nullptr;
+
+        // 몬스터 이름에 따라 슬롯 및 스프라이트 결정
+        if (MonsterName == TEXT("Red"))
+        {
+            if (RedCount >= 2) continue;
+
+            SlotIndex = RedCount;
+            RedCount++;
+
+            MonsterSprite = RedMonsterSprite;
+        }
+        else if (MonsterName == TEXT("Blue"))
+        {
+            if (BlueCount >= 2) continue;
+
+            SlotIndex = 2 + BlueCount;
+            BlueCount++;
+
+            MonsterSprite = BlueMonsterSprite;
+        }
+        else if (
+            MonsterName == TEXT("Atakhan") ||
+            MonsterName == TEXT("Atakan"))
+        {
+            SlotIndex = 4;
+            MonsterSprite = AtakhanMonsterSprite;
+        }
+        else if (
+            MonsterName == TEXT("Baron") ||
+            MonsterName == TEXT("BaronNashor") ||
+            MonsterName == TEXT("Baron_Nashor"))
+        {
+            SlotIndex = 5;
+            MonsterSprite = BaronMonsterSprite;
         }
         else
         {
-            SlotImage->SetVisibility(ESlateVisibility::Collapsed);
+            // 나머지 정글 몬스터는 기존 NativePaint의 노란색 점으로 표시
+            continue;
         }
+
+        if (!CachedMinimapMonsterImages.IsValidIndex(SlotIndex))
+        {
+            continue;
+        }
+
+        UImage* MonsterImage =
+            CachedMinimapMonsterImages[SlotIndex];
+
+        if (!MonsterImage || !MonsterSprite)
+        {
+            continue;
+        }
+
+        // PaperSprite를 UImage의 Brush에 적용
+        MonsterImage->SetBrushResourceObject(MonsterSprite);
+        MonsterImage->SetBrushSize(FVector2D(24.f, 24.f));
+
+        // 월드 좌표 -> 미니맵 좌표
+        const FVector Loc = Monster->GetActorLocation();
+
+        float NormX = FMath::GetRangePct(
+            PC->MinimapWorldMin.X,
+            PC->MinimapWorldMax.X,
+            Loc.X
+        );
+
+        float NormY = FMath::GetRangePct(
+            PC->MinimapWorldMin.Y,
+            PC->MinimapWorldMax.Y,
+            Loc.Y
+        );
+
+        NormX = FMath::Clamp(NormX, 0.f, 1.f);
+        NormY = FMath::Clamp(NormY, 0.f, 1.f);
+
+        if (PC->bInvertMinimapY)
+        {
+            NormY = 1.f - NormY;
+        }
+
+        const FVector2D LocalPosition(
+            NormX * MinimapSize.X,
+            NormY * MinimapSize.Y
+        );
+
+        if (UCanvasPanelSlot* CanvasSlot =
+            Cast<UCanvasPanelSlot>(MonsterImage->Slot))
+        {
+            CanvasSlot->SetPosition(LocalPosition);
+        }
+
+        MonsterImage->SetVisibility(ESlateVisibility::Visible);
     }
 }
 void ULOL_HUDWidget::UpdateHP(float NewHP, float MaxHP)
@@ -1327,6 +1440,98 @@ int32 ULOL_HUDWidget::NativePaint(const FPaintArgs& Args, const FGeometry& Allot
             FCoreStyle::Get().GetBrush("WhiteBrush"), // 단색 브러시
             ESlateDrawEffect::None,
             DotColor
+        );
+    }
+
+    TArray<AActor*> FoundJungleMonsters;
+
+    UGameplayStatics::GetAllActorsOfClass(
+        GetWorld(),
+        ABaseJungleMonster::StaticClass(),
+        FoundJungleMonsters
+    );
+
+    const FVector2D JungleDotSize(4.0f, 4.0f);
+
+    for (AActor* MonsterActor : FoundJungleMonsters)
+    {
+        ABaseJungleMonster* Monster =
+            Cast<ABaseJungleMonster>(MonsterActor);
+
+        if (!Monster)
+        {
+            continue;
+        }
+
+        // 사망한 몬스터 제외
+        ULOL_StateComponent* StateComp = Monster->StateComponent;
+
+        if (StateComp &&
+            StateComp->HasStatusTag(LOLTags::State_Dead))
+        {
+            continue;
+        }
+
+        const FName MonsterName = Monster->GetJungleMonsterName();
+
+        // 레드, 블루, 아타칸, 바론은 이미지로 표시하므로 제외
+        const bool bIsMajorMonster =
+            MonsterName == TEXT("Red") ||
+            MonsterName == TEXT("Blue") ||
+            MonsterName == TEXT("Atakhan") ||
+            MonsterName == TEXT("atakhan") ||
+            MonsterName == TEXT("Atakan") ||
+            MonsterName == TEXT("atakan") ||
+            MonsterName == TEXT("Baron") ||
+            MonsterName == TEXT("baron") ||
+            MonsterName == TEXT("BaronNashor") ||
+            MonsterName == TEXT("Baron_Nashor") ||
+            MonsterName == TEXT("baron_nashor");
+
+        if (bIsMajorMonster)
+        {
+            continue;
+        }
+
+        // 월드 좌표 -> 미니맵 좌표
+        const FVector Loc = Monster->GetActorLocation();
+
+        float NormX = FMath::GetRangePct(
+            PC->MinimapWorldMin.X,
+            PC->MinimapWorldMax.X,
+            Loc.X
+        );
+
+        float NormY = FMath::GetRangePct(
+            PC->MinimapWorldMin.Y,
+            PC->MinimapWorldMax.Y,
+            Loc.Y
+        );
+
+        NormX = FMath::Clamp(NormX, 0.0f, 1.0f);
+        NormY = FMath::Clamp(NormY, 0.0f, 1.0f);
+
+        if (PC->bInvertMinimapY)
+        {
+            NormY = 1.0f - NormY;
+        }
+
+        FVector2D LocalPos(
+            NormX * MinimapSize.X + (JungleDotSize.X / 2) + 8.0f,
+            NormY * MinimapSize.Y + (JungleDotSize.Y / 2) + 8.0f
+        );
+
+        // 노란색 정글 몬스터 점
+        FSlateDrawElement::MakeBox(
+            OutDrawElements,
+            MaxLayerId + 1,
+            MinimapGeometry.ToPaintGeometry(
+                JungleDotSize,
+                FSlateLayoutTransform(LocalPos)
+            ),
+            FCoreStyle::Get().GetBrush("WhiteBrush"),
+            ESlateDrawEffect::None,
+            FLinearColor::Yellow
         );
     }
 
