@@ -41,6 +41,7 @@ private:
 	AActor* FollowTarget;
 
 	bool bIsLocked = false;
+	float DeathScreenBlend = 0.0f;
 	float CameraMoveSpeed = 2500.f;
 	float FollowInterpSpeed = 20.f; // 카메라가 따라가는 부드러움 정도
 };

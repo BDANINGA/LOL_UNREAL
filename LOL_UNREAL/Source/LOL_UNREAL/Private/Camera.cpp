@@ -1,7 +1,10 @@
 // 카메라를 위해서 만든 투명 객체
 
 #include "Camera.h"
+#include "BaseChampion.h"
+#include "Component/LOL_StateComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "GameFramework/PlayerController.h"
 #include "Camera/CameraComponent.h"
 
 ACamera::ACamera()
@@ -35,6 +38,18 @@ void ACamera::BeginPlay()
 void ACamera::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	// Use the owning player's champion even when the camera is looking elsewhere.
+	const APlayerController* PlayerController = Cast<APlayerController>(GetOwner());
+	const ABaseChampion* Champion = PlayerController && PlayerController->IsLocalController()
+		? Cast<ABaseChampion>(PlayerController->GetPawn()) : nullptr;
+	const bool bIsDead = Champion && Champion->StateComponent
+		&& Champion->StateComponent->HasStatusTag(LOLTags::State_Dead);
+	DeathScreenBlend = FMath::FInterpConstantTo(
+		DeathScreenBlend, bIsDead ? 1.0f : 0.0f, DeltaTime, bIsDead ? 4.0f : 3.0f);
+	FollowCamera->PostProcessSettings.bOverride_ColorSaturation = DeathScreenBlend > 0.0f;
+	const float Saturation = 1.0f - DeathScreenBlend;
+	FollowCamera->PostProcessSettings.ColorSaturation = FVector4(Saturation, Saturation, Saturation, 1.0f);
 
 	if (bIsLocked && FollowTarget)
 	{
