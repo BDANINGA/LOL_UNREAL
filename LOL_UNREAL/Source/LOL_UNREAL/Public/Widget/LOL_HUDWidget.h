@@ -8,6 +8,8 @@
 #include "Components/Image.h"
 #include "LOL_HUDWidget.generated.h"
 
+class UPaperSprite;
+
 UCLASS()
 class LOL_UNREAL_API ULOL_HUDWidget : public UUserWidget
 {
@@ -171,23 +173,37 @@ public:
     void CacheMinimapMonsterImages();
     void UpdateMinimapMonsters();
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
-    class UTexture2D* AllyTurretIcon;
+    bool bMinimapStaticObjectsInitialized = false;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
-    class UTexture2D* EnemyTurretIcon;
+    class UTexture2D* AllyTurretIcon = nullptr;;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
-    class UTexture2D* AllyInhibitorIcon;
+    class UTexture2D* EnemyTurretIcon = nullptr;;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
-    class UTexture2D* EnemyInhibitorIcon;
+    class UTexture2D* AllyInhibitorIcon = nullptr;;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
-    class UTexture2D* AllyNexusIcon;
+    class UTexture2D* EnemyInhibitorIcon = nullptr;;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
-    class UTexture2D* EnemyNexusIcon;
+    class UTexture2D* AllyNexusIcon = nullptr;;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
+    class UTexture2D* EnemyNexusIcon = nullptr;;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Monster")
+    UPaperSprite* RedMonsterSprite = nullptr;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Monster")
+    UPaperSprite* BlueMonsterSprite = nullptr;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Monster")
+    UPaperSprite* AtakhanMonsterSprite = nullptr;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Monster")
+    UPaperSprite* BaronMonsterSprite = nullptr;
 
     void SetAttackDamage(float Value) { if (Txt_AD) Txt_AD->SetText(FText::AsNumber(Value)); }
     void SetAbilityPower(float Value) { if (Txt_AP) Txt_AP->SetText(FText::AsNumber(Value)); }
