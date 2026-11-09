@@ -134,6 +134,8 @@ AActor* ALOL_TurretAIController::ScanForClosestEnemy(float SearchRadius)
 				}
 
 				float DistSq = FVector::DistSquared(MyLoc, HitActor->GetActorLocation());
+				// Overlap includes capsule edges; attack range is measured between actor centers.
+				if (DistSq > FMath::Square(SearchRadius)) continue;
 				if (CurrentPriority < BestPriority)
 				{
 					BestPriority = CurrentPriority;

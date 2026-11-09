@@ -22,5 +22,5 @@ private:
 	FTimerHandle AI_DecisionTimer;
 
 	UPROPERTY(EditDefaultsOnly, Category = "AI")
-	float SearchRadius = 400.0f;
+	float SearchRadius = 600.0f;
 };

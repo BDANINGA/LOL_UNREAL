@@ -13,6 +13,7 @@
 #include "Minion/BaseMinion.h"
 #include "Minion/Minion_Caster.h"
 #include "Minion/Minion_Siege.h"
+#include "Building/BaseBuilding.h"
 #include "Building/Building_Turret.h"
 #include "Champion/Projectile/BaseProjectile.h"
 #include "Champion/Champion_Garen.h"
@@ -49,6 +50,13 @@ void ULOL_AttackComponent::BeginPlay()
 bool ULOL_AttackComponent::IsValidAttackTarget(AActor* Target) const
 {
     if (!OwnerPawn || !Target || Target == OwnerPawn)
+    {
+        return false;
+    }
+
+    // Minions fight lane units and buildings, never jungle monsters, including at hit time.
+    if (Cast<ABaseMinion>(OwnerPawn) &&
+        !Cast<ABaseMinion>(Target) && !Cast<ABaseChampion>(Target) && !Cast<ABaseBuilding>(Target))
     {
         return false;
     }
@@ -92,9 +100,24 @@ bool ULOL_AttackComponent::IsRangedBasicAttacker() const
     return OwnerState && OwnerState->HasStatusTag(LOLTags::Champion_Ranged);
 }
 
+bool ULOL_AttackComponent::UsesCenterRangeAgainst(const AActor* Target) const
+{
+    // Ranged minions must enter the turret's center-based range before shooting it.
+    // Melee units still need edge-based reach because they cannot enter building collision.
+    return Cast<ABaseMinion>(OwnerPawn) && IsRangedBasicAttacker() && Cast<ABuilding_Turret>(Target);
+}
+
 void ULOL_AttackComponent::SetCombatTarget(AActor* Target)
 {
-    CombatTarget = IsValidAttackTarget(Target) ? Target : nullptr;
+    AActor* NewTarget = IsValidAttackTarget(Target) ? Target : nullptr;
+    if (CombatTarget != NewTarget && Cast<ABaseMinion>(OwnerPawn))
+    {
+        if (ULOL_MoveComponent* MoveComp = OwnerPawn->FindComponentByClass<ULOL_MoveComponent>())
+        {
+            MoveComp->StopMovement();
+        }
+    }
+    CombatTarget = NewTarget;
 }
 
 void ULOL_AttackComponent::UpdateAttackLogic()
@@ -103,7 +126,7 @@ void ULOL_AttackComponent::UpdateAttackLogic()
 
     if (!IsValidAttackTarget(CombatTarget))
     {
-        CombatTarget = nullptr;
+        SetCombatTarget(nullptr);
         HitTarget = nullptr;
         return;
     }
@@ -120,7 +143,7 @@ void ULOL_AttackComponent::UpdateAttackLogic()
     {
         if (TargetStateComp->HasStatusTag(LOLTags::State_Dead))
         {
-            CombatTarget = nullptr;
+            SetCombatTarget(nullptr);
             return;
         }
     }
@@ -130,7 +153,13 @@ void ULOL_AttackComponent::UpdateAttackLogic()
         TargetRadius = TargetCap->GetScaledCapsuleRadius();
     }
 
-    float Distance = FMath::Max(0.f, OwnerPawn->GetDistanceTo(CombatTarget) - TargetRadius);
+    const bool bUseCenterRange = UsesCenterRangeAgainst(CombatTarget);
+    // Match the turret's full center distance for ranged attacks, including height.
+    // Other minion attacks retain horizontal edge reach for ground-level building pivots.
+    const float CenterDistance = Cast<ABaseMinion>(OwnerPawn) && !bUseCenterRange
+        ? FVector::Dist2D(OwnerPawn->GetActorLocation(), CombatTarget->GetActorLocation())
+        : OwnerPawn->GetDistanceTo(CombatTarget);
+    const float Distance = FMath::Max(0.f, CenterDistance - (bUseCenterRange ? 0.f : TargetRadius));
     float AttackRange = StatComp->GetStat().AttackRange;
     if (const ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(OwnerPawn))
     {
@@ -155,6 +184,15 @@ void ULOL_AttackComponent::UpdateAttackLogic()
     // 사거리 밖이면 추격
     else
     {
+        if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
+        {
+            if (Minion->HasAuthority())
+            {
+                MoveComp->SetMoveTarget(CombatTarget->GetActorLocation(), CombatTarget);
+            }
+            return;
+        }
+
         if (ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(OwnerPawn))
         {
             if (JungleMonster->IsStationaryMonster())

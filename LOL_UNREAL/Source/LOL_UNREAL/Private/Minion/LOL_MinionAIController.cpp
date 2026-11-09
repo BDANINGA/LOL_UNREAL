@@ -1,6 +1,7 @@
 #include "Minion/LOL_MinionAIController.h"
 #include "Minion/BaseMinion.h"
 #include "BaseChampion.h"
+#include "Building/BaseBuilding.h"
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_AttackComponent.h"
 #include "Component/LOL_StateComponent.h"
@@ -112,6 +113,9 @@ AActor* ALOL_MinionAIController::ScanForClosestEnemy()
 		{
 			AActor* HitActor = Hit.GetActor();
 			if (!IsValid(HitActor) || HitActor == ControlledPawn) continue;
+			const bool bIsMinion = Cast<ABaseMinion>(HitActor) != nullptr;
+			const bool bIsChampion = Cast<ABaseChampion>(HitActor) != nullptr;
+			if (!bIsMinion && !bIsChampion && !Cast<ABaseBuilding>(HitActor)) continue;
 
 			ULOL_StateComponent* TargetState = HitActor->FindComponentByClass<ULOL_StateComponent>();
 
@@ -119,10 +123,7 @@ AActor* ALOL_MinionAIController::ScanForClosestEnemy()
 			{
 				if (VisionManager && !VisionManager->CanTeamSeeActor(ControlledPawn, HitActor)) continue;
 
-				int32 CurrentPriority = 999;
-				if (Cast<ABaseMinion>(HitActor)) CurrentPriority = 1;
-				else if (Cast<ABaseChampion>(HitActor)) CurrentPriority = 2;
-				else CurrentPriority = 3;
+				const int32 CurrentPriority = bIsMinion ? 1 : (bIsChampion ? 2 : 3);
 
 				float DistSq = FVector::DistSquared(MyLoc, HitActor->GetActorLocation());
 
