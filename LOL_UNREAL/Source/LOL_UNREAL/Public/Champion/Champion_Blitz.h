@@ -73,7 +73,7 @@ protected:
     float QProjectileSpeed = 1200.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Projectile")
-    float QProjectileVisualRadius = 30.0f;
+    float QProjectileVisualRadius = 43.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blitz | Projectile")
     float QProjectileVisualScale = 1.0f;

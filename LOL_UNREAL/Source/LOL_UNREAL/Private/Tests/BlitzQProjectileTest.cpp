@@ -61,7 +61,11 @@ bool FBlitzQProjectileTest::RunTest(const FString& Parameters)
             Hook->Tick(1.f);
             TestEqual(TEXT("Moving out of the path dodges the hook"),
                 Target->GetCharacterMovement()->MovementMode.GetValue(), MOVE_Walking);
-            TestTrue(TEXT("A missed hook expires at maximum range"), Hook->IsActorBeingDestroyed());
+            TestFalse(TEXT("A missed hook remains visible for the return flight"), Hook->IsActorBeingDestroyed());
+            Hook->Tick(0.2f);
+            TestTrue(TEXT("A missed hook moves back toward the caster"), Hook->GetActorLocation().X < 1150.0);
+            Hook->Tick(2.f);
+            TestTrue(TEXT("The hook is removed after reaching the caster"), Hook->IsActorBeingDestroyed());
         }
         else if (Scenario == 1)
         {
@@ -73,7 +77,7 @@ bool FBlitzQProjectileTest::RunTest(const FString& Parameters)
             Hook->Tick(0.5f);
             TestEqual(TEXT("A Pawn entering the path after launch is grabbed"),
                 Target->GetCharacterMovement()->MovementMode.GetValue(), MOVE_None);
-            TestTrue(TEXT("The projectile is removed on impact"), Hook->IsActorBeingDestroyed());
+            TestFalse(TEXT("The fist stays visible while the target is pulled"), Hook->IsActorBeingDestroyed());
         }
         else if (Scenario == 2)
         {

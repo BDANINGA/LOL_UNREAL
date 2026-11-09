@@ -23,7 +23,7 @@ AChampion_Blitz::AChampion_Blitz()
 	SetChampionData(ChampionName);
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> QProjectileMeshAsset(
-        TEXT("/Game/Level/blitzcrank/blitz_tex/blitz_q.blitz_q")
+        TEXT("/Game/VFX/Blitz/SM_BlitzRocketGrab.SM_BlitzRocketGrab")
     );
     if (QProjectileMeshAsset.Succeeded())
     {

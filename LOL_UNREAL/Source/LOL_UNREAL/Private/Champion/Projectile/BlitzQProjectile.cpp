@@ -3,7 +3,11 @@
 #include "Champion/Champion_Blitz.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SceneComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Components/SplineMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Materials/MaterialInterface.h"
+#include "UObject/ConstructorHelpers.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "Net/UnrealNetwork.h"
@@ -22,12 +26,28 @@ ABlitzQProjectile::ABlitzQProjectile()
     MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     MeshComponent->SetGenerateOverlapEvents(false);
     MeshComponent->SetCastShadow(false);
+
+    CableComponent = CreateDefaultSubobject<USplineMeshComponent>(TEXT("GrabCable"));
+    CableComponent->SetMobility(EComponentMobility::Movable);
+    CableComponent->SetupAttachment(RootComponent);
+    CableComponent->SetCanEverAffectNavigation(false);
+    CableComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    CableComponent->SetGenerateOverlapEvents(false);
+    CableComponent->SetCastShadow(false);
+    CableComponent->SetVisibility(false);
+    CableComponent->SetForwardAxis(ESplineMeshAxis::Z, false);
+    CableComponent->SetStartScale(FVector2D(0.075f), false);
+    CableComponent->SetEndScale(FVector2D(0.075f), false);
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> CableMesh(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> CableMaterial(TEXT("/Game/VFX/Blitz/M_BlitzGrabCable.M_BlitzGrabCable"));
+    if (CableMesh.Succeeded()) CableComponent->SetStaticMesh(CableMesh.Object);
+    if (CableMaterial.Succeeded()) CableComponent->SetMaterial(0, CableMaterial.Object);
 }
 
 void ABlitzQProjectile::Initialize(AChampion_Blitz* InShooter, float InSpeed, float InRange,
     float InRadius, UStaticMesh* InMesh, float InVisualRadius, float InVisualScale, FRotator InRotationOffset)
 {
-    Shooter = InShooter;
+    SetOwner(InShooter);
     Direction = GetActorForwardVector().GetSafeNormal2D();
     Speed = FMath::Max(InSpeed, 1.0f);
     RemainingDistance = FMath::Max(InRange, 0.0f);
@@ -42,19 +62,45 @@ void ABlitzQProjectile::Initialize(AChampion_Blitz* InShooter, float InSpeed, fl
 void ABlitzQProjectile::BeginPlay()
 {
     Super::BeginPlay();
-    SetActorTickEnabled(HasAuthority());
+    // Allow a return flight even if a target dies during the pull.
+    if (HasAuthority()) SetLifeSpan(RemainingDistance / Speed + 3.0f);
 }
 
 void ABlitzQProjectile::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-    if (!HasAuthority() || bFinished) return;
-
-    AChampion_Blitz* Blitz = Shooter.Get();
-    if (!IsValid(Blitz) || RemainingDistance <= 0.0f)
+    AChampion_Blitz* Blitz = Cast<AChampion_Blitz>(GetOwner());
+    if (!HasAuthority())
     {
-        bFinished = true;
+        UpdateCable(Blitz);
+        return;
+    }
+
+    if (!IsValid(Blitz))
+    {
         Destroy();
+        return;
+    }
+
+    if (bReturning)
+    {
+        if (ReturnTarget.IsValid() && Blitz->GrabbedTarget == ReturnTarget.Get())
+        {
+            SetActorLocation(ReturnTarget->GetActorLocation() + GrabOffset);
+        }
+        else
+        {
+            const FVector Origin = GetCableOrigin(Blitz);
+            const FVector Position = FMath::VInterpConstantTo(GetActorLocation(), Origin,
+                DeltaTime, Speed * 1.7f);
+            SetActorLocation(Position);
+            if (Position.Equals(Origin, 10.0f))
+            {
+                Destroy();
+                return;
+            }
+        }
+        UpdateCable(Blitz);
         return;
     }
 
@@ -81,10 +127,10 @@ void ABlitzQProjectile::Tick(float DeltaTime)
         if (!Target || Hit.GetComponent() != Target->GetCapsuleComponent() ||
             !Blitz->IsValidBlitzSkillTarget(Target)) continue;
 
-        bFinished = true;
         SetActorLocation(Hit.Location);
         Blitz->BeginPullTarget(Target);
-        Destroy();
+        BeginReturn(Blitz->GrabbedTarget == Target ? Target : nullptr);
+        UpdateCable(Blitz);
         return;
     }
 
@@ -92,9 +138,42 @@ void ABlitzQProjectile::Tick(float DeltaTime)
     RemainingDistance -= StepDistance;
     if (RemainingDistance <= KINDA_SMALL_NUMBER)
     {
-        bFinished = true;
-        Destroy();
+        BeginReturn();
     }
+    UpdateCable(Blitz);
+}
+
+void ABlitzQProjectile::BeginReturn(ACharacter* Target)
+{
+    bReturning = true;
+    ReturnTarget = Target;
+    if (Target) GrabOffset = GetActorLocation() - Target->GetActorLocation();
+    ForceNetUpdate();
+}
+
+FVector ABlitzQProjectile::GetCableOrigin(const AChampion_Blitz* Blitz) const
+{
+    if (Blitz->GetMesh() && Blitz->GetMesh()->DoesSocketExist(TEXT("R_hand")))
+    {
+        return Blitz->GetMesh()->GetSocketLocation(TEXT("R_hand"));
+    }
+    return Blitz->GetActorLocation() + FVector(0.0f, 0.0f, 80.0f);
+}
+
+void ABlitzQProjectile::UpdateCable(const AChampion_Blitz* Blitz)
+{
+    if (GetNetMode() == NM_DedicatedServer) return;
+    CableComponent->SetVisibility(IsValid(Blitz));
+    if (!IsValid(Blitz)) return;
+
+    const FTransform Transform = GetActorTransform();
+    const FVector Start = Transform.InverseTransformPosition(GetCableOrigin(Blitz));
+    // The cable plugs into the rear cuff of the fist.
+    const FVector End = MeshComponent->GetRelativeTransform().TransformPosition(FVector(-30.0f, 0.0f, 0.0f));
+    const FVector Tangent = End - Start;
+    const float Sag = FMath::Min(Tangent.Size() * 0.12f, 45.0f);
+    const FVector Down = Transform.InverseTransformVectorNoScale(FVector(0.0f, 0.0f, -Sag));
+    CableComponent->SetStartAndEnd(Start, Tangent + Down, End, Tangent - Down);
 }
 
 void ABlitzQProjectile::OnRep_Visual()

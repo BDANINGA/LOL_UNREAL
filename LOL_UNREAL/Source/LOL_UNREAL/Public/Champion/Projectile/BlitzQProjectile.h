@@ -5,6 +5,7 @@
 #include "BlitzQProjectile.generated.h"
 
 class AChampion_Blitz;
+class ACharacter;
 class UStaticMesh;
 
 // The server moves and sweeps this projectile; clients display its replicated position.
@@ -28,6 +29,9 @@ private:
     UPROPERTY(VisibleAnywhere)
     TObjectPtr<class UStaticMeshComponent> MeshComponent;
 
+    UPROPERTY(VisibleAnywhere)
+    TObjectPtr<class USplineMeshComponent> CableComponent;
+
     UPROPERTY(ReplicatedUsing = OnRep_Visual)
     TObjectPtr<UStaticMesh> VisualMesh;
 
@@ -40,10 +44,15 @@ private:
     UFUNCTION()
     void OnRep_Visual();
 
-    TWeakObjectPtr<AChampion_Blitz> Shooter;
+    FVector GetCableOrigin(const AChampion_Blitz* Blitz) const;
+    void UpdateCable(const AChampion_Blitz* Blitz);
+    void BeginReturn(ACharacter* Target = nullptr);
+
+    TWeakObjectPtr<ACharacter> ReturnTarget;
+    FVector GrabOffset = FVector::ZeroVector;
     FVector Direction = FVector::ForwardVector;
     float Speed = 1200.0f;
     float RemainingDistance = 0.0f;
     float Radius = 50.0f;
-    bool bFinished = false;
+    bool bReturning = false;
 };

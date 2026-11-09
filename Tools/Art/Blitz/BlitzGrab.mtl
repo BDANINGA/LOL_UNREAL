@@ -1,0 +1,6 @@
+newmtl Gold
+Kd .5 .25 .06
+newmtl Steel
+Kd .08 .10 .12
+newmtl Energy
+Kd .04 .5 .8
