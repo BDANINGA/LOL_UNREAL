@@ -42,6 +42,7 @@ public:
 	void SetCombatTarget(AActor* Target);
 	bool IsValidAttackTarget(AActor* Target) const;
 	bool IsRangedBasicAttacker() const;
+	bool UsesCenterRangeAgainst(const AActor* Target) const;
 
 	FTimerHandle AttackTimerHandle;
 	FTimerHandle AttackHitTimerHandle;

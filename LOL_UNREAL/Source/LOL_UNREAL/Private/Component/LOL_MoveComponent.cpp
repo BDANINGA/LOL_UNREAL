@@ -5,6 +5,7 @@
 #include "Component/LOL_AttackComponent.h"
 #include "Component/LOL_StateComponent.h"
 #include "Components/SphereComponent.h"
+#include "Components/CapsuleComponent.h"
 
 #include "BaseChampion.h"
 #include "VisionManager/VisionManager.h"
@@ -117,6 +118,22 @@ void ULOL_MoveComponent::UpdateMovement(float DeltaTime)
     }
     else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
     {
+        if (!Minion->HasAuthority()) return;
+        if (Minion->AttackComponent && Minion->AttackComponent->CombatTarget)
+        {
+            if (MovementTargetActor.IsValid())
+            {
+                TargetLocation = MovementTargetActor->GetActorLocation();
+                if (bUsingDirectMovement)
+                {
+                    FVector Direction = TargetLocation - Minion->GetActorLocation();
+                    Direction.Z = 0.f;
+                    Minion->AddMovementInput(Direction.GetSafeNormal(), 1.f);
+                }
+            }
+            return;
+        }
+
         if (Minion->HasAuthority() && StateComp && StateComp->HasStatusTag(LOLTags::State_Moving) &&
             Minion->PathPoints.IsValidIndex(Minion->CurrentPathIndex) &&
             TargetLocation.Equals(Minion->PathPoints[Minion->CurrentPathIndex]))
@@ -248,10 +265,54 @@ void ULOL_MoveComponent::SetMoveTarget(FVector NewLocation, AActor* TargetActor)
     }
     else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
     {
+        if (!Minion->HasAuthority()) return;
         if (ULOL_StateComponent* StateComp = OwnerPawn->FindComponentByClass<ULOL_StateComponent>())
             StateComp->AddStatusTag(LOLTags::State_Moving);
 
-        if (AAIController* AICon = Cast<AAIController>(Minion->GetController()))
+        AAIController* AICon = Cast<AAIController>(Minion->GetController());
+        if (IsValid(TargetActor))
+        {
+            // Keep an active actor-follow request; rebuilding it every frame prevents progress.
+            if (MovementTargetActor.Get() == TargetActor &&
+                (bUsingDirectMovement || (AICon && AICon->GetMoveStatus() != EPathFollowingStatus::Idle)))
+            {
+                return;
+            }
+
+            MovementTargetActor = TargetActor;
+            bUsingDirectMovement = true;
+            if (AICon)
+            {
+                AICon->StopMovement();
+                float TargetRadius = 0.f;
+                if (const UCapsuleComponent* Capsule = TargetActor->FindComponentByClass<UCapsuleComponent>())
+                {
+                    TargetRadius = Capsule->GetScaledCapsuleRadius();
+                }
+                const float AttackRange = Minion->StatComponent->GetStat().AttackRange;
+                float HorizontalReach = AttackRange + TargetRadius;
+                if (Minion->AttackComponent->UsesCenterRangeAgainst(TargetActor))
+                {
+                    // Path following tests horizontal distance; reserve range for the height difference.
+                    const float HeightDifference = TargetActor->GetActorLocation().Z - Minion->GetActorLocation().Z;
+                    HorizontalReach = FMath::Sqrt(FMath::Max(0.f,
+                        FMath::Square(AttackRange) - FMath::Square(HeightDifference)));
+                }
+                FAIMoveRequest Request(TargetActor);
+                // Match the attack distance exactly; do not add the minion's radius a second time.
+                Request.SetAcceptanceRadius(FMath::Max(0.f, HorizontalReach - 10.f));
+                Request.SetReachTestIncludesAgentRadius(false);
+                Request.SetReachTestIncludesGoalRadius(false);
+                Request.SetUsePathfinding(true);
+                Request.SetAllowPartialPath(true);
+                bUsingDirectMovement = AICon->MoveTo(Request).Code == EPathFollowingRequestResult::Failed;
+            }
+            return;
+        }
+
+        MovementTargetActor.Reset();
+        bUsingDirectMovement = false;
+        if (AICon)
         {
             AICon->MoveToLocation(TargetLocation, 15.f);
         }
@@ -346,6 +407,11 @@ void ULOL_MoveComponent::StopMovement()
     else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))
     {
         if (AAIController* AICon = Cast<AAIController>(Minion->GetController())) AICon->StopMovement();
+        Minion->ConsumeMovementInputVector();
+        if (UCharacterMovementComponent* Movement = Minion->GetCharacterMovement())
+        {
+            Movement->StopMovementImmediately();
+        }
     }
     else if (ABaseJungleMonster* JungleMonster = Cast<ABaseJungleMonster>(OwnerPawn)) {
         TargetLocation = JungleMonster->GetActorLocation();
