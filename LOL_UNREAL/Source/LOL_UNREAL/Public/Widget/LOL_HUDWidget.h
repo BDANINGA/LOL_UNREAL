@@ -205,6 +205,32 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Monster")
     UPaperSprite* BaronMonsterSprite = nullptr;
 
+    // 스킬 레벨 표시용 ON/OFF 텍스처
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "HUD|Skill Level")
+    class UTexture2D* SkillLevelOnTexture = nullptr;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "HUD|Skill Level")
+    class UTexture2D* SkillLevelOffTexture = nullptr;
+
+
+    // 스킬 레벨 이미지 캐시
+    UPROPERTY(Transient)
+    TArray<class UImage*> SkillQLevelImages;
+
+    UPROPERTY(Transient)
+    TArray<class UImage*> SkillWLevelImages;
+
+    UPROPERTY(Transient)
+    TArray<class UImage*> SkillELevelImages;
+
+    UPROPERTY(Transient)
+    TArray<class UImage*> SkillRLevelImages;
+
+
+    // 관련 함수
+    void CacheSkillLevelIndicators();
+    void UpdateSkillLevelIndicators();
+
     void SetAttackDamage(float Value) { if (Txt_AD) Txt_AD->SetText(FText::AsNumber(Value)); }
     void SetAbilityPower(float Value) { if (Txt_AP) Txt_AP->SetText(FText::AsNumber(Value)); }
     void SetArmor(float Value) { if (Txt_Armor) Txt_Armor->SetText(FText::AsNumber(Value)); }

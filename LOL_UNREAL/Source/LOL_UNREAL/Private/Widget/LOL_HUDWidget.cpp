@@ -130,6 +130,7 @@ void ULOL_HUDWidget::NativeConstruct()
     CacheItemSlotImages();
     CacheScoreboardTextBlocks();
     CacheSkillLevelUpButtons();
+    CacheSkillLevelIndicators();
     CacheEXPWidgets();
     CreateKillLogContainer();
 
@@ -245,6 +246,7 @@ void ULOL_HUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 
     UpdateScoreboard();
     UpdateSkillLevelUpButtonStates();
+    UpdateSkillLevelIndicators();
     UpdateSkillDisableOverlays();
     UpdateMinimapChampions();
     UpdateMinimapStructures();
@@ -1066,6 +1068,81 @@ void ULOL_HUDWidget::UpdateMinimapMonsters()
 
         MonsterImage->SetVisibility(ESlateVisibility::Visible);
     }
+}
+void ULOL_HUDWidget::CacheSkillLevelIndicators()
+{
+    if (!WidgetTree)
+    {
+        return;
+    }
+
+    auto CacheImages = [this](TArray<UImage*>& Images, const TCHAR* Prefix, int32 MaxLevel)
+        {
+            Images.Reset();
+
+            for (int32 i = 1; i <= MaxLevel; ++i)
+            {
+                const FString WidgetName =
+                    FString::Printf(TEXT("%s%d"), Prefix, i);
+
+                UImage* Image = Cast<UImage>(
+                    WidgetTree->FindWidget(FName(*WidgetName))
+                );
+
+                Images.Add(Image);
+            }
+        };
+
+    CacheImages(SkillQLevelImages, TEXT("SkillQ_Level_"), 5);
+    CacheImages(SkillWLevelImages, TEXT("SkillW_Level_"), 5);
+    CacheImages(SkillELevelImages, TEXT("SkillE_Level_"), 5);
+    CacheImages(SkillRLevelImages, TEXT("SkillR_Level_"), 3);
+}
+void ULOL_HUDWidget::UpdateSkillLevelIndicators()
+{
+    const ABaseChampion* Champion =
+        Cast<ABaseChampion>(GetOwningPlayerPawn());
+
+    const UChampion_SkillComponent* SkillComp =
+        Champion ? Champion->SkillComponent : nullptr;
+
+    if (!SkillComp)
+    {
+        return;
+    }
+
+    auto UpdateImages = [this, SkillComp](
+        TArray<UImage*>& Images,
+        FName SkillName)
+        {
+            const int32 SkillLevel =
+                SkillComp->GetSkillLevel(SkillName);
+
+            for (int32 i = 0; i < Images.Num(); ++i)
+            {
+                UImage* Image = Images[i];
+
+                if (!Image)
+                {
+                    continue;
+                }
+
+                UTexture2D* TargetTexture =
+                    (i < SkillLevel)
+                    ? SkillLevelOnTexture
+                    : SkillLevelOffTexture;
+
+                if (TargetTexture)
+                {
+                    Image->SetBrushFromTexture(TargetTexture, false);
+                }
+            }
+        };
+
+    UpdateImages(SkillQLevelImages, TEXT("Q"));
+    UpdateImages(SkillWLevelImages, TEXT("W"));
+    UpdateImages(SkillELevelImages, TEXT("E"));
+    UpdateImages(SkillRLevelImages, TEXT("R"));
 }
 void ULOL_HUDWidget::UpdateHP(float NewHP, float MaxHP)
 {
