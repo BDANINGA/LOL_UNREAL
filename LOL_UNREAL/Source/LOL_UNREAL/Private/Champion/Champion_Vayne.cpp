@@ -1,4 +1,5 @@
 ﻿#include "Champion/Champion_Vayne.h"
+#include "Champion/VayneTumbleVisualComponent.h"
 #include "Champion/VayneSilverBoltsVisual.h"
 #include "Component/Champion_SkillComponent.h"
 #include "Component/LOL_StatComponent.h"
@@ -16,6 +17,7 @@
 
 AChampion_Vayne::AChampion_Vayne()
 {
+    TumbleVisual = CreateDefaultSubobject<UVayneTumbleVisualComponent>(TEXT("TumbleVisual"));
     ChampionName = TEXT("Vayne");
     SetChampionData(ChampionName);
     StateComponent->AddStatusTag(LOLTags::Champion_Ranged);
@@ -38,6 +40,7 @@ bool AChampion_Vayne::Server_Skill_Q_Validate(FVector QLocation) { return true; 
 
 void AChampion_Vayne::Multicast_PlayQMontage_Implementation()
 {
+    if (TumbleVisual) TumbleVisual->PlayVisual();
     if (ChampionResource.QMontage[AM_SKIll_Q_IDX])
     {
         PlayAnimMontage(ChampionResource.QMontage[AM_SKIll_Q_IDX], 1.0f);

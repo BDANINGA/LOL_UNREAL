@@ -1,10 +1,11 @@
-// 공격 관련 컴포넌트
+﻿// 공격 관련 컴포넌트
 #include "Component/LOL_AttackComponent.h"
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_MoveComponent.h"
 #include "Component/LOL_LifeCycleComponent.h"
 #include "Component/LOL_StateComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/CapsuleComponent.h"
 
 #include "BaseChampion.h"
@@ -480,7 +481,16 @@ void ULOL_AttackComponent::ExecuteRangeAttackHit()
             Arrow->SetShooter(Champion);
             Arrow->SetMesh(Champion->ChampionResource.ProjectileMesh[0]);
 
-            if (Champion->GetChampionName() == TEXT("Ezreal"))
+            if (Champion->GetChampionName() == TEXT("Vayne"))
+            {
+                // This asset points along local +Z; projectiles travel along +X.
+                // Widen the narrow bolt more than its length for readability.
+                Arrow->SetMeshTransform(
+                    FVector(1.6f, 1.6f, 1.25f),
+                    FRotator(-90.f, 0.f, 0.f)
+                );
+            }
+            else if (Champion->GetChampionName() == TEXT("Ezreal"))
             {
                 Arrow->SetMeshTransform(
                     FVector::OneVector,
@@ -493,6 +503,17 @@ void ULOL_AttackComponent::ExecuteRangeAttackHit()
             Champion->GetActorLocation() +
             (Champion->GetActorForwardVector() * 80.f) +
             FVector(0.0f, 0.0f, 80.0f);
+        if (Champion->GetChampionName() == TEXT("Vayne"))
+        {
+            // Launch from the animated crossbow hand, not above the capsule.
+            USkeletalMeshComponent* CharacterMesh = Champion->GetMesh();
+            if (CharacterMesh && CharacterMesh->DoesSocketExist(TEXT("r_hand")))
+            {
+                SpawnLocation = CharacterMesh->GetSocketLocation(TEXT("r_hand"));
+                const FVector AimDirection = (HitTarget->GetActorLocation() - SpawnLocation).GetSafeNormal();
+                SpawnLocation += AimDirection * 12.f;
+            }
+        }
         Arrow->Activate(SpawnLocation, HitTarget);
     }
     else if (ABaseMinion* Minion = Cast<ABaseMinion>(OwnerPawn))

@@ -41,6 +41,9 @@ public:
 protected:
     // --- ���� Q ���� ���� ---
 
+    UPROPERTY(VisibleAnywhere, Category="VFX")
+    TObjectPtr<class UVayneTumbleVisualComponent> TumbleVisual;
+
     bool bIsDashing = false;
 
     float DashTime = 0.2f;     // ��� ���� �ð�
