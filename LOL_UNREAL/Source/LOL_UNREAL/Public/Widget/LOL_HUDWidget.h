@@ -3,9 +3,12 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Rendering/DrawElements.h"
 #include "Components/TextBlock.h"
 #include "Components/Image.h"
 #include "LOL_HUDWidget.generated.h"
+
+class UPaperSprite;
 
 UCLASS()
 class LOL_UNREAL_API ULOL_HUDWidget : public UUserWidget
@@ -156,6 +159,77 @@ public:
     TArray<class UImage*> CachedMinimapChampionImages;
     void CacheMinimapChampionImages();
     void UpdateMinimapChampions();
+
+    UPROPERTY(meta = (BindWidgetOptional)) class UImage* Minimap_Turret_Image_0;
+
+    TArray<class UImage*> CachedMinimapTurretImages;
+    TArray<class UImage*> CachedMinimapInhibitorImages;
+    TArray<class UImage*> CachedMinimapNexusImages;
+    TArray<class UImage*> CachedMinimapMonsterImages;
+
+    void CacheMinimapStructureImages();
+    void UpdateMinimapStructures();
+
+    void CacheMinimapMonsterImages();
+    void UpdateMinimapMonsters();
+
+    bool bMinimapStaticObjectsInitialized = false;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
+    class UTexture2D* AllyTurretIcon = nullptr;;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
+    class UTexture2D* EnemyTurretIcon = nullptr;;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
+    class UTexture2D* AllyInhibitorIcon = nullptr;;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
+    class UTexture2D* EnemyInhibitorIcon = nullptr;;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
+    class UTexture2D* AllyNexusIcon = nullptr;;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Structure")
+    class UTexture2D* EnemyNexusIcon = nullptr;;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Monster")
+    UPaperSprite* RedMonsterSprite = nullptr;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Monster")
+    UPaperSprite* BlueMonsterSprite = nullptr;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Monster")
+    UPaperSprite* AtakhanMonsterSprite = nullptr;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Minimap|Monster")
+    UPaperSprite* BaronMonsterSprite = nullptr;
+
+    // 스킬 레벨 표시용 ON/OFF 텍스처
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "HUD|Skill Level")
+    class UTexture2D* SkillLevelOnTexture = nullptr;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "HUD|Skill Level")
+    class UTexture2D* SkillLevelOffTexture = nullptr;
+
+
+    // 스킬 레벨 이미지 캐시
+    UPROPERTY(Transient)
+    TArray<class UImage*> SkillQLevelImages;
+
+    UPROPERTY(Transient)
+    TArray<class UImage*> SkillWLevelImages;
+
+    UPROPERTY(Transient)
+    TArray<class UImage*> SkillELevelImages;
+
+    UPROPERTY(Transient)
+    TArray<class UImage*> SkillRLevelImages;
+
+
+    // 관련 함수
+    void CacheSkillLevelIndicators();
+    void UpdateSkillLevelIndicators();
 
     void SetAttackDamage(float Value) { if (Txt_AD) Txt_AD->SetText(FText::AsNumber(Value)); }
     void SetAbilityPower(float Value) { if (Txt_AP) Txt_AP->SetText(FText::AsNumber(Value)); }
@@ -335,4 +409,13 @@ protected:
     virtual FReply NativeOnMouseButtonDown(
         const FGeometry& InGeometry,
         const FPointerEvent& InMouseEvent) override;
+
+    virtual int32 NativePaint(
+        const FPaintArgs& Args,
+        const FGeometry& AllottedGeometry,
+        const FSlateRect& MyCullingRect,
+        FSlateWindowElementList& OutDrawElements,
+        int32 LayerId,
+        const FWidgetStyle& InWidgetStyle,
+        bool bParentEnabled) const override;
 };
