@@ -21,6 +21,8 @@
 #include "JungleMonster/BaseJungleMonster.h"
 #include "Minion/BaseMinion.h"
 
+#include "VisionManager/VisionManager.h"
+
 #include "Kismet/GameplayStatics.h"
 
 #include "Blueprint/WidgetTree.h"
@@ -130,6 +132,7 @@ void ULOL_HUDWidget::NativeConstruct()
     CacheItemSlotImages();
     CacheScoreboardTextBlocks();
     CacheSkillLevelUpButtons();
+    CacheSkillLevelIndicators();
     CacheEXPWidgets();
     CreateKillLogContainer();
 
@@ -245,6 +248,7 @@ void ULOL_HUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 
     UpdateScoreboard();
     UpdateSkillLevelUpButtonStates();
+    UpdateSkillLevelIndicators();
     UpdateSkillDisableOverlays();
     UpdateMinimapChampions();
     UpdateMinimapStructures();
@@ -681,6 +685,7 @@ void ULOL_HUDWidget::UpdateMinimapChampions()
     {
         return;
     }
+    ABaseChampion* LocalPlayer = Cast<ABaseChampion>(PC->GetPawn());
 
     // 미니맵의 로컬 크기 가져오기
     const FVector2D MinimapSize = MiniMap->GetCachedGeometry().GetLocalSize();
@@ -710,6 +715,15 @@ void ULOL_HUDWidget::UpdateMinimapChampions()
                 // 사망 체크
                 ULOL_StateComponent* StateComp = Champion->FindComponentByClass<ULOL_StateComponent>();
                 if (StateComp && StateComp->HasStatusTag(LOLTags::State_Dead))
+                {
+                    SlotImage->SetVisibility(ESlateVisibility::Collapsed);
+                    continue;
+                }
+                if (LocalPlayer &&
+                    LocalPlayer->StateComponent &&
+                    StateComp &&
+                    LocalPlayer->StateComponent->IsEnemy(StateComp) &&
+                    !Champion->bVisibleByVision)
                 {
                     SlotImage->SetVisibility(ESlateVisibility::Collapsed);
                     continue;
@@ -1067,6 +1081,81 @@ void ULOL_HUDWidget::UpdateMinimapMonsters()
         MonsterImage->SetVisibility(ESlateVisibility::Visible);
     }
 }
+void ULOL_HUDWidget::CacheSkillLevelIndicators()
+{
+    if (!WidgetTree)
+    {
+        return;
+    }
+
+    auto CacheImages = [this](TArray<UImage*>& Images, const TCHAR* Prefix, int32 MaxLevel)
+        {
+            Images.Reset();
+
+            for (int32 i = 1; i <= MaxLevel; ++i)
+            {
+                const FString WidgetName =
+                    FString::Printf(TEXT("%s%d"), Prefix, i);
+
+                UImage* Image = Cast<UImage>(
+                    WidgetTree->FindWidget(FName(*WidgetName))
+                );
+
+                Images.Add(Image);
+            }
+        };
+
+    CacheImages(SkillQLevelImages, TEXT("SkillQ_Level_"), 5);
+    CacheImages(SkillWLevelImages, TEXT("SkillW_Level_"), 5);
+    CacheImages(SkillELevelImages, TEXT("SkillE_Level_"), 5);
+    CacheImages(SkillRLevelImages, TEXT("SkillR_Level_"), 3);
+}
+void ULOL_HUDWidget::UpdateSkillLevelIndicators()
+{
+    const ABaseChampion* Champion =
+        Cast<ABaseChampion>(GetOwningPlayerPawn());
+
+    const UChampion_SkillComponent* SkillComp =
+        Champion ? Champion->SkillComponent : nullptr;
+
+    if (!SkillComp)
+    {
+        return;
+    }
+
+    auto UpdateImages = [this, SkillComp](
+        TArray<UImage*>& Images,
+        FName SkillName)
+        {
+            const int32 SkillLevel =
+                SkillComp->GetSkillLevel(SkillName);
+
+            for (int32 i = 0; i < Images.Num(); ++i)
+            {
+                UImage* Image = Images[i];
+
+                if (!Image)
+                {
+                    continue;
+                }
+
+                UTexture2D* TargetTexture =
+                    (i < SkillLevel)
+                    ? SkillLevelOnTexture
+                    : SkillLevelOffTexture;
+
+                if (TargetTexture)
+                {
+                    Image->SetBrushFromTexture(TargetTexture, false);
+                }
+            }
+        };
+
+    UpdateImages(SkillQLevelImages, TEXT("Q"));
+    UpdateImages(SkillWLevelImages, TEXT("W"));
+    UpdateImages(SkillELevelImages, TEXT("E"));
+    UpdateImages(SkillRLevelImages, TEXT("R"));
+}
 void ULOL_HUDWidget::UpdateHP(float NewHP, float MaxHP)
 {
 	if (HPProgressBar) HPProgressBar->SetPercent(NewHP / MaxHP);
@@ -1386,6 +1475,12 @@ int32 ULOL_HUDWidget::NativePaint(const FPaintArgs& Args, const FGeometry& Allot
     }
 
     ALOL_PlayerController* PC = Cast<ALOL_PlayerController>(GetOwningPlayer());
+    AVisionManager* VisionManager = Cast<AVisionManager>(
+        UGameplayStatics::GetActorOfClass(
+            GetWorld(),
+            AVisionManager::StaticClass()
+        )
+    );
     if (!PC) return MaxLayerId;
     ABaseChampion* LocalPlayer = Cast<ABaseChampion>(PC->GetPawn());
 
@@ -1411,6 +1506,18 @@ int32 ULOL_HUDWidget::NativePaint(const FPaintArgs& Args, const FGeometry& Allot
         if (StateComp && StateComp->HasStatusTag(LOLTags::State_Dead))
         {
             continue;
+        }
+        // 적 미니언이 현재 시야에 없으면 미니맵에 표시하지 않음
+        if (LocalPlayer &&
+            LocalPlayer->StateComponent &&
+            StateComp &&
+            LocalPlayer->StateComponent->IsEnemy(StateComp))
+        {
+            if (VisionManager &&
+                !VisionManager->CanTeamSeeActor(LocalPlayer, Minion))
+            {
+                continue;
+            }
         }
 
         // 월드 좌표 -> 미니맵 UV 좌표 변환
