@@ -1529,7 +1529,7 @@ int32 ULOL_HUDWidget::NativePaint(const FPaintArgs& Args, const FGeometry& Allot
         NormY = FMath::Clamp(NormY, 0.0f, 1.0f);
         if (PC->bInvertMinimapY) NormY = 1.0f - NormY;
 
-        FVector2D LocalPos(NormX * MinimapSize.X + (DotSize.X / 2) + 8.0f, NormY * MinimapSize.Y + (DotSize.Y / 2) + 8.0f);
+        FVector2D LocalPos(NormX * MinimapSize.X - (DotSize.X / 2) , NormY * MinimapSize.Y - (DotSize.Y / 2));
 
         FLinearColor DotColor = FLinearColor::Red;
         if (LocalPlayer && LocalPlayer->StateComponent)
@@ -1624,8 +1624,8 @@ int32 ULOL_HUDWidget::NativePaint(const FPaintArgs& Args, const FGeometry& Allot
         }
 
         FVector2D LocalPos(
-            NormX * MinimapSize.X + (JungleDotSize.X / 2) + 8.0f,
-            NormY * MinimapSize.Y + (JungleDotSize.Y / 2) + 8.0f
+            NormX * MinimapSize.X - (JungleDotSize.X / 2),
+            NormY * MinimapSize.Y - (JungleDotSize.Y / 2)
         );
 
         // 노란색 정글 몬스터 점
