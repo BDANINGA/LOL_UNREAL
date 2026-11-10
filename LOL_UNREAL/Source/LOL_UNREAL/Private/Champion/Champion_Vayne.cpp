@@ -1,4 +1,6 @@
-#include "Champion/Champion_Vayne.h"
+﻿#include "Champion/Champion_Vayne.h"
+#include "Champion/VayneTumbleVisualComponent.h"
+#include "Champion/VayneSilverBoltsVisual.h"
 #include "Component/Champion_SkillComponent.h"
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_FixedKnockbackComponent.h"
@@ -15,6 +17,7 @@
 
 AChampion_Vayne::AChampion_Vayne()
 {
+    TumbleVisual = CreateDefaultSubobject<UVayneTumbleVisualComponent>(TEXT("TumbleVisual"));
     ChampionName = TEXT("Vayne");
     SetChampionData(ChampionName);
     StateComponent->AddStatusTag(LOLTags::Champion_Ranged);
@@ -37,6 +40,7 @@ bool AChampion_Vayne::Server_Skill_Q_Validate(FVector QLocation) { return true; 
 
 void AChampion_Vayne::Multicast_PlayQMontage_Implementation()
 {
+    if (TumbleVisual) TumbleVisual->PlayVisual();
     if (ChampionResource.QMontage[AM_SKIll_Q_IDX])
     {
         PlayAnimMontage(ChampionResource.QMontage[AM_SKIll_Q_IDX], 1.0f);
@@ -193,6 +197,18 @@ void AChampion_Vayne::OnBasicAttackHit(ACharacter* Target)
     // 1. 해당 타겟의 스택 +1
     int32& Stack = SilverBoltsStack.FindOrAdd(Key);
     Stack++;
+    AVayneSilverBoltsVisual* Visual = SilverBoltsVisuals.FindRef(Key).Get();
+    if (!IsValid(Visual))
+    {
+        FActorSpawnParameters Params;
+        Params.Owner = this;
+        Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+        Visual = GetWorld()->SpawnActor<AVayneSilverBoltsVisual>(Target->GetActorLocation(), FRotator::ZeroRotator, Params);
+        SilverBoltsVisuals.Add(Key, Visual);
+    }
+    if (Visual) Visual->SetStack(Target, Stack >= BoltsThreshold ? 3 : FMath::Min(Stack, 2), BoltsStackDuration);
+    if (Stack >= BoltsThreshold) SilverBoltsVisuals.Remove(Key);
+
 
     // 2. 임계값 도달 → 발동
     if (Stack >= BoltsThreshold)
@@ -219,6 +235,7 @@ void AChampion_Vayne::OnBasicAttackHit(ACharacter* Target)
             {
                 if (!IsValid(this)) return;
                 SilverBoltsStack.Remove(Key);
+                SilverBoltsVisuals.Remove(Key);
                 SilverBoltsTimers.Remove(Key);
             }),
         BoltsStackDuration, false);

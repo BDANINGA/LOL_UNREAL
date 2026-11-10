@@ -1,4 +1,4 @@
-// 롤 챔피언 투사체
+﻿// 롤 챔피언 투사체
 #include "Champion/Projectile/BaseProjectile.h"
 
 #include "Components/CapsuleComponent.h"
@@ -162,7 +162,12 @@ void ABaseProjectile::Activate(FVector SpawnLocation, AActor* Target)
     CurrentTarget = Target;
     SetActorTickEnabled(true);
 
-    SetActorLocation(SpawnLocation);
+    // Pooled projectiles retain their previous rotation. Align before revealing
+    // the mesh so the first frame points along the new shot as well.
+    const FVector LaunchDirection = IsValid(Target)
+        ? (Target->GetActorLocation() - SpawnLocation).GetSafeNormal()
+        : FVector::ForwardVector;
+    SetActorLocationAndRotation(SpawnLocation, LaunchDirection.Rotation());
     ApplyActiveState();
 
     ProjectileMovement->SetUpdatedComponent(CollisionComp);
