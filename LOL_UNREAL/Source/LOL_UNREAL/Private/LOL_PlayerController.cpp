@@ -19,7 +19,6 @@
 #include "Widget/LOL_QuitConfirmWidget.h"
 #include "Widget/LOL_DebugPanel.h"
 #include "Components/CapsuleComponent.h"
-#include "Misc/CommandLine.h"
 #include "Widget/LOL_DamageVignetteWidget.h"
 #include "Widget/LOL_GameResultWidget.h"
 #include "Widget/LOL_ShopInputProcessor.h"
@@ -1564,14 +1563,6 @@ void ALOL_PlayerController::ChangeModeDebugMode()
 
 void ALOL_PlayerController::Server_SetDebugMode_Implementation(bool bEnabled)
 {
-#if UE_BUILD_SHIPPING
-	// A public shipping server must explicitly opt in to remote debug controls.
-	if (bEnabled && !IsLocalController() && !FParse::Param(FCommandLine::Get(), TEXT("AllowDebugTools")))
-	{
-		ClientMessage(TEXT("이 서버에서는 디버그 모드를 사용할 수 없습니다."));
-		return;
-	}
-#endif
 	SetAuthorityDebugMode(bEnabled);
 }
 

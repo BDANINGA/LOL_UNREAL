@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "BaseChampion.h"
@@ -40,6 +40,9 @@ public:
 
 protected:
     // --- ���� Q ���� ���� ---
+
+    UPROPERTY(VisibleAnywhere, Category="VFX")
+    TObjectPtr<class UVayneTumbleVisualComponent> TumbleVisual;
 
     bool bIsDashing = false;
 
@@ -94,6 +97,7 @@ protected:
 
     /** 3타째 발동: 추가 피해 + 이펙트 */
     void TriggerSilverBolts(ACharacter* Target);
+    TMap<TWeakObjectPtr<ACharacter>, TWeakObjectPtr<class AVayneSilverBoltsVisual>> SilverBoltsVisuals;
 
     // 2026 05 12 평타 강화데미지
     virtual void OnBasicAttackHit(ACharacter* Target) override;
