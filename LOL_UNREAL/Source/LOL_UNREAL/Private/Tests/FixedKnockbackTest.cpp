@@ -54,13 +54,17 @@ bool FFixedKnockbackTest::RunTest(const FString& Parameters)
 
     Target->SetActorLocation(FVector::ZeroVector);
     Knockback->StartKnockback(FVector::ForwardVector, 500.f, 0.4f, 5.f);
+    int32 WallImpacts = 0;
+    Knockback->OnWallImpact.BindLambda([&WallImpacts](const FHitResult&) { ++WallImpacts; });
     Knockback->TickComponent(1.f, LEVELTICK_All, nullptr);
+    TestEqual(TEXT("Wall visual fires once at the actual collision"), WallImpacts, 1);
     TestTrue(TEXT("A swept long frame stops before the wall"),
         Target->GetActorLocation().X > 0.f && Target->GetActorLocation().X < 400.f);
     TestTrue(TEXT("Wall collision still stuns a champion"), Target->bIsStunned);
     TestFalse(TEXT("Wall collision finishes knockback"), Target->bIsKnockedBack);
     const FVector WallStop = Target->GetActorLocation();
     Knockback->TickComponent(1.f, LEVELTICK_All, nullptr);
+    TestEqual(TEXT("Wall visual does not repeat after movement ends"), WallImpacts, 1);
     TestTrue(TEXT("Cannot resume drifting after a wall hit"), Target->GetActorLocation().Equals(WallStop));
     return true;
 }

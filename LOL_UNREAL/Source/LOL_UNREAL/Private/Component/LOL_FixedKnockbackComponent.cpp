@@ -78,9 +78,11 @@ void ULOL_FixedKnockbackComponent::TickComponent(
         const bool bHitWall = Cast<ABaseBuilding>(Hit.GetActor()) != nullptr ||
             (HitComponent && HitComponent->GetCollisionObjectType() == ECC_WorldStatic &&
                 FMath::Abs(Hit.ImpactNormal.Z) < 0.5f);
+        FOnFixedKnockbackWallImpact ImpactCallback = OnWallImpact;
         FinishKnockback();
         if (bHitWall)
         {
+            ImpactCallback.ExecuteIfBound(Hit);
             if (ABaseChampion* Champion = Cast<ABaseChampion>(Target))
             {
                 Champion->Multicast_ApplyStun(WallStunTime);
@@ -95,6 +97,7 @@ void ULOL_FixedKnockbackComponent::TickComponent(
 
 void ULOL_FixedKnockbackComponent::FinishKnockback()
 {
+    OnWallImpact.Unbind();
     if (!bPushing) return;
     bPushing = false;
     SetComponentTickEnabled(false);

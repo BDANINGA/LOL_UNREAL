@@ -1,6 +1,7 @@
 ﻿#include "Champion/Champion_Vayne.h"
 #include "Champion/VayneTumbleVisualComponent.h"
 #include "Champion/VayneSilverBoltsVisual.h"
+#include "Champion/Projectile/VayneCondemnProjectile.h"
 #include "Component/Champion_SkillComponent.h"
 #include "Component/LOL_StatComponent.h"
 #include "Component/LOL_FixedKnockbackComponent.h"
@@ -390,7 +391,10 @@ bool AChampion_Vayne::Server_ExecuteCondemn_Validate(ACharacter* Target)
 void AChampion_Vayne::Server_ExecuteCondemn_Implementation(ACharacter* Target)
 {
     if (!SkillComponent || !StatComponent) return;
-    if (!IsValid(Target) || !Target->GetCharacterMovement()) return;
+    if (!IsValid(Target) || Target == this || !Target->GetCharacterMovement()) return;
+    if (bIsStunned || bIsKnockedBack || StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
+    ULOL_StateComponent* TargetState = Target->FindComponentByClass<ULOL_StateComponent>();
+    if (!TargetState || !StateComponent->IsEnemy(TargetState) || TargetState->HasStatusTag(LOLTags::State_Dead)) return;
 
     const float Range = GetESkillRange();
     if (FVector::Dist(GetActorLocation(), Target->GetActorLocation()) > Range + 50.0f)
@@ -414,10 +418,25 @@ void AChampion_Vayne::Server_ExecuteCondemn_Implementation(ACharacter* Target)
     // ★ 모션 멀티캐스트 (모든 클라에서 E 모션 재생) ← 이게 핵심!
     Multicast_PlayEMontage();
 
-    // 밀쳐내기
-    FVector MyLoc = GetActorLocation();
-    FVector TargetLoc = Target->GetActorLocation();
-    FVector PushDir = (TargetLoc - MyLoc).GetSafeNormal2D();
+    FVector Origin = GetActorLocation() + GetActorForwardVector() * 35.f;
+    if (GetMesh() && GetMesh()->DoesSocketExist(TEXT("r_hand")))
+        Origin = GetMesh()->GetSocketLocation(TEXT("r_hand"));
+    const FVector Direction = (Target->GetActorLocation() - Origin).GetSafeNormal();
+    // The mesh's nose is +65 cm; keep its body centered on the firing hand.
+    FActorSpawnParameters Params;
+    Params.Owner = this;
+    Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+    if (auto* Bolt = GetWorld()->SpawnActor<AVayneCondemnProjectile>(Origin, Direction.Rotation(), Params))
+        Bolt->Initialize(this, Target);
+    else
+        ApplyCondemnHit(Target, (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal2D());
+}
+
+void AChampion_Vayne::ApplyCondemnHit(ACharacter* Target, const FVector& PushDir)
+{
+    if (!HasAuthority() || !IsValid(Target) || !Target->GetCharacterMovement() || !SkillComponent || !StatComponent) return;
+    ULOL_StateComponent* TargetState = Target->FindComponentByClass<ULOL_StateComponent>();
+    if (!TargetState || TargetState->HasStatusTag(LOLTags::State_Dead) || !StateComponent->IsEnemy(TargetState)) return;
     ULOL_FixedKnockbackComponent* Knockback = Target->FindComponentByClass<ULOL_FixedKnockbackComponent>();
     if (!Knockback)
     {
@@ -426,8 +445,14 @@ void AChampion_Vayne::Server_ExecuteCondemn_Implementation(ACharacter* Target)
         Knockback->RegisterComponent();
     }
     Knockback->StartKnockback(PushDir, PushDistance, PushTime, WallStunDuration);
+    Knockback->OnWallImpact.BindWeakLambda(this, [this](const FHitResult& Hit)
+    {
+        AVayneCondemnProjectile::SpawnWallImpact(GetWorld(), Hit.ImpactPoint + Hit.ImpactNormal * 8.f, Hit.ImpactNormal);
+    });
 
-    float SkillDamage = SkillComponent->GetE_Data().BaseDamage[0] + StatComponent->GetStat().AttackDamage * 0.5f;
+    const FSkillData& EData = SkillComponent->GetE_Data();
+    const float SkillDamage = (EData.BaseDamage.IsValidIndex(0) ? EData.BaseDamage[0] : 0.f)
+        + StatComponent->GetStat().AttackDamage * 0.5f;
 
     UGameplayStatics::ApplyDamage(
         Target,

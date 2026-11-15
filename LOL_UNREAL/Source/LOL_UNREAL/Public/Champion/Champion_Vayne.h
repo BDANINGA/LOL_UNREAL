@@ -21,6 +21,9 @@ public:
 
     virtual void Tick(float DeltaTime) override;
 
+    // Called once by the server-owned E projectile when it reaches its target.
+    void ApplyCondemnHit(ACharacter* Target, const FVector& PushDirection);
+
     //2026 05 04 수정
     UFUNCTION(NetMulticast, Reliable)
     void Multicast_SetCondemnRotation(FRotator NewRotation);

@@ -5,6 +5,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "LOL_FixedKnockbackComponent.generated.h"
 
+DECLARE_DELEGATE_OneParam(FOnFixedKnockbackWallImpact, const FHitResult&);
+
 // Server-driven displacement with a hard distance limit, used by Vayne E.
 UCLASS()
 class LOL_UNREAL_API ULOL_FixedKnockbackComponent : public UActorComponent
@@ -13,6 +15,7 @@ class LOL_UNREAL_API ULOL_FixedKnockbackComponent : public UActorComponent
 
 public:
     ULOL_FixedKnockbackComponent();
+    FOnFixedKnockbackWallImpact OnWallImpact;
     void StartKnockback(const FVector& Direction, float Distance, float Duration, float WallStunDuration);
     virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
