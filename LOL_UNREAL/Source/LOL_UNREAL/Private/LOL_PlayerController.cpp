@@ -1852,10 +1852,11 @@ void ALOL_PlayerController::DebugTestVision()
 }
 void ALOL_PlayerController::DebugResetGame()
 {
-	if (!bIsDebugModeEnabled) return;
-	UE_LOG(
-		LogTemp,
-		Warning,
-		TEXT("[DEBUG] F9 - Reset Game is not implemented yet.")
-	);
+	const FString MapPath =
+		TEXT("/Game/ChampionSelectMap/ChampionSelectMap")
+		TEXT("?game=/Game/ChampionSelectMap/MyGM_ChampSelect.MyGM_ChampSelect_C")
+		TEXT("?SeamlessTravel");
+	// 픽창 레벨로 모든 플레이어 이동
+	UE_LOG(LogTemp, Log, TEXT("Lobby seamless traveling to: %s"), *MapPath);
+	GetWorld()->ServerTravel(MapPath, true);
 }

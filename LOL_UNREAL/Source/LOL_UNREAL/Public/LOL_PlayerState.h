@@ -38,6 +38,7 @@ public:
 	int32 MinionKills = 0;
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void CopyProperties(APlayerState* NewPlayerState) override;
 
 protected:
 	UFUNCTION()
