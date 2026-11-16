@@ -7,11 +7,15 @@
 #include "Component/LOL_FixedKnockbackComponent.h"
 
 #include "Components/CapsuleComponent.h"
+#include "Components/MaterialBillboardComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Component/LOL_StateComponent.h"
 #include "Component/LOL_MoveComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/GameStateBase.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"     // 2026 05 01 
 #include "GameFramework/DamageType.h"   // 2026 05 01 (UDamageType용)
@@ -22,6 +26,77 @@ AChampion_Vayne::AChampion_Vayne()
     ChampionName = TEXT("Vayne");
     SetChampionData(ChampionName);
     StateComponent->AddStatusTag(LOLTags::Champion_Ranged);
+
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> Plane(TEXT("/Engine/BasicShapes/Plane.Plane"));
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> GroundMaterial(
+        TEXT("/Game/VFX/Vayne/M_VayneFinalHourGround.M_VayneFinalHourGround"));
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> WeaponMaterial(
+        TEXT("/Game/VFX/Vayne/M_VayneFinalHourWeapon.M_VayneFinalHourWeapon"));
+
+    FinalHourGround = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FinalHourGround"));
+    FinalHourGround->SetupAttachment(GetRootComponent());
+    FinalHourGround->SetStaticMesh(Plane.Object);
+    FinalHourGround->SetMaterial(0, GroundMaterial.Object);
+    FinalHourGround->SetRelativeScale3D(FVector(3.8f, 3.8f, 1.0f));
+
+    FinalHourWeapon = CreateDefaultSubobject<UMaterialBillboardComponent>(TEXT("FinalHourWeapon"));
+    FinalHourWeapon->SetupAttachment(GetMesh(), TEXT("BUFFBONE_GLB_WEAPON_1"));
+    if (WeaponMaterial.Object)
+    {
+        FinalHourWeapon->AddElement(WeaponMaterial.Object, nullptr, false, 38.f, 38.f, nullptr);
+    }
+
+    UPrimitiveComponent* VisualLayers[] = {FinalHourGround, FinalHourWeapon};
+    for (UPrimitiveComponent* Layer : VisualLayers)
+    {
+        Layer->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        Layer->SetGenerateOverlapEvents(false);
+        Layer->SetCanEverAffectNavigation(false);
+        Layer->SetCastShadow(false);
+        Layer->bReceivesDecals = false;
+        Layer->SetVisibility(false);
+    }
+}
+
+void AChampion_Vayne::BeginPlay()
+{
+    Super::BeginPlay();
+    StateComponent->OnStateTagsChanged.AddUObject(this, &AChampion_Vayne::UpdateFinalHourVisibility);
+    const UCapsuleComponent* Capsule = GetCapsuleComponent();
+    FinalHourGround->SetRelativeLocation(FVector(0.0, 0.0, 7.0 - Capsule->GetUnscaledCapsuleHalfHeight()));
+    UpdateFinalHourVisuals();
+}
+
+void AChampion_Vayne::UpdateFinalHourVisibility()
+{
+    if (GetNetMode() == NM_DedicatedServer) return;
+
+    const bool bShow = FinalHourStartTime >= 0.0 && !StateComponent->HasStatusTag(LOLTags::State_Dead);
+    FinalHourGround->SetVisibility(bShow);
+    FinalHourWeapon->SetVisibility(bShow);
+}
+
+void AChampion_Vayne::UpdateFinalHourVisuals()
+{
+    UpdateFinalHourVisibility();
+    if (GetNetMode() == NM_DedicatedServer || FinalHourStartTime < 0.0) return;
+
+    if (!FinalHourGroundMID && FinalHourGround->GetMaterial(0))
+    {
+        FinalHourGroundMID = FinalHourGround->CreateDynamicMaterialInstance(0);
+    }
+    if (!FinalHourWeaponMID && FinalHourWeapon->GetMaterial(0))
+    {
+        FinalHourWeaponMID = FinalHourWeapon->CreateDynamicMaterialInstance(0);
+    }
+
+    // Convert the server's cast time to the local material clock, including for late observers.
+    const AGameStateBase* GameState = GetWorld()->GetGameState();
+    const double LocalNow = GetWorld()->GetTimeSeconds();
+    const double ServerNow = GameState ? GameState->GetServerWorldTimeSeconds() : LocalNow;
+    const float LocalStartTime = LocalNow - FMath::Max(0.0, ServerNow - FinalHourStartTime);
+    if (FinalHourGroundMID) FinalHourGroundMID->SetScalarParameterValue(TEXT("StartTime"), LocalStartTime);
+    if (FinalHourWeaponMID) FinalHourWeaponMID->SetScalarParameterValue(TEXT("StartTime"), LocalStartTime);
 }
 
 void AChampion_Vayne::Skill_Q()
@@ -477,6 +552,8 @@ bool AChampion_Vayne::Server_Skill_R_Validate() { return true; }
 
 void AChampion_Vayne::Server_Skill_R_Implementation()
 {
+    if (StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
+
     // 1. 상태 활성화 및 스태츠 버프 (서버)
     AM_Atk_Idx = 1;
     StateComponent->AddStatusTag(LOLTags::Skill_R);
@@ -486,6 +563,10 @@ void AChampion_Vayne::Server_Skill_R_Implementation()
     // 2. 타이머 설정 (종료 예약)
     GetWorldTimerManager().ClearTimer(R_TimerHandle);
     GetWorldTimerManager().SetTimer(R_TimerHandle, this, &AChampion_Vayne::End_Skill_R, R_Duration, false);
+    const AGameStateBase* GameState = GetWorld()->GetGameState();
+    FinalHourStartTime = GameState ? GameState->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
+    UpdateFinalHourVisuals();
+    ForceNetUpdate();
 
     // 3. 연출 실행 (멀티캐스트)
     Multicast_PlayRMontage();
@@ -494,7 +575,7 @@ void AChampion_Vayne::Server_Skill_R_Implementation()
 
 void AChampion_Vayne::Multicast_PlayRMontage_Implementation()
 {
-    if (ChampionResource.RMontage[AM_SKIll_R_IDX])
+    if (ChampionResource.RMontage.IsValidIndex(AM_SKIll_R_IDX) && ChampionResource.RMontage[AM_SKIll_R_IDX])
     {
         PlayAnimMontage(ChampionResource.RMontage[AM_SKIll_R_IDX]);
     }
@@ -502,7 +583,9 @@ void AChampion_Vayne::Multicast_PlayRMontage_Implementation()
 
 void AChampion_Vayne::End_Skill_R()
 {
+    FinalHourStartTime = -1.0;
     StateComponent->RemoveStatusTag(LOLTags::Skill_R);
+    ForceNetUpdate();
     AM_Atk_Idx = 0;
     // StatComponent->AddAttackDamage(-R_BonusAD); // 버프 회수
 
@@ -513,4 +596,5 @@ void AChampion_Vayne::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
     DOREPLIFETIME(AChampion_Vayne, bQEmpowered);   // ★ 추가
+    DOREPLIFETIME(AChampion_Vayne, FinalHourStartTime);
 }
