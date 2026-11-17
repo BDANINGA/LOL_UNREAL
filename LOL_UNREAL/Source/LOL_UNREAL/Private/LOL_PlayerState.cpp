@@ -1,8 +1,11 @@
 #include "LOL_PlayerState.h"
 
+#include "ChampionSelect/PS_ChampSelect.h"
+
 #include "GameFramework/PlayerController.h"
 #include "Lobby/LOL_GameInstance.h"
 #include "Net/UnrealNetwork.h"
+
 
 void ALOL_PlayerState::AddKill()
 {
@@ -65,4 +68,17 @@ void ALOL_PlayerState::GetLifetimeReplicatedProps(
 	DOREPLIFETIME(ALOL_PlayerState, Deaths);
 	DOREPLIFETIME(ALOL_PlayerState, Assists);
 	DOREPLIFETIME(ALOL_PlayerState, MinionKills);
+}
+
+void ALOL_PlayerState::CopyProperties(APlayerState* NewPlayerState)
+{
+	Super::CopyProperties(NewPlayerState);
+
+	APS_ChampSelect* NewChampPS = Cast<APS_ChampSelect>(NewPlayerState);
+
+	if (NewChampPS)
+	{
+		NewChampPS->Nickname = Nickname;
+		NewChampPS->TeamID = TeamID;
+	}
 }

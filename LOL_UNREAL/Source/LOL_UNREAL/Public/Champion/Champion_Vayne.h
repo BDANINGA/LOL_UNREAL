@@ -21,6 +21,9 @@ public:
 
     virtual void Tick(float DeltaTime) override;
 
+    // Called once by the server-owned E projectile when it reaches its target.
+    void ApplyCondemnHit(ACharacter* Target, const FVector& PushDirection);
+
     //2026 05 04 수정
     UFUNCTION(NetMulticast, Reliable)
     void Multicast_SetCondemnRotation(FRotator NewRotation);
@@ -39,6 +42,8 @@ public:
     void End_Skill_R();
 
 protected:
+    virtual void BeginPlay() override;
+
     // --- ���� Q ���� ���� ---
 
     UPROPERTY(VisibleAnywhere, Category="VFX")
@@ -137,4 +142,25 @@ protected:
 
     // 지속 시간 관리를 위한 타이머 핸들
     FTimerHandle R_TimerHandle;
+
+private:
+    void UpdateFinalHourVisibility();
+
+    UFUNCTION()
+    void UpdateFinalHourVisuals();
+
+    UPROPERTY(VisibleAnywhere, Category = "VFX")
+    TObjectPtr<class UStaticMeshComponent> FinalHourGround;
+
+    UPROPERTY(VisibleAnywhere, Category = "VFX")
+    TObjectPtr<class UMaterialBillboardComponent> FinalHourWeapon;
+
+    UPROPERTY()
+    TObjectPtr<class UMaterialInstanceDynamic> FinalHourGroundMID;
+
+    UPROPERTY()
+    TObjectPtr<UMaterialInstanceDynamic> FinalHourWeaponMID;
+
+    UPROPERTY(ReplicatedUsing = UpdateFinalHourVisuals)
+    double FinalHourStartTime = -1.0;
 };
