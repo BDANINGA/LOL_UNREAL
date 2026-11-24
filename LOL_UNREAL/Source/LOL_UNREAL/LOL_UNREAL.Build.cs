@@ -14,7 +14,7 @@ public class LOL_UNREAL : ModuleRules
 			"UMG", "Niagara", "Paper2D", "GameplayTags", "AIModule", 
 			"NavigationSystem" });
 
-        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "ProceduralMeshComponent" });
         if (Target.bBuildEditor) PrivateDependencyModuleNames.AddRange(new string[] { "MeshDescription", "StaticMeshDescription" });
 
 		// Uncomment if you are using Slate UI

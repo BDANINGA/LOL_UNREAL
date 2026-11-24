@@ -1,4 +1,5 @@
 #include "Champion/Champion_Garen.h"
+#include "GarenJudgmentTrailComponent.h"
 
 #include "Component/Champion_SkillComponent.h"
 #include "Component/LOL_StateComponent.h"
@@ -31,6 +32,8 @@ AChampion_Garen::AChampion_Garen()
     static ConstructorHelpers::FObjectFinder<UMaterialInterface> Impact(TEXT("/Game/VFX/Garen/M_GarenDecisiveStrike.M_GarenDecisiveStrike"));
     QBladeMaterial = Blade.Object;
     QImpactMaterial = Impact.Object;
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> JudgmentTrail(TEXT("/Game/VFX/Garen/M_GarenJudgmentTrail.M_GarenJudgmentTrail"));
+    EBladeTrailMaterial = JudgmentTrail.Object;
     static ConstructorHelpers::FObjectFinder<UNiagaraSystem> REffectAsset(
         TEXT("/Game/Level/garen/garen_tex/ns_garen_r.ns_garen_r"));
     if (REffectAsset.Succeeded())
@@ -707,6 +710,19 @@ void AChampion_Garen::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
     if (bWActive) UpdateWShieldVisual();
+    if (bIsSpinning && GetNetMode() != NM_DedicatedServer && EBladeTrailMaterial &&
+        !StateComponent->HasStatusTag(LOLTags::State_Dead))
+    {
+        if (!EBladeTrail)
+        {
+            EBladeTrail = NewObject<UGarenJudgmentTrailComponent>(this, TEXT("GarenJudgmentTrail"));
+            EBladeTrail->SetupAttachment(GetRootComponent());
+            EBladeTrail->SetMaterial(0, EBladeTrailMaterial);
+            EBladeTrail->AddTickPrerequisiteComponent(GetMesh());
+            EBladeTrail->RegisterComponent();
+        }
+        EBladeTrail->SetComponentTickEnabled(true);
+    }
     if (HasAuthority() && bQEmpowered && StateComponent->HasStatusTag(LOLTags::State_Dead))
     {
         GetWorldTimerManager().ClearTimer(Q_BuffTimerHandle);

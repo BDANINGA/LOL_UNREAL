@@ -113,6 +113,12 @@ protected:
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_Skill_E();
 
+    UPROPERTY(Transient)
+    TObjectPtr<class UGarenJudgmentTrailComponent> EBladeTrail;
+
+    UPROPERTY()
+    TObjectPtr<UMaterialInterface> EBladeTrailMaterial;
+
     void ApplyEDamageTick();
     void EndESpin();
 
