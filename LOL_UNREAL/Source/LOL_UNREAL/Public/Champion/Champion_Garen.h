@@ -38,7 +38,26 @@ protected:
 
     void EndQBuff();
 
+    UPROPERTY(ReplicatedUsing=OnRep_QEmpowered)
     bool bQEmpowered = false;
+
+    UFUNCTION()
+    void OnRep_QEmpowered();
+
+    UFUNCTION(NetMulticast, Unreliable)
+    void Multicast_ShowQImpact(ACharacter* Target, FVector_NetQuantize Location);
+
+    UPROPERTY()
+    TObjectPtr<class UMaterialInterface> QBladeMaterial;
+
+    UPROPERTY()
+    TObjectPtr<UMaterialInterface> QImpactMaterial;
+
+    UPROPERTY(Transient)
+    TObjectPtr<class UMaterialInstanceDynamic> QBladeInstance;
+
+    UPROPERTY(Transient)
+    TObjectPtr<UMaterialInterface> PreviousBladeOverlay;
 
     FTimerHandle Q_BuffTimerHandle;
 

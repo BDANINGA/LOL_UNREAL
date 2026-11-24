@@ -4,6 +4,8 @@
 #include "Component/LOL_StateComponent.h"
 #include "Component/LOL_MoveComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/MaterialBillboardComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Components/SkeletalMeshComponent.h"
 
 #include "Component/LOL_AttackComponent.h"
@@ -24,6 +26,10 @@ AChampion_Garen::AChampion_Garen()
 {
     ChampionName = TEXT("Garen");
     SetChampionData(ChampionName);
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> Blade(TEXT("/Game/VFX/Garen/M_GarenDecisiveBlade.M_GarenDecisiveBlade"));
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> Impact(TEXT("/Game/VFX/Garen/M_GarenDecisiveStrike.M_GarenDecisiveStrike"));
+    QBladeMaterial = Blade.Object;
+    QImpactMaterial = Impact.Object;
     static ConstructorHelpers::FObjectFinder<UNiagaraSystem> REffectAsset(
         TEXT("/Game/Level/garen/garen_tex/ns_garen_r.ns_garen_r"));
     if (REffectAsset.Succeeded())
@@ -105,6 +111,8 @@ void AChampion_Garen::Server_Skill_Q_Implementation()
     const float BuffDuration = QData.Duration.IsValidIndex(SkillLevelIdx) ? QData.Duration[SkillLevelIdx] : Q_DefaultDuration;
 
     bQEmpowered = true;
+    OnRep_QEmpowered();
+    ForceNetUpdate();
 
     // 1. 현재 재생 중인 평타 애니메이션을 즉시 끊어버립니다.
     if (UAnimInstance* AnimInst = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
@@ -152,19 +160,52 @@ void AChampion_Garen::OnBasicAttackHit(ACharacter* Target)
 
     TargetChampion->Multicast_ApplySilence(SilenceDuration);
 
-    bQEmpowered = false;
     GetWorldTimerManager().ClearTimer(Q_BuffTimerHandle);
+    Multicast_ShowQImpact(Target, Target->GetActorLocation());
+    EndQBuff();
+}
 
-    if (GetCharacterMovement() && StatComponent)
+void AChampion_Garen::OnRep_QEmpowered()
+{
+    if (GetNetMode() == NM_DedicatedServer || !QBladeMaterial) return;
+    if (bQEmpowered)
     {
-        const float BaseMoveSpeed = StatComponent->GetStat().MoveSpeed > 0.f ? StatComponent->GetStat().MoveSpeed : 330.0f;
-        GetCharacterMovement()->MaxWalkSpeed = BaseMoveSpeed;
+        if (!QBladeInstance) QBladeInstance = UMaterialInstanceDynamic::Create(QBladeMaterial, this);
+        if (GetMesh()->GetOverlayMaterial() != QBladeInstance)
+        {
+            PreviousBladeOverlay = GetMesh()->GetOverlayMaterial();
+            GetMesh()->SetOverlayMaterial(QBladeInstance);
+        }
+        QBladeInstance->SetScalarParameterValue(TEXT("StartTime"), GetWorld()->GetTimeSeconds());
     }
+    else if (QBladeInstance && GetMesh()->GetOverlayMaterial() == QBladeInstance)
+    {
+        GetMesh()->SetOverlayMaterial(PreviousBladeOverlay);
+        PreviousBladeOverlay = nullptr;
+    }
+}
+
+void AChampion_Garen::Multicast_ShowQImpact_Implementation(ACharacter* Target, FVector_NetQuantize Location)
+{
+    if (GetNetMode() == NM_DedicatedServer || !IsValid(Target) || !QImpactMaterial) return;
+    auto* Flash = NewObject<UMaterialBillboardComponent>(Target);
+    auto* Material = UMaterialInstanceDynamic::Create(QImpactMaterial, Flash);
+    Material->SetScalarParameterValue(TEXT("StartTime"), GetWorld()->GetTimeSeconds());
+    Flash->AddElement(Material, nullptr, false, 108.f, 108.f, nullptr);
+    Flash->SetWorldLocation(Location);
+    Flash->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    Flash->SetGenerateOverlapEvents(false);
+    Flash->SetCanEverAffectNavigation(false);
+    Flash->SetCastShadow(false);
+    Flash->RegisterComponent();
+    FTimerHandle Handle;
+    GetWorldTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(Flash,
+        [Flash]() { Flash->DestroyComponent(); }), .36f, false);
 }
 
 int32 AChampion_Garen::GetAM_Atk_Idx()
 {
-    if (bQEmpowered)
+    if (HasAuthority() && bQEmpowered)
     {
         // 어택 컴포넌트가 일반 평타를 실행한 직후 바로 다음 틱에 Q 애니메이션으로 덮어씁니다.
         GetWorldTimerManager().SetTimerForNextTick([this]()
@@ -185,6 +226,8 @@ int32 AChampion_Garen::GetAM_Atk_Idx()
 void AChampion_Garen::EndQBuff()
 {
     bQEmpowered = false;
+    OnRep_QEmpowered();
+    ForceNetUpdate();
 
     if (GetCharacterMovement() && StatComponent)
     {
@@ -657,6 +700,11 @@ bool AChampion_Garen::IsMoveInputBlocked() const
 void AChampion_Garen::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
+    if (HasAuthority() && bQEmpowered && StateComponent->HasStatusTag(LOLTags::State_Dead))
+    {
+        GetWorldTimerManager().ClearTimer(Q_BuffTimerHandle);
+        EndQBuff();
+    }
 
     if (bIsSpinning && ChampionResource.EMontage.IsValidIndex(AM_SKIll_E_IDX))
     {
@@ -678,6 +726,7 @@ void AChampion_Garen::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(AChampion_Garen, bIsSpinning);
+    DOREPLIFETIME(AChampion_Garen, bQEmpowered);
 }
 void AChampion_Garen::EndRCastLock()
 {
