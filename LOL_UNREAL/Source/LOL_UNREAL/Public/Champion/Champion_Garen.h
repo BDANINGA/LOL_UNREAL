@@ -78,6 +78,7 @@ protected:
 
     void EndWBuff();
 
+    UPROPERTY(ReplicatedUsing=UpdateWShieldVisual)
     bool bWActive = false;
     FChampionStat W_OriginalStat;
     FTimerHandle W_BuffTimerHandle;
@@ -95,7 +96,7 @@ protected:
     TObjectPtr<class UStaticMeshComponent> WShieldComponent;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | W | Visual")
-    FVector WShieldRelativeLocation = FVector(0.0f, 0.0f, 80.0f);
+    FVector WShieldRelativeLocation = FVector::ZeroVector;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | W | Visual")
     FRotator WShieldRelativeRotation = FRotator::ZeroRotator;
@@ -103,8 +104,11 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Garen | W | Visual")
     FVector WShieldRelativeScale = FVector(2.5f, 2.5f, 2.5f);
 
-    UFUNCTION(NetMulticast, Reliable)
-    void Multicast_SetWShieldVisible(bool bVisible);
+    UPROPERTY(EditDefaultsOnly, Category = "Garen | W | Visual")
+    float WShieldOrbitDegreesPerSecond = 165.f;
+
+    UFUNCTION()
+    void UpdateWShieldVisual();
 
     UFUNCTION(Server, Reliable, WithValidation)
     void Server_Skill_E();

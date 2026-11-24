@@ -19,6 +19,7 @@
 #include "NiagaraSystem.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/GameStateBase.h"
 
 #include "UObject/ConstructorHelpers.h"
 
@@ -46,6 +47,12 @@ AChampion_Garen::AChampion_Garen()
     WShieldComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     WShieldComponent->SetGenerateOverlapEvents(false);
     WShieldComponent->SetCastShadow(false);
+    WShieldComponent->bDisallowNanite = true;
+    WShieldComponent->SetCanEverAffectNavigation(false);
+    WShieldComponent->SetUsingAbsoluteRotation(true);
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> ShieldMaterial(
+        TEXT("/Game/VFX/Garen/M_GarenCourageShield.M_GarenCourageShield"));
+    if (ShieldMaterial.Succeeded()) WShieldComponent->SetMaterial(0, ShieldMaterial.Object);
     WShieldComponent->SetHiddenInGame(true);
     WShieldComponent->SetVisibility(false, true);
     WShieldComponent->SetRelativeLocation(WShieldRelativeLocation);
@@ -64,33 +71,30 @@ AChampion_Garen::AChampion_Garen()
     }
 }
 
-void AChampion_Garen::Multicast_SetWShieldVisible_Implementation(bool bVisible)
+void AChampion_Garen::UpdateWShieldVisual()
 {
-    if (!WShieldComponent) return;
+    if (GetNetMode() == NM_DedicatedServer) return;
 
-    const FVector ShieldLocation = WShieldRelativeLocation.IsNearlyZero()
-        ? FVector(0.0f, 0.0f, 80.0f)
-        : WShieldRelativeLocation;
-    const FVector ShieldScale = WShieldRelativeScale.GetMin() < 0.5f
-        ? FVector(2.5f, 2.5f, 2.5f)
-        : WShieldRelativeScale;
+    const bool bShow = bWActive && !StateComponent->HasStatusTag(LOLTags::State_Dead);
+    if (WShieldComponent->GetVisibleFlag() != bShow)
+    {
+        WShieldComponent->SetVisibility(bShow);
+        WShieldComponent->SetHiddenInGame(!bShow);
+        if (bShow)
+        {
+            WShieldComponent->SetRelativeLocation(WShieldRelativeLocation);
+            WShieldComponent->SetRelativeScale3D(WShieldRelativeScale);
+        }
+    }
+    if (!bShow) return;
 
-    WShieldComponent->SetRelativeLocation(ShieldLocation);
-    WShieldComponent->SetRelativeRotation(WShieldRelativeRotation);
-    WShieldComponent->SetRelativeScale3D(ShieldScale);
-    WShieldComponent->SetVisibility(bVisible, true);
-    WShieldComponent->SetHiddenInGame(!bVisible, true);
-
-    UE_LOG(
-        LogTemp,
-        Warning,
-        TEXT("Garen W shield visible=%d Mesh=%s Location=%s Scale=%s"),
-        bVisible ? 1 : 0,
-        WShieldComponent->GetStaticMesh() ? *WShieldComponent->GetStaticMesh()->GetName() : TEXT("None"),
-        *ShieldLocation.ToString(),
-        *ShieldScale.ToString()
-    );
+    // The four shields share a central pivot. World yaw keeps the orbit smooth when Garen turns.
+    const AGameStateBase* GameState = GetWorld()->GetGameState();
+    const double Now = GameState ? GameState->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
+    const float Angle = FMath::Fmod(Now * WShieldOrbitDegreesPerSecond, 360.0);
+    WShieldComponent->SetWorldRotation(FRotator(0.f, Angle, 0.f).Quaternion() * WShieldRelativeRotation.Quaternion());
 }
+
 void AChampion_Garen::Skill_Q()
 {
     if (!IsLocallyControlled()) return;
@@ -270,7 +274,8 @@ void AChampion_Garen::Server_Skill_W_Implementation()
 
     bWActive = true;
     StatComponent->SetStat(BuffedStat);
-    Multicast_SetWShieldVisible(true);
+    UpdateWShieldVisual();
+    ForceNetUpdate();
 
     GetWorldTimerManager().ClearTimer(W_BuffTimerHandle);
     GetWorldTimerManager().SetTimer(W_BuffTimerHandle, this, &AChampion_Garen::EndWBuff, Duration, false);
@@ -282,7 +287,8 @@ void AChampion_Garen::EndWBuff()
 
     bWActive = false;
     StatComponent->SetStat(W_OriginalStat);
-    Multicast_SetWShieldVisible(false);
+    UpdateWShieldVisual();
+    ForceNetUpdate();
 }
 
 void AChampion_Garen::Skill_E()
@@ -700,6 +706,7 @@ bool AChampion_Garen::IsMoveInputBlocked() const
 void AChampion_Garen::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
+    if (bWActive) UpdateWShieldVisual();
     if (HasAuthority() && bQEmpowered && StateComponent->HasStatusTag(LOLTags::State_Dead))
     {
         GetWorldTimerManager().ClearTimer(Q_BuffTimerHandle);
@@ -725,6 +732,7 @@ void AChampion_Garen::Tick(float DeltaTime)
 void AChampion_Garen::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(AChampion_Garen, bWActive);
     DOREPLIFETIME(AChampion_Garen, bIsSpinning);
     DOREPLIFETIME(AChampion_Garen, bQEmpowered);
 }
