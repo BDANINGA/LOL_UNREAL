@@ -9,6 +9,8 @@ class LOL_UNREAL_API AChampion_LeeSin : public ABaseChampion
 {
 	GENERATED_BODY()
 
+	friend class FLeeSinQElevationTest;
+
 public:
 	AChampion_LeeSin();
 

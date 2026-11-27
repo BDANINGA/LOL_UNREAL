@@ -1,4 +1,5 @@
 #include "Champion/Champion_LeeSin.h"
+#include "Combat/SkillCollision.h"
 
 #include "Animation/AnimMontage.h"
 #include "Component/Champion_SkillComponent.h"
@@ -141,7 +142,7 @@ void AChampion_LeeSin::Server_Skill_Q_Implementation(FVector TargetLocation)
 			1100.0f
 		) + 150.0f;
 
-		if (GetDistanceTo(QMarkedTarget) <= RecastRange)
+		if (FVector::DistSquared2D(GetActorLocation(), QMarkedTarget->GetActorLocation()) <= FMath::Square(RecastRange))
 		{
 			StartQDash(QMarkedTarget);
 		}
@@ -255,15 +256,7 @@ void AChampion_LeeSin::Server_Skill_E_Implementation()
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
 
-	const bool bHit = GetWorld()->SweepMultiByChannel(
-		Hits,
-		GetActorLocation(),
-		GetActorLocation(),
-		FQuat::Identity,
-		ECC_Pawn,
-		FCollisionShape::MakeSphere(Radius),
-		QueryParams
-	);
+	const bool bHit = LOLSkillCollision::Sweep(GetWorld(), Hits, GetActorLocation(), GetActorLocation(), Radius, QueryParams);
 	if (!bHit) return;
 
 	TSet<TWeakObjectPtr<AActor>> DamagedTargets;
@@ -540,15 +533,7 @@ void AChampion_LeeSin::UpdateQProjectile(float DeltaTime)
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
 
-	const bool bHit = GetWorld()->SweepMultiByChannel(
-		Hits,
-		QProjectileLastLocation,
-		CurrentLocation,
-		FQuat::Identity,
-		ECC_Pawn,
-		FCollisionShape::MakeSphere(QProjectileRadius),
-		QueryParams
-	);
+	const bool bHit = LOLSkillCollision::Sweep(GetWorld(), Hits, QProjectileLastLocation, CurrentLocation, QProjectileRadius, QueryParams);
 	QProjectileLastLocation = CurrentLocation;
 
 	if (bHit)
@@ -750,17 +735,20 @@ void AChampion_LeeSin::UpdateQDash(float DeltaTime)
 	FVector Direction = Target->GetActorLocation() - QDashStart;
 	Direction.Z = 0.0f;
 	float TargetRadius = 0.0f;
+	float LandingZ = Target->GetActorLocation().Z;
 	if (UCapsuleComponent* TargetCapsule =
 		Target->FindComponentByClass<UCapsuleComponent>())
 	{
 		TargetRadius = TargetCapsule->GetScaledCapsuleRadius();
+		// Follow the marked target's floor, including differently sized bodies.
+		LandingZ += GetCapsuleComponent()->GetScaledCapsuleHalfHeight() - TargetCapsule->GetScaledCapsuleHalfHeight();
 	}
 	const float TargetOffset =
 		GetCapsuleComponent()->GetScaledCapsuleRadius() + TargetRadius;
 	FVector LandingLocation =
 		Target->GetActorLocation() -
 		Direction.GetSafeNormal() * TargetOffset;
-	LandingLocation.Z = QDashStart.Z;
+	LandingLocation.Z = LandingZ;
 
 	SetActorLocation(
 		FMath::Lerp(QDashStart, LandingLocation, Alpha),
@@ -1095,15 +1083,7 @@ void AChampion_LeeSin::CheckRKnockbackCollision()
 	QueryParams.AddIgnoredActor(this);
 	QueryParams.AddIgnoredActor(RKnockbackTarget);
 
-	const bool bHit = GetWorld()->SweepMultiByChannel(
-		Hits,
-		RKnockbackLastLocation,
-		CurrentLocation,
-		FQuat::Identity,
-		ECC_Pawn,
-		FCollisionShape::MakeSphere(RCollisionRadius),
-		QueryParams
-	);
+	const bool bHit = LOLSkillCollision::Sweep(GetWorld(), Hits, RKnockbackLastLocation, CurrentLocation, RCollisionRadius, QueryParams);
 	RKnockbackLastLocation = CurrentLocation;
 
 	if (!bHit) return;

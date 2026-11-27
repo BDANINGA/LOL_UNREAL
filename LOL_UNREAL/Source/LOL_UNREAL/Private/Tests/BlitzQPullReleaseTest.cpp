@@ -88,6 +88,17 @@ bool FBlitzQPullReleaseTest::RunTest(const FString& Parameters)
     TestFalse(TEXT("Timeout releases movement lock"), Target->IsGrabbed());
     TestFalse(TEXT("Pull timer is cleared"), World->GetTimerManager().TimerExists(Blitz->PullTimerHandle));
     TestFalse(TEXT("Timeout timer is cleared"), World->GetTimerManager().TimerExists(Blitz->PullTimeoutTimerHandle));
+    for (float Height : {-2000.f, 2000.f})
+    {
+        Target->SetActorLocation(Blitz->GetActorLocation() + FVector(600.f, 0.f, Height));
+        Blitz->BeginPullTarget(Target);
+        for (int32 Step = 0; Step < 100 && Blitz->GrabbedTarget; ++Step) Blitz->TickPullTarget();
+        TestNull(TEXT("Elevated pull completes"), Blitz->GrabbedTarget);
+        const double CasterFeet = Blitz->GetActorLocation().Z - Blitz->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+        const double TargetFeet = Target->GetActorLocation().Z - Target->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+        TestTrue(TEXT("Elevated pull releases at caster floor height"), FMath::IsNearlyEqual(CasterFeet, TargetFeet, 0.1));
+        TestEqual(TEXT("Elevated pull restores collision"), Target->GetCapsuleComponent()->GetCollisionEnabled(), CollisionBefore);
+    }
     return true;
 }
 

@@ -1,4 +1,5 @@
 #include "Champion/Champion_Gragas.h"
+#include "Combat/SkillCollision.h"
 #include "Champion/Projectile/GragasQBarrelVisual.h"
 #include "Champion/Projectile/GragasRBarrelVisual.h"
 
@@ -282,8 +283,11 @@ void AChampion_Gragas::Server_Skill_E_Implementation(FVector TargetLocation)
 		GetCharacterMovement()->DisableMovement();
 	}
 
-	bEDashing = true;
 	EElapsed = 0.0f;
+	EPreviousNetUpdateFrequency = GetNetUpdateFrequency();
+	SetNetUpdateFrequency(FMath::Max(EPreviousNetUpdateFrequency, 60.f));
+	Multicast_SetEDashState(true, EStartLocation);
+	ForceNetUpdate();
 	Multicast_PlayGragasSkillAnimation(2, 1.0f, Direction.Rotation());
 	Multicast_SetEDashAura(true);
 }
@@ -394,15 +398,7 @@ void AChampion_Gragas::ExplodeQ()
 	TArray<FHitResult> Hits;
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
-	const bool bHit = GetWorld()->SweepMultiByChannel(
-		Hits,
-		QExplosionLocation,
-		QExplosionLocation,
-		FQuat::Identity,
-		ECC_Pawn,
-		FCollisionShape::MakeSphere(QExplosionRadius),
-		QueryParams
-	);
+	const bool bHit = LOLSkillCollision::Sweep(GetWorld(), Hits, QExplosionLocation, QExplosionLocation, QExplosionRadius, QueryParams);
 	if (!bHit) return;
 
 	TSet<TWeakObjectPtr<AActor>> DamagedTargets;
@@ -471,6 +467,7 @@ void AChampion_Gragas::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AChampion_Gragas, bWEmpowered);
+	DOREPLIFETIME(AChampion_Gragas, bEDashing);
 }
 
 void AChampion_Gragas::OnRep_WEmpowered()
@@ -614,7 +611,8 @@ void AChampion_Gragas::OnBasicAttackHit(ACharacter* Target)
 
 void AChampion_Gragas::UpdateEDash(float DeltaTime)
 {
-	EElapsed += DeltaTime;
+	if (!HasAuthority() || !bEDashing) return;
+	EElapsed += FMath::Max(DeltaTime, 0.f);
 	const float Alpha = FMath::Clamp(
 		EElapsed / FMath::Max(EDashDuration, KINDA_SMALL_NUMBER),
 		0.0f,
@@ -628,17 +626,12 @@ void AChampion_Gragas::UpdateEDash(float DeltaTime)
 	TArray<FHitResult> ChampionHits;
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
-	const bool bHitChampion = GetWorld()->SweepMultiByChannel(
-		ChampionHits,
-		CurrentLocation,
-		DesiredLocation,
-		FQuat::Identity,
-		ECC_Pawn,
-		FCollisionShape::MakeSphere(EHitRadius),
-		QueryParams
-	);
+	// Body Slam uses the scaled body, not a separate oversized skill sphere.
+	const float BodyRadius = GetCapsuleComponent()->GetScaledCapsuleRadius();
+	const bool bHitChampion = LOLSkillCollision::Sweep(GetWorld(), ChampionHits, CurrentLocation, DesiredLocation, BodyRadius, QueryParams);
 
 	AActor* HitTarget = nullptr;
+	FVector ContactLocation = DesiredLocation;
 	if (bHitChampion)
 	{
 		ChampionHits.Sort([](const FHitResult& A, const FHitResult& B)
@@ -654,12 +647,15 @@ void AChampion_Gragas::UpdateEDash(float DeltaTime)
 			if (!IsEnemyActor(HitActor)) continue;
 
 			HitTarget = HitActor;
+			ContactLocation = Hit.Location;
 			break;
 		}
 	}
 
 	if (IsValid(HitTarget))
 	{
+		// Resolve the swept contact before damage/CC, even on a long server frame.
+		SetActorLocation(ContactLocation, false, nullptr, ETeleportType::TeleportPhysics);
 		FinishEDash(HitTarget);
 		return;
 	}
@@ -673,14 +669,13 @@ void AChampion_Gragas::UpdateEDash(float DeltaTime)
 
 void AChampion_Gragas::FinishEDash(AActor* HitTarget)
 {
-	if (!bEDashing) return;
+	if (!HasAuthority() || !bEDashing) return;
 
-	bEDashing = false;
+	// Send the authoritative endpoint to the owning client as well as observers.
+	Multicast_SetEDashState(false, GetActorLocation());
+	SetNetUpdateFrequency(EPreviousNetUpdateFrequency);
+	ForceNetUpdate();
 	Multicast_SetEDashAura(false);
-	if (GetCharacterMovement())
-	{
-		GetCharacterMovement()->SetMovementMode(MOVE_Walking);
-	}
 
 	if (!IsValid(HitTarget) || !SkillComponent || !StatComponent) return;
 
@@ -692,6 +687,7 @@ void AChampion_Gragas::FinishEDash(AActor* HitTarget)
 		EPushDirection.Z = 0.0f;
 	}
 
+	const FVector DamageCenter = HitTarget->GetActorLocation();
 	if (ABaseChampion* HitChampion = Cast<ABaseChampion>(HitTarget))
 	{
 		FVector LaunchVelocity =
@@ -720,15 +716,7 @@ void AChampion_Gragas::FinishEDash(AActor* HitTarget)
 	TArray<FHitResult> Hits;
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
-	const bool bHit = GetWorld()->SweepMultiByChannel(
-		Hits,
-		HitTarget->GetActorLocation(),
-		HitTarget->GetActorLocation(),
-		FQuat::Identity,
-		ECC_Pawn,
-		FCollisionShape::MakeSphere(EDamageRadius),
-		QueryParams
-	);
+	const bool bHit = LOLSkillCollision::Sweep(GetWorld(), Hits, DamageCenter, DamageCenter, EDamageRadius, QueryParams);
 	if (!bHit) return;
 
 	TSet<TWeakObjectPtr<AActor>> DamagedTargets;
@@ -750,6 +738,26 @@ void AChampion_Gragas::FinishEDash(AActor* HitTarget)
 		{
 			TargetChampion->Multicast_ApplyStun(EStunDuration);
 		}
+	}
+}
+
+void AChampion_Gragas::Multicast_SetEDashState_Implementation(bool bActive, FVector Location)
+{
+	bEDashing = bActive;
+	SetActorLocation(Location, false, nullptr, ETeleportType::TeleportPhysics);
+	OnRep_EDashing();
+}
+
+void AChampion_Gragas::OnRep_EDashing()
+{
+	// Clear locally predicted click movement as well as the server's path.
+	if (MoveComponent) MoveComponent->StopMovement();
+	ConsumeMovementInputVector();
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->StopMovementImmediately();
+		if (bEDashing) Movement->DisableMovement();
+		else if (!bMovementLocked) Movement->SetMovementMode(MOVE_Walking);
 	}
 }
 
@@ -777,15 +785,7 @@ void AChampion_Gragas::ExplodeR()
 	TArray<FHitResult> Hits;
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
-	const bool bHit = GetWorld()->SweepMultiByChannel(
-		Hits,
-		RExplosionLocation,
-		RExplosionLocation,
-		FQuat::Identity,
-		ECC_Pawn,
-		FCollisionShape::MakeSphere(RExplosionRadius),
-		QueryParams
-	);
+	const bool bHit = LOLSkillCollision::Sweep(GetWorld(), Hits, RExplosionLocation, RExplosionLocation, RExplosionRadius, QueryParams);
 	if (!bHit) return;
 
 	TSet<TWeakObjectPtr<AActor>> DamagedTargets;

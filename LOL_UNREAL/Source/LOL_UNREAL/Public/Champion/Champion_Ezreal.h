@@ -19,6 +19,8 @@ class LOL_UNREAL_API AChampion_Ezreal : public ABaseChampion
 {
     GENERATED_BODY()
 
+    friend class FEzrealElevationTest;
+
 public:
     AChampion_Ezreal();
 
@@ -72,16 +74,6 @@ protected:
         int32 OtherBodyIndex,
         bool bFromSweep,
         const FHitResult& SweepResult
-    );
-
-    void ApplyEzrealLineSkill(
-        FVector TargetLocation,
-        FSkillData& SkillData,
-        int32 SkillLevelIdx,
-        float Radius,
-        TSubclassOf<UDamageType> DamageType,
-        float ADRatio,
-        bool bHitMultiple
     );
 
     class UStaticMesh* GetEzrealProjectileMesh(uint8 ProjectileType);

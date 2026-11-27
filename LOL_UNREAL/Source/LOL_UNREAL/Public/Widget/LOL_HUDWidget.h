@@ -402,6 +402,8 @@ protected:
     void CacheEXPWidgets();
     void ApplyEXPProgressBarStyle();
     void ApplyEXPPercent(float Percent);
+    int32 PaintRespawnCountdown(FSlateWindowElementList& OutDrawElements, int32 LayerId,
+        const FWidgetStyle& InWidgetStyle) const;
 
     virtual void NativeConstruct() override;
     virtual void NativeDestruct() override;

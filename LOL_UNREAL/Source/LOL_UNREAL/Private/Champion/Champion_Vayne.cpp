@@ -349,7 +349,7 @@ void AChampion_Vayne::Skill_E()
     if (!IsValid(Target) || Target == this) return;
 
     const float Range = GetESkillRange();
-    const float Distance = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
+    const float Distance = FVector::Dist2D(GetActorLocation(), Target->GetActorLocation());
 
     if (Distance <= Range)
     {
@@ -392,7 +392,7 @@ void AChampion_Vayne::UpdateEChaseToCast()
     if (!StateComp || !MoveComp) return;
 
     const float Range = GetESkillRange();
-    const float Distance = FVector::Dist(GetActorLocation(), ReservedETarget->GetActorLocation());
+    const float Distance = FVector::Dist2D(GetActorLocation(), ReservedETarget->GetActorLocation());
 
     if (Distance <= Range)
     {
@@ -472,7 +472,7 @@ void AChampion_Vayne::Server_ExecuteCondemn_Implementation(ACharacter* Target)
     if (!TargetState || !StateComponent->IsEnemy(TargetState) || TargetState->HasStatusTag(LOLTags::State_Dead)) return;
 
     const float Range = GetESkillRange();
-    if (FVector::Dist(GetActorLocation(), Target->GetActorLocation()) > Range + 50.0f)
+    if (FVector::Dist2D(GetActorLocation(), Target->GetActorLocation()) > Range + 50.0f)
     {
         return;
     }

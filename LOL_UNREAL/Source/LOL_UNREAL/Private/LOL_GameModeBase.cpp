@@ -380,12 +380,7 @@ void ALOL_GameModeBase::RequestRespawn(ABaseChampion* DeadChampion)
 
     if (LifeCycleComp)
     {
-        FTimerHandle RespawnTimer;
-        FTimerDelegate RespawnDelegate;
-
-        RespawnDelegate.BindUObject(LifeCycleComp, &ULOL_LifeCycleComponent::Respawn);
-
-        GetWorldTimerManager().SetTimer(RespawnTimer, RespawnDelegate, RespawnDelay, false);
+        LifeCycleComp->ScheduleRespawn(RespawnDelay);
     }
 }
 

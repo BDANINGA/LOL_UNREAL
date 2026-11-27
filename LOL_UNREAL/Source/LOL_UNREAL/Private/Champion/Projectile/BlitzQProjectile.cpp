@@ -1,4 +1,5 @@
 #include "Champion/Projectile/BlitzQProjectile.h"
+#include "Combat/SkillCollision.h"
 
 #include "Champion/Champion_Blitz.h"
 #include "Components/CapsuleComponent.h"
@@ -108,17 +109,10 @@ void ABlitzQProjectile::Tick(float DeltaTime)
     const float StepDistance = FMath::Min(Speed * FMath::Max(DeltaTime, 0.0f), RemainingDistance);
     const FVector End = Start + Direction * StepDistance;
 
-    // Champions use a custom object channel; minions and monsters use Pawn.
-    // An object query returns all candidates, so allies cannot hide an enemy behind them.
-    FCollisionObjectQueryParams Objects;
-    Objects.AddObjectTypesToQuery(ECC_Pawn);
-    Objects.AddObjectTypesToQuery(ECC_GameTraceChannel2);
     FCollisionQueryParams Query(SCENE_QUERY_STAT(BlitzQProjectile), false, this);
     Query.AddIgnoredActor(Blitz);
     TArray<FHitResult> Hits;
-    GetWorld()->SweepMultiByObjectType(Hits, Start, End, FQuat::Identity, Objects,
-        FCollisionShape::MakeSphere(Radius), Query);
-    Hits.Sort([](const FHitResult& A, const FHitResult& B) { return A.Time < B.Time; });
+    LOLSkillCollision::Sweep(GetWorld(), Hits, Start, End, Radius, Query);
 
     for (const FHitResult& Hit : Hits)
     {
@@ -127,7 +121,8 @@ void ABlitzQProjectile::Tick(float DeltaTime)
         if (!Target || Hit.GetComponent() != Target->GetCapsuleComponent() ||
             !Blitz->IsValidBlitzSkillTarget(Target)) continue;
 
-        SetActorLocation(Hit.Location);
+        // Anchor the fist to the target's floor before starting the return flight.
+        SetActorLocation(FVector(Hit.Location.X, Hit.Location.Y, Target->GetActorLocation().Z));
         Blitz->BeginPullTarget(Target);
         BeginReturn(Blitz->GrabbedTarget == Target ? Target : nullptr);
         UpdateCable(Blitz);

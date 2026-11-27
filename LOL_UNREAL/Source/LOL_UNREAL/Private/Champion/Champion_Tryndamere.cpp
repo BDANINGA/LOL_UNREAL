@@ -1,4 +1,5 @@
 #include "Champion/Champion_Tryndamere.h"
+#include "Combat/SkillCollision.h"
 
 #include "Animation/AnimMontage.h"
 #include "Component/Champion_SkillComponent.h"
@@ -108,15 +109,7 @@ void AChampion_Tryndamere::Server_Skill_W_Implementation()
 	TArray<FHitResult> Hits;
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
-	const bool bHit = GetWorld()->SweepMultiByChannel(
-		Hits,
-		GetActorLocation(),
-		GetActorLocation(),
-		FQuat::Identity,
-		ECC_Pawn,
-		FCollisionShape::MakeSphere(Radius),
-		QueryParams
-	);
+	const bool bHit = LOLSkillCollision::Sweep(GetWorld(), Hits, GetActorLocation(), GetActorLocation(), Radius, QueryParams);
 	if (!bHit) return;
 
 	TSet<TWeakObjectPtr<ABaseChampion>> DebuffedTargets;
@@ -274,15 +267,7 @@ void AChampion_Tryndamere::UpdateESpin(float DeltaTime)
 	TArray<FHitResult> Hits;
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
-	const bool bHit = GetWorld()->SweepMultiByChannel(
-		Hits,
-		CurrentLocation,
-		DesiredLocation,
-		FQuat::Identity,
-		ECC_Pawn,
-		FCollisionShape::MakeSphere(EHitRadius),
-		QueryParams
-	);
+	const bool bHit = LOLSkillCollision::Sweep(GetWorld(), Hits, CurrentLocation, DesiredLocation, EHitRadius, QueryParams);
 
 	if (bHit)
 	{

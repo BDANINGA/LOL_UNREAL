@@ -57,6 +57,32 @@ void ULOL_LifeCycleComponent::BeginPlay()
 	
 }
 
+void ULOL_LifeCycleComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(ULOL_LifeCycleComponent, RespawnEndServerTime);
+}
+
+void ULOL_LifeCycleComponent::ScheduleRespawn(float Delay)
+{
+	if (!OwnerPawn || !OwnerPawn->HasAuthority() || !bCanRespawn || Delay <= 0.0f) return;
+
+	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	const double ServerTime = GameState ? GameState->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
+	RespawnEndServerTime = ServerTime + Delay;
+	GetWorld()->GetTimerManager().SetTimer(RespawnTimerHandle, this, &ULOL_LifeCycleComponent::Respawn, Delay, false);
+	OwnerPawn->ForceNetUpdate();
+}
+
+float ULOL_LifeCycleComponent::GetRespawnTimeRemaining() const
+{
+	if (!HasPendingRespawn() || !GetWorld()) return 0.0f;
+
+	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	const double ServerTime = GameState ? GameState->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
+	return static_cast<float>(FMath::Max(0.0, RespawnEndServerTime - ServerTime));
+}
+
 void ULOL_LifeCycleComponent::RecordDamageFrom(AController* DamageInstigator)
 {
 	if (!OwnerPawn || !OwnerPawn->HasAuthority() || !DamageInstigator)
@@ -454,6 +480,10 @@ void ULOL_LifeCycleComponent::Multicast_OnDeath_Implementation()
 void ULOL_LifeCycleComponent::Respawn()
 {
 	if (!OwnerPawn || !OwnerPawn->HasAuthority() || !bCanRespawn) return;
+
+	GetWorld()->GetTimerManager().ClearTimer(RespawnTimerHandle);
+	RespawnEndServerTime = 0.0;
+	OwnerPawn->ForceNetUpdate();
 
 	TArray<AActor*> FoundActors;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), APlayerStart::StaticClass(), FoundActors);

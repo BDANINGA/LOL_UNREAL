@@ -41,7 +41,7 @@ void AVayneCondemnProjectile::Initialize(AChampion_Vayne* Shooter, ACharacter* I
     Target = InTarget;
     LaunchOrigin = GetActorLocation();
     LaunchServerTime = ServerTime();
-    FlightDuration = FMath::Clamp(FVector::Distance(LaunchOrigin, Target->GetActorLocation()) / 2200.f, .09f, .24f);
+    FlightDuration = FMath::Clamp(FVector::Dist2D(LaunchOrigin, Target->GetActorLocation()) / 2200.f, .09f, .24f);
     PushDirection = (Target->GetActorLocation() - Shooter->GetActorLocation()).GetSafeNormal2D();
     SetLifeSpan(2.f);
     ForceNetUpdate();

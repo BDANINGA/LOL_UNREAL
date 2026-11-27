@@ -9,6 +9,8 @@ class LOL_UNREAL_API AChampion_Gragas : public ABaseChampion
 {
 	GENERATED_BODY()
 
+	friend class FGragasEDashCollisionTest;
+
 public:
 	AChampion_Gragas();
 
@@ -77,6 +79,10 @@ protected:
 	void EndWDamageReduction();
 	void UpdateEDash(float DeltaTime);
 	void FinishEDash(AActor* HitTarget);
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_SetEDashState(bool bActive, FVector Location);
+	UFUNCTION()
+	void OnRep_EDashing();
 	void ExplodeR();
 	void RestoreQSlow(TWeakObjectPtr<ACharacter> Target);
 	void BeginMovementLock(float Duration);
@@ -124,7 +130,9 @@ protected:
 	double EAuraEmissionEndTime = 0.0;
 	double EAuraFadeEndTime = 0.0;
 	bool bWDamageReductionActive = false;
+	UPROPERTY(ReplicatedUsing = OnRep_EDashing)
 	bool bEDashing = false;
+	float EPreviousNetUpdateFrequency = 0.f;
 	bool bMovementLocked = false;
 
 	FVector QExplosionLocation = FVector::ZeroVector;
@@ -186,9 +194,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gragas | E")
 	float EDashDuration = 0.35f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gragas | E")
-	float EHitRadius = 160.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gragas | E")
 	float EDamageRadius = 220.0f;

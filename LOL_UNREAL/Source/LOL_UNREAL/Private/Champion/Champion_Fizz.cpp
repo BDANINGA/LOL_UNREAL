@@ -1,4 +1,5 @@
 #include "Champion/Champion_Fizz.h"
+#include "Combat/SkillCollision.h"
 
 #include "Component/Champion_SkillComponent.h"
 #include "Component/LOL_AttackComponent.h"
@@ -297,15 +298,7 @@ void AChampion_Fizz::Server_Skill_R_Implementation(FVector TargetLocation)
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
 
-	const bool bHit = GetWorld()->SweepMultiByChannel(
-		Hits,
-		Start,
-		End,
-		FQuat::Identity,
-		ECC_Pawn,
-		FCollisionShape::MakeSphere(RProjectileRadius),
-		QueryParams
-	);
+	const bool bHit = LOLSkillCollision::Sweep(GetWorld(), Hits, Start, End, RProjectileRadius, QueryParams);
 
 	FHitResult TargetHit;
 	bool bFoundValidTarget = false;
@@ -824,15 +817,7 @@ void AChampion_Fizz::FinishPlayfulTrickster()
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
 
-	const bool bHit = GetWorld()->SweepMultiByChannel(
-		Hits,
-		GetActorLocation(),
-		GetActorLocation(),
-		FQuat::Identity,
-		ECC_Pawn,
-		FCollisionShape::MakeSphere(EDamageRadius),
-		QueryParams
-	);
+	const bool bHit = LOLSkillCollision::Sweep(GetWorld(), Hits, GetActorLocation(), GetActorLocation(), EDamageRadius, QueryParams);
 
 	if (bHit)
 	{
@@ -902,15 +887,7 @@ void AChampion_Fizz::ExplodeChumTheWaters()
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
 
-	const bool bHit = GetWorld()->SweepMultiByChannel(
-		Hits,
-		ExplosionLocation,
-		ExplosionLocation,
-		FQuat::Identity,
-		ECC_Pawn,
-		FCollisionShape::MakeSphere(RExplosionRadius),
-		QueryParams
-	);
+	const bool bHit = LOLSkillCollision::Sweep(GetWorld(), Hits, ExplosionLocation, ExplosionLocation, RExplosionRadius, QueryParams);
 
 	if (!bHit) return;
 

@@ -1,6 +1,8 @@
 #include "Champion/Champion_Ezreal.h"
+#include "Combat/SkillCollision.h"
 #include "Champion/Projectile/EzrealQTrailComponent.h"
 #include "Champion/Projectile/EzrealRVisualComponent.h"
+#include "Champion/Projectile/PlanarSkillProjectileMovement.h"
 #include "Materials/MaterialInterface.h"
 #include "Particles/ParticleSystem.h"
 
@@ -238,7 +240,8 @@ void AChampion_Ezreal::Server_Skill_W_Implementation(FVector TargetLocation)
         70.0f,
         BaseDamage,
         ULOL_DamageMagic::StaticClass(),
-        false
+        false,
+        NextQProjectileId++
     );
 
     if (ChampionResource.WMontage.IsValidIndex(AM_SKIll_W_IDX) &&
@@ -307,15 +310,7 @@ void AChampion_Ezreal::Server_Skill_E_Implementation(FVector TargetLocation)
     FCollisionQueryParams Params;
     Params.AddIgnoredActor(this);
 
-    GetWorld()->SweepMultiByChannel(
-        Hits,
-        GetActorLocation(),
-        GetActorLocation(),
-        FQuat::Identity,
-        ECC_Pawn,
-        FCollisionShape::MakeSphere(DamageRadius),
-        Params
-    );
+    LOLSkillCollision::Sweep(GetWorld(), Hits, GetActorLocation(), GetActorLocation(), DamageRadius, Params);
 
     ABaseChampion* NearestTarget = nullptr;
     float NearestDistSq = TNumericLimits<float>::Max();
@@ -323,9 +318,9 @@ void AChampion_Ezreal::Server_Skill_E_Implementation(FVector TargetLocation)
     for (const FHitResult& Hit : Hits)
     {
         ABaseChampion* TargetChampion = Cast<ABaseChampion>(Hit.GetActor());
-        if (!TargetChampion || TargetChampion == this) continue;
+        if (!TargetChampion || !IsEnemyActor(TargetChampion)) continue;
 
-        const float DistSq = FVector::DistSquared(GetActorLocation(), TargetChampion->GetActorLocation());
+        const float DistSq = FVector::DistSquared2D(GetActorLocation(), TargetChampion->GetActorLocation());
         if (DistSq < NearestDistSq)
         {
             NearestDistSq = DistSq;
@@ -405,7 +400,8 @@ void AChampion_Ezreal::Server_Skill_R_Implementation(FVector TargetLocation)
         280.0f,
         SkillDamage,
         ULOL_DamageMagic::StaticClass(),
-        true
+        true,
+        NextQProjectileId++
     );
 
     if (ChampionResource.RMontage.IsValidIndex(AM_SKIll_R_IDX) &&
@@ -483,7 +479,7 @@ void AChampion_Ezreal::OnEzrealProjectileOverlap(
     bool bFromSweep,
     const FHitResult& SweepResult)
 {
-    if (!OverlappedComponent || !OtherActor)
+    if (!HasAuthority() || !OverlappedComponent || !IsValid(OtherActor))
     {
         return;
     }
@@ -502,7 +498,7 @@ void AChampion_Ezreal::OnEzrealProjectileOverlap(
     }
 
     ULOL_StateComponent* TargetState = OtherActor->FindComponentByClass<ULOL_StateComponent>();
-    if (!TargetState || !IsEnemyActor(OtherActor))
+    if (!TargetState || TargetState->HasStatusTag(LOLTags::State_Dead) || !IsEnemyActor(OtherActor))
     {
         return;
     }
@@ -654,24 +650,16 @@ void AChampion_Ezreal::SpawnEzrealProjectileVisual(
     ProjectileActor->SetRootComponent(CollisionComponent);
     CollisionComponent->SetMobility(EComponentMobility::Movable);
     CollisionComponent->InitSphereRadius(CollisionRadius);
-    // Q clients display the shot until the server confirms a hit.
-    const bool bUseOverlapDamage = ProjectileType == 0 ? HasAuthority() : Damage > 0.0f;
-    // Enable collision only after the damage entry and visuals are ready.
+    // All skill contacts are swept in XY on the server. Physical overlaps would
+    // reintroduce height-dependent hit ordering and attack-range sensor hits.
+    const bool bUseOverlapDamage = HasAuthority();
     CollisionComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     CollisionComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
     CollisionComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
     // Champion capsules use the custom Champion object channel, not Pawn.
     CollisionComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel2, ECR_Overlap);
-    CollisionComponent->SetGenerateOverlapEvents(bUseOverlapDamage);
+    CollisionComponent->SetGenerateOverlapEvents(false);
     CollisionComponent->RegisterComponent();
-
-    if (bUseOverlapDamage)
-    {
-        CollisionComponent->OnComponentBeginOverlap.AddDynamic(
-            this,
-            &AChampion_Ezreal::OnEzrealProjectileOverlap
-        );
-    }
 
     UStaticMeshComponent* MeshComponent =
         NewObject<UStaticMeshComponent>(
@@ -727,8 +715,8 @@ void AChampion_Ezreal::SpawnEzrealProjectileVisual(
     MeshComponent->SetVisibility(true, true);
     MeshComponent->SetHiddenInGame(false, true);
 
-    UProjectileMovementComponent* ProjectileMovement =
-        NewObject<UProjectileMovementComponent>(
+    UPlanarSkillProjectileMovement* ProjectileMovement =
+        NewObject<UPlanarSkillProjectileMovement>(
             ProjectileActor,
             TEXT("EzrealProjectileMovement")
         );
@@ -750,12 +738,18 @@ void AChampion_Ezreal::SpawnEzrealProjectileVisual(
     ProjectileMovement->Velocity = Direction * VisualSpeed;
     ProjectileMovement->ProjectileGravityScale = 0.0f;
     ProjectileMovement->bRotationFollowsVelocity = false;
+    ProjectileMovement->CollisionRadius = CollisionRadius;
+    ProjectileMovement->RemainingDistance = FVector::Dist2D(StartLocation, EndLocation);
+    ProjectileMovement->OnSkillHit.AddWeakLambda(this,
+        [this, CollisionComponent](const FHitResult& Hit)
+        {
+            OnEzrealProjectileOverlap(CollisionComponent, Hit.GetActor(), Hit.GetComponent(), 0, true, Hit);
+        });
     ProjectileMovement->RegisterComponent();
     ProjectileMovement->Activate(true);
 
-    ProjectileActor->SetLifeSpan(ProjectileType == 0
-        ? FMath::Max(TravelTime, 0.01f)
-        : FMath::Max(TravelTime + 0.1f, 0.2f));
+    // Movement consumes the final, range-clamped segment before destroying the shot.
+    ProjectileActor->SetLifeSpan(FMath::Max(TravelTime + 0.2f, 0.3f));
 
     if (ProjectileType == 2 && bEnableRWaveEffect && RWaveMaterial && RWavePlane && GetNetMode() != NM_DedicatedServer)
     {
@@ -824,107 +818,15 @@ void AChampion_Ezreal::SpawnEzrealProjectileVisual(
 
     if (bUseOverlapDamage)
     {
-        // Also handles enemies already touching the projectile at its spawn point.
-        CollisionComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-    }
-}
-
-void AChampion_Ezreal::ApplyEzrealLineSkill(
-    FVector TargetLocation,
-    FSkillData& SkillData,
-    int32 SkillLevelIdx,
-    float Radius,
-    TSubclassOf<UDamageType> DamageType,
-    float ADRatio,
-    bool bHitMultiple
-)
-{
-    if (!StatComponent || !GetWorld()) return;
-
-    FVector Direction = TargetLocation - GetActorLocation();
-    Direction.Z = 0.0f;
-
-    if (Direction.IsNearlyZero()) return;
-
-    Direction = Direction.GetSafeNormal();
-
-    const float Range = SkillData.Range.IsValidIndex(SkillLevelIdx)
-        ? SkillData.Range[SkillLevelIdx]
-        : 1200.0f;
-
-    const float BaseDamage = SkillData.BaseDamage.IsValidIndex(SkillLevelIdx)
-        ? SkillData.BaseDamage[SkillLevelIdx]
-        : 0.0f;
-
-    const float SkillDamage =
-        BaseDamage + StatComponent->GetStat().AttackDamage * ADRatio;
-
-    FVector Start = GetActorLocation() + FVector(0.0f, 0.0f, 50.0f);
-    FVector End = Start + Direction * Range;
-
-    FCollisionQueryParams Params;
-    Params.AddIgnoredActor(this);
-
-    if (bHitMultiple)
-    {
+        // Resolve initial contacts only after visuals and damage state are ready.
+        FCollisionQueryParams Params;
+        Params.AddIgnoredActor(this);
         TArray<FHitResult> Hits;
-
-        const bool bHit = GetWorld()->SweepMultiByChannel(
-            Hits,
-            Start,
-            End,
-            FQuat::Identity,
-            ECC_Pawn,
-            FCollisionShape::MakeSphere(Radius),
-            Params
-        );
-
-        if (!bHit) return;
-
-        TSet<ABaseChampion*> DamagedTargets;
-
+        LOLSkillCollision::Sweep(GetWorld(), Hits, StartLocation, StartLocation, CollisionRadius, Params);
         for (const FHitResult& Hit : Hits)
         {
-            ABaseChampion* TargetChampion = Cast<ABaseChampion>(Hit.GetActor());
-            if (!TargetChampion || TargetChampion == this) continue;
-            if (DamagedTargets.Contains(TargetChampion)) continue;
-
-            DamagedTargets.Add(TargetChampion);
-
-            UGameplayStatics::ApplyDamage(
-                TargetChampion,
-                SkillDamage,
-                GetController(),
-                this,
-                DamageType
-            );
+            OnEzrealProjectileOverlap(CollisionComponent, Hit.GetActor(), Hit.GetComponent(), 0, true, Hit);
+            if (ProjectileActor->IsActorBeingDestroyed()) break;
         }
-
-        return;
     }
-
-    FHitResult Hit;
-
-    const bool bHit = GetWorld()->SweepSingleByChannel(
-        Hit,
-        Start,
-        End,
-        FQuat::Identity,
-        ECC_Pawn,
-        FCollisionShape::MakeSphere(Radius),
-        Params
-    );
-
-    if (!bHit) return;
-
-    ABaseChampion* TargetChampion = Cast<ABaseChampion>(Hit.GetActor());
-    if (!TargetChampion || TargetChampion == this) return;
-
-    UGameplayStatics::ApplyDamage(
-        TargetChampion,
-        SkillDamage,
-        GetController(),
-        this,
-        DamageType
-    );
 }

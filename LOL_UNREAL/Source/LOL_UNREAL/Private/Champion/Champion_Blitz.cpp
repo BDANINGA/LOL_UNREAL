@@ -1,4 +1,5 @@
 #include "Champion/Champion_Blitz.h"
+#include "Combat/SkillCollision.h"
 
 #include "Component/Champion_SkillComponent.h"
 #include "Component/LOL_StatComponent.h"
@@ -128,7 +129,20 @@ FVector AChampion_Blitz::GetSafePullDestination() const
     const float SafeDistance = FMath::Max(Q_PullDistance,
         GetCapsuleComponent()->GetScaledCapsuleRadius() + TargetRadius + 10.0f);
     FVector Destination = GetActorLocation() + PullDirection * SafeDistance;
-    Destination.Z = GrabbedTarget->GetActorLocation().Z;
+    // An elevated grab must arrive on the caster's terrain, not below/above it.
+    const float TargetHalfHeight = GrabbedTarget->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+    const float CasterFloorZ = GetActorLocation().Z - GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+    Destination.Z = CasterFloorZ + TargetHalfHeight;
+    FCollisionQueryParams FloorQuery(SCENE_QUERY_STAT(BlitzPullFloor), false, this);
+    FloorQuery.AddIgnoredActor(GrabbedTarget);
+    FHitResult Floor;
+    if (GetWorld()->LineTraceSingleByObjectType(Floor,
+        FVector(Destination.X, Destination.Y, GetActorLocation().Z + 100.f),
+        FVector(Destination.X, Destination.Y, CasterFloorZ - 2000.f),
+        FCollisionObjectQueryParams(ECC_WorldStatic), FloorQuery) && Floor.ImpactNormal.Z > 0.5f)
+    {
+        Destination.Z = Floor.ImpactPoint.Z + TargetHalfHeight + 2.f;
+    }
     return Destination;
 }
 
@@ -468,14 +482,7 @@ void AChampion_Blitz::Server_Skill_R_Implementation()
     TArray<FHitResult> Hits;
     FCollisionShape Sphere = FCollisionShape::MakeSphere(Radius);
 
-    const bool bHit = GetWorld()->SweepMultiByChannel(
-        Hits,
-        GetActorLocation(),
-        GetActorLocation(),
-        FQuat::Identity,
-        ECC_Pawn,
-        Sphere
-    );
+    const bool bHit = LOLSkillCollision::Sweep(GetWorld(), Hits, GetActorLocation(), GetActorLocation(), Sphere.GetSphereRadius());
 
     if (!bHit) return;
 

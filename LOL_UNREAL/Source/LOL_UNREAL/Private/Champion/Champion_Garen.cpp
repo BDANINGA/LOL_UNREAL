@@ -352,7 +352,7 @@ void AChampion_Garen::ApplyEDamageTick()
     float NearestDistSq = TNumericLimits<float>::Max();
     for (AActor* Target : Targets)
     {
-        const float DistSq = FVector::DistSquared(GetActorLocation(), Target->GetActorLocation());
+        const float DistSq = FVector::DistSquared2D(GetActorLocation(), Target->GetActorLocation());
         if (DistSq < NearestDistSq)
         {
             NearestDistSq = DistSq;

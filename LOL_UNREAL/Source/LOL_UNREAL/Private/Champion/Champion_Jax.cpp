@@ -1,4 +1,5 @@
 #include "Champion/Champion_Jax.h"
+#include "Combat/SkillCollision.h"
 
 #include "Component/Champion_SkillComponent.h"
 #include "Component/LOL_AttackComponent.h"
@@ -598,15 +599,7 @@ void AChampion_Jax::ApplyGrandmastersMightActiveDamage()
     FCollisionQueryParams QueryParams;
     QueryParams.AddIgnoredActor(this);
 
-    const bool bHit = GetWorld()->SweepMultiByChannel(
-        Hits,
-        GetActorLocation(),
-        GetActorLocation(),
-        FQuat::Identity,
-        ECC_Pawn,
-        FCollisionShape::MakeSphere(Radius),
-        QueryParams
-    );
+    const bool bHit = LOLSkillCollision::Sweep(GetWorld(), Hits, GetActorLocation(), GetActorLocation(), Radius, QueryParams);
 
     if (!bHit) return;
 
@@ -673,15 +666,7 @@ void AChampion_Jax::FinishCounterStrike()
     FCollisionQueryParams QueryParams;
     QueryParams.AddIgnoredActor(this);
 
-    const bool bHit = GetWorld()->SweepMultiByChannel(
-        Hits,
-        GetActorLocation(),
-        GetActorLocation(),
-        FQuat::Identity,
-        ECC_Pawn,
-        FCollisionShape::MakeSphere(Radius),
-        QueryParams
-    );
+    const bool bHit = LOLSkillCollision::Sweep(GetWorld(), Hits, GetActorLocation(), GetActorLocation(), Radius, QueryParams);
 
     TSet<TWeakObjectPtr<AActor>> DamagedTargets;
     if (bHit)

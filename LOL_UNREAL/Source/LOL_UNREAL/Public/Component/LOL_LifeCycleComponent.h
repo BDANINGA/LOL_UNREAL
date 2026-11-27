@@ -21,6 +21,12 @@ public:
 	UFUNCTION()
 	void Respawn();
 
+	// Schedule the actual respawn and publish the same deadline to the HUD.
+	void ScheduleRespawn(float Delay);
+	float GetRespawnTimeRemaining() const;
+	bool HasPendingRespawn() const { return RespawnEndServerTime > 0.0; }
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 	void RecordDamageFrom(AController* DamageInstigator);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LifeCycle")
@@ -54,6 +60,11 @@ protected:
 	void Multicast_OnRespawn();
 
 private:
+	UPROPERTY(Replicated)
+	double RespawnEndServerTime = 0.0;
+
+	FTimerHandle RespawnTimerHandle;
+
 	UPROPERTY()
 	class APawn* OwnerPawn;
 

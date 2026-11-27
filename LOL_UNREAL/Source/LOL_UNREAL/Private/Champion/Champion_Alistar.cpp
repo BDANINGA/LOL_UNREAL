@@ -1,4 +1,5 @@
 #include "Champion/Champion_Alistar.h"
+#include "Combat/SkillCollision.h"
 #include "JungleMonster/BaseJungleMonster.h"
 
 #include "Component/Champion_SkillComponent.h"
@@ -106,14 +107,7 @@ void AChampion_Alistar::Server_Skill_Q_Implementation()
     TArray<FHitResult> Hits;
     FCollisionShape Sphere = FCollisionShape::MakeSphere(250.0f);
 
-    bool bHit = GetWorld()->SweepMultiByChannel(
-        Hits,
-        Center,
-        Center,
-        FQuat::Identity,
-        ECC_Pawn,
-        Sphere
-    );
+    bool bHit = LOLSkillCollision::Sweep(GetWorld(), Hits, Center, Center, Sphere.GetSphereRadius());
 
     if (!bHit) return;
 
@@ -196,7 +190,7 @@ void AChampion_Alistar::Skill_W()
     ACharacter* Target = Cast<ACharacter>(HitResult.GetActor());
     if (!IsValid(Target) || !IsEnemyActor(Target)) return;
 
-    const float Distance = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
+    const float Distance = FVector::Dist2D(GetActorLocation(), Target->GetActorLocation());
 
     if (Distance <= W_CastRange)
     {
@@ -228,7 +222,7 @@ void AChampion_Alistar::Server_Skill_W_Implementation(ACharacter* Target)
     if (!SkillComponent) return;
     if (!IsValid(Target) || !IsEnemyActor(Target)) return;
 
-    const float Distance = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
+    const float Distance = FVector::Dist2D(GetActorLocation(), Target->GetActorLocation());
     if (Distance > W_CastRange + 50.0f) return;
 
     if (!SkillComponent->TryCastSkill("W", 1)) return;
@@ -326,7 +320,7 @@ void AChampion_Alistar::UpdateWChaseToCast()
 
     if (StateComp->HasStatusTag(LOLTags::State_Dead)) return;
 
-    const float Distance = FVector::Dist(GetActorLocation(), ReservedWTarget->GetActorLocation());
+    const float Distance = FVector::Dist2D(GetActorLocation(), ReservedWTarget->GetActorLocation());
 
     if (Distance <= W_CastRange)
     {
@@ -504,14 +498,7 @@ UE_LOG(LogTemp, Log, TEXT("[Alistar E] Tick %d/%d"), E_CurrentTick, E_MaxTicks);
     TArray<FHitResult> Hits;
     FCollisionShape Sphere = FCollisionShape::MakeSphere(E_Radius);
 
-    bool bHit = GetWorld()->SweepMultiByChannel(
-        Hits,
-        Center,
-        Center,
-        FQuat::Identity,
-        ECC_Pawn,
-        Sphere
-    );
+    bool bHit = LOLSkillCollision::Sweep(GetWorld(), Hits, Center, Center, Sphere.GetSphereRadius());
 
     if (bHit)
     {

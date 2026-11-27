@@ -17,7 +17,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBlitzQProjectileTest,
 bool FBlitzQProjectileTest::RunTest(const FString& Parameters)
 {
     TGuardValue<bool> ScriptExecutionGuard(GAllowActorScriptExecutionInEditor, true);
-    for (int32 Scenario = 0; Scenario < 4; ++Scenario)
+    for (int32 Scenario = 0; Scenario < 6; ++Scenario)
     {
         UWorld* World = UWorld::CreateWorld(EWorldType::Game, false);
         if (!TestNotNull(TEXT("Test world"), World)) return false;
@@ -96,7 +96,7 @@ bool FBlitzQProjectileTest::RunTest(const FString& Parameters)
             TestEqual(TEXT("Only one enemy can be grabbed per projectile"),
                 Far->GetCharacterMovement()->MovementMode.GetValue(), MOVE_Walking);
         }
-        else
+        else if (Scenario == 3)
         {
             ABaseChampion* Target = SpawnTarget(FVector(1300.f, 0.f, 0.f));
             if (!TestNotNull(TEXT("Out of range target"), Target)) return false;
@@ -104,6 +104,22 @@ bool FBlitzQProjectileTest::RunTest(const FString& Parameters)
             TestEqual(TEXT("Long frames do not extend hook travel past its range"), Hook->GetActorLocation().X, 1150.0);
             TestEqual(TEXT("A body beyond the endpoint and hook radius is not hit"),
                 Target->GetCharacterMovement()->MovementMode.GetValue(), MOVE_Walking);
+        }
+        else
+        {
+            const float Height = Scenario == 4 ? -2000.f : 2000.f;
+            ABaseChampion* Near = SpawnTarget(FVector(600.f, 0.f, Height));
+            ABaseChampion* Far = SpawnTarget(FVector(900.f, 0.f, 0.f));
+            ABaseChampion* OffPath = SpawnTarget(FVector(200.f, 400.f, Height));
+            if (!Near || !Far || !OffPath) return false;
+            Hook->Tick(0.1f);
+            TestFalse(TEXT("Elevation does not cause an early grab"), Near->IsGrabbed());
+            Hook->Tick(1.f);
+            TestTrue(TEXT("First enemy on the ground path is grabbed across elevation"), Near->IsGrabbed());
+            TestEqual(TEXT("Same-height enemy behind it is not grabbed"),
+                Far->GetCharacterMovement()->MovementMode.GetValue(), MOVE_Walking);
+            TestEqual(TEXT("Elevated body outside the path is not grabbed"),
+                OffPath->GetCharacterMovement()->MovementMode.GetValue(), MOVE_Walking);
         }
     }
     return true;

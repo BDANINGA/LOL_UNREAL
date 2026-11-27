@@ -10,6 +10,11 @@
 
 #include "Component/Champion_SkillComponent.h"
 #include "Component/LOL_StateComponent.h"
+#include "Component/LOL_LifeCycleComponent.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Fonts/FontMeasure.h"
+#include "Rendering/SlateRenderer.h"
+#include "Styling/CoreStyle.h"
 
 #include "LOL_GameState.h"
 #include "LOL_PlayerState.h"
@@ -1464,10 +1469,45 @@ FReply ULOL_HUDWidget::NativeOnMouseButtonDown(
     return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
 }
 
+int32 ULOL_HUDWidget::PaintRespawnCountdown(FSlateWindowElementList& OutDrawElements, int32 LayerId,
+    const FWidgetStyle& InWidgetStyle) const
+{
+    const ABaseChampion* Champion = Cast<ABaseChampion>(GetOwningPlayerPawn());
+    const ULOL_LifeCycleComponent* LifeCycle = Champion ? Champion->LifeCycleComponent : nullptr;
+    if (!Portrait_Image || !Portrait_Image->IsVisible() || !LifeCycle || !LifeCycle->HasPendingRespawn() ||
+        !Champion->StateComponent || !Champion->StateComponent->HasStatusTag(LOLTags::State_Dead))
+    {
+        return LayerId;
+    }
+
+    const FGeometry& PortraitGeometry = Portrait_Image->GetCachedGeometry();
+    const FVector2D PortraitSize = PortraitGeometry.GetLocalSize();
+    if (PortraitSize.X <= 0.0f || PortraitSize.Y <= 0.0f) return LayerId;
+
+    // Reuse the portrait's alpha so the dark overlay preserves its circular silhouette.
+    const float Opacity = InWidgetStyle.GetColorAndOpacityTint().A * Portrait_Image->GetRenderOpacity();
+    FSlateDrawElement::MakeBox(OutDrawElements, LayerId + 1, PortraitGeometry.ToPaintGeometry(),
+        &Portrait_Image->GetBrush(), ESlateDrawEffect::None, FLinearColor(0.0f, 0.0f, 0.0f, 0.65f * Opacity));
+
+    // Round up: the last fraction of a second still displays 1 until the deadline.
+    const FString Countdown = FString::FromInt(FMath::CeilToInt(LifeCycle->GetRespawnTimeRemaining()));
+    const int32 FontSize = FMath::Max(1, FMath::RoundToInt(FMath::Min(PortraitSize.X, PortraitSize.Y) * 0.32f));
+    FSlateFontInfo Font = FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), FontSize);
+    Font.OutlineSettings.OutlineSize = 1;
+    Font.OutlineSettings.OutlineColor = FLinearColor::Black;
+    const FVector2D TextSize = FSlateApplication::Get().GetRenderer()->GetFontMeasureService()->Measure(Countdown, Font);
+    const FVector2D TextPosition = (PortraitSize - TextSize) * 0.5f + FVector2D(-20.0f, -5.0f);
+    FSlateDrawElement::MakeText(OutDrawElements, LayerId + 2,
+        PortraitGeometry.ToPaintGeometry(TextSize, FSlateLayoutTransform(TextPosition)),
+        Countdown, Font, ESlateDrawEffect::None, FLinearColor(1.0f, 1.0f, 1.0f, Opacity));
+    return LayerId + 2;
+}
+
 int32 ULOL_HUDWidget::NativePaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
 {
     // 기본 위젯 패널 요소들 먼저 그리기
     int32 MaxLayerId = Super::NativePaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
+    MaxLayerId = PaintRespawnCountdown(OutDrawElements, MaxLayerId, InWidgetStyle);
 
     if (!MiniMap || !GetWorld())
     {
