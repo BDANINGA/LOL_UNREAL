@@ -12,6 +12,7 @@
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
+#include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerStart.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SphereComponent.h"
@@ -390,6 +391,8 @@ void ABaseChampion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(ABaseChampion, MinionKillCount);
 	DOREPLIFETIME(ABaseChampion, bIsSilenced);
 	DOREPLIFETIME(ABaseChampion, bIsRecalling);
+	DOREPLIFETIME_CONDITION(ABaseChampion, RecallStartServerTime, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(ABaseChampion, RecallEndServerTime, COND_OwnerOnly);
 	DOREPLIFETIME(ABaseChampion, bIsCastingSkill);
 	DOREPLIFETIME(ABaseChampion, bKnockupCollisionSuppressed);
 	DOREPLIFETIME(ABaseChampion, bIsGrabbed);
@@ -775,6 +778,7 @@ void ABaseChampion::DebugReturnToBase()
 
 void ABaseChampion::Server_StartRecall_Implementation()
 {
+	if (!HasAuthority() || RecallDuration <= 0.0f) return;
 	if (bIsGrabbed) return;
 	if (bIsRecalling) return;
 	if (StateComponent && StateComponent->HasStatusTag(LOLTags::State_Dead)) return;
@@ -797,7 +801,11 @@ void ABaseChampion::Server_StartRecall_Implementation()
 		Movement->DisableMovement();
 	}
 
+	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	RecallStartServerTime = GameState ? GameState->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
+	RecallEndServerTime = RecallStartServerTime + RecallDuration;
 	bIsRecalling = true;
+	ForceNetUpdate();
 	Multicast_SetRecallEffectVisible(true, false);
 
 	GetWorldTimerManager().ClearTimer(RecallTimerHandle);
@@ -821,6 +829,22 @@ void ABaseChampion::CancelRecall()
 	Server_CancelRecall();
 }
 
+float ABaseChampion::GetRecallTimeRemaining() const
+{
+	if (!bIsRecalling || RecallEndServerTime <= RecallStartServerTime || !GetWorld()) return 0.0f;
+	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	const double ServerTime = GameState ? GameState->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
+	return static_cast<float>(FMath::Clamp(RecallEndServerTime - ServerTime, 0.0,
+		RecallEndServerTime - RecallStartServerTime));
+}
+
+float ABaseChampion::GetRecallProgress() const
+{
+	const double ChannelDuration = RecallEndServerTime - RecallStartServerTime;
+	if (!bIsRecalling || ChannelDuration <= 0.0) return 0.0f;
+	return FMath::Clamp(1.0f - GetRecallTimeRemaining() / static_cast<float>(ChannelDuration), 0.0f, 1.0f);
+}
+
 void ABaseChampion::Server_CancelRecall_Implementation()
 {
 	EndRecall(false);
@@ -838,6 +862,9 @@ void ABaseChampion::EndRecall(bool bTeleportHome)
 	if (!HasAuthority() || !bIsRecalling) return;
 
 	bIsRecalling = false;
+	RecallStartServerTime = 0.0;
+	RecallEndServerTime = 0.0;
+	ForceNetUpdate();
 	GetWorldTimerManager().ClearTimer(RecallTimerHandle);
 
 	if (MoveComponent)

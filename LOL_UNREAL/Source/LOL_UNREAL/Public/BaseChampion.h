@@ -163,6 +163,15 @@ public:
 	void DebugReturnToBase();
 	void CancelRecall();
 
+	UFUNCTION(BlueprintPure, Category = "Recall")
+	bool IsRecallActive() const { return bIsRecalling && RecallEndServerTime > RecallStartServerTime; }
+
+	UFUNCTION(BlueprintPure, Category = "Recall")
+	float GetRecallTimeRemaining() const;
+
+	UFUNCTION(BlueprintPure, Category = "Recall")
+	float GetRecallProgress() const;
+
 	UFUNCTION(Server, Reliable)
 	void Server_StartRecall();
 
@@ -273,6 +282,13 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Recall")
 	float RecallDuration = 8.0f;
+
+	// The HUD uses the actual server channel interval, including for late updates.
+	UPROPERTY(Replicated)
+	double RecallStartServerTime = 0.0;
+
+	UPROPERTY(Replicated)
+	double RecallEndServerTime = 0.0;
 
 	UPROPERTY()
 	FVector RecallHomeLocation = FVector::ZeroVector;

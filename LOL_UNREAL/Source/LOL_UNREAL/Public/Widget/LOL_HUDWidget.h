@@ -44,6 +44,7 @@ public:
     class UImage* SkillR_DisableImage;
 
     void UpdateSkillDisableOverlays();
+    void UpdateRecallBar();
 
     UPROPERTY(meta = (BindWidgetOptional))
     class UImage* ItemSlot_1;
@@ -272,6 +273,24 @@ public:
     UFUNCTION()
     void OnRLevelUpClicked();
 protected:
+    // Offset from the bottom centre of the HUD; negative Y moves the bar upwards.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "HUD|Recall")
+    FVector2D RecallBarOffset = FVector2D(0.0f, -200.0f);
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "HUD|Recall")
+    FVector2D RecallBarSize = FVector2D(360.0f, 54.0f);
+
+    UPROPERTY(Transient)
+    class UBorder* RecallBarContainer = nullptr;
+
+    UPROPERTY(Transient)
+    class UProgressBar* RecallProgressBar = nullptr;
+
+    UPROPERTY(Transient)
+    UTextBlock* RecallTimeText = nullptr;
+
+    void CreateRecallBar();
+
     UPROPERTY()
     class UMaterialInstanceDynamic* SkillQ_MID;
     UPROPERTY()

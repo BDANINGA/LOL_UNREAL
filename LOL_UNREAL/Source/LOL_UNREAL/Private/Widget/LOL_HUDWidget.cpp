@@ -6,6 +6,7 @@
 #include "Components/ProgressBar.h"
 #include "Components/VerticalBox.h"
 #include "Components/Button.h"
+#include "Components/Border.h"
 #include "Components/Widget.h"
 
 #include "Component/Champion_SkillComponent.h"
@@ -140,6 +141,8 @@ void ULOL_HUDWidget::NativeConstruct()
     CacheSkillLevelIndicators();
     CacheEXPWidgets();
     CreateKillLogContainer();
+    CreateRecallBar();
+    UpdateRecallBar();
 
     if (EXPProgressBar)
     {
@@ -173,6 +176,8 @@ void ULOL_HUDWidget::NativeDestruct()
 void ULOL_HUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
     Super::NativeTick(MyGeometry, InDeltaTime);
+
+    UpdateRecallBar();
 
     ApplyEXPPercent(CurrentEXPPercent);
 
@@ -350,6 +355,91 @@ void ULOL_HUDWidget::UpdateScoreboard()
     {
         MinionCountText->SetText(FText::AsNumber(PlayerState->MinionKills));
     }
+}
+
+void ULOL_HUDWidget::CreateRecallBar()
+{
+    if (RecallBarContainer || !WidgetTree) return;
+    UCanvasPanel* RootCanvas = Cast<UCanvasPanel>(WidgetTree->RootWidget);
+    if (!RootCanvas) return;
+
+    RecallBarContainer = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("RuntimeRecallBar"));
+    RecallBarContainer->SetBrush(*FCoreStyle::Get().GetBrush("WhiteBrush"));
+    RecallBarContainer->SetBrushColor(FLinearColor(0.35f, 0.29f, 0.16f, 0.95f));
+    RecallBarContainer->SetPadding(FMargin(1.0f));
+    RecallBarContainer->SetHorizontalAlignment(HAlign_Fill);
+    RecallBarContainer->SetVerticalAlignment(VAlign_Fill);
+    RecallBarContainer->SetVisibility(ESlateVisibility::Collapsed);
+
+    UCanvasPanelSlot* ContainerSlot = RootCanvas->AddChildToCanvas(RecallBarContainer);
+    ContainerSlot->SetAnchors(FAnchors(0.5f, 1.0f));
+    ContainerSlot->SetAlignment(FVector2D(0.5f, 1.0f));
+    ContainerSlot->SetPosition(RecallBarOffset);
+    ContainerSlot->SetSize(RecallBarSize);
+    ContainerSlot->SetZOrder(90);
+
+    UCanvasPanel* Content = WidgetTree->ConstructWidget<UCanvasPanel>(UCanvasPanel::StaticClass(), TEXT("RecallBarContent"));
+    RecallBarContainer->SetContent(Content);
+    UImage* Background = WidgetTree->ConstructWidget<UImage>(UImage::StaticClass(), TEXT("RecallBarBackground"));
+    Background->SetBrush(*FCoreStyle::Get().GetBrush("WhiteBrush"));
+    Background->SetColorAndOpacity(FLinearColor(0.008f, 0.018f, 0.028f, 0.96f));
+    UCanvasPanelSlot* BackgroundSlot = Content->AddChildToCanvas(Background);
+    BackgroundSlot->SetAnchors(FAnchors(0.0f, 0.0f, 1.0f, 1.0f));
+    BackgroundSlot->SetOffsets(FMargin(0.0f));
+
+    UTextBlock* Label = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("RecallBarLabel"));
+    Label->SetText(NSLOCTEXT("LOLHUD", "RecallLabel", "귀환"));
+    Label->SetFont(FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 14));
+    Label->SetColorAndOpacity(FSlateColor(FLinearColor(0.8f, 0.95f, 1.0f)));
+    UCanvasPanelSlot* LabelSlot = Content->AddChildToCanvas(Label);
+    LabelSlot->SetPosition(FVector2D(10.0f, 4.0f));
+    LabelSlot->SetAutoSize(true);
+
+    RecallTimeText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("RecallTimeText"));
+    RecallTimeText->SetFont(FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 14));
+    RecallTimeText->SetColorAndOpacity(FSlateColor(FLinearColor(0.35f, 0.9f, 1.0f)));
+    UCanvasPanelSlot* TimeSlot = Content->AddChildToCanvas(RecallTimeText);
+    TimeSlot->SetAnchors(FAnchors(1.0f, 0.0f));
+    TimeSlot->SetAlignment(FVector2D(1.0f, 0.0f));
+    TimeSlot->SetPosition(FVector2D(-10.0f, 4.0f));
+    TimeSlot->SetAutoSize(true);
+
+    RecallProgressBar = WidgetTree->ConstructWidget<UProgressBar>(UProgressBar::StaticClass(), TEXT("RecallProgressBar"));
+    FProgressBarStyle BarStyle;
+    FSlateBrush BackgroundBrush = *FCoreStyle::Get().GetBrush("WhiteBrush");
+    BackgroundBrush.TintColor = FSlateColor(FLinearColor(0.025f, 0.065f, 0.08f));
+    BarStyle.SetBackgroundImage(BackgroundBrush);
+    BarStyle.SetFillImage(*FCoreStyle::Get().GetBrush("WhiteBrush"));
+    RecallProgressBar->SetWidgetStyle(BarStyle);
+    RecallProgressBar->SetBarFillType(EProgressBarFillType::LeftToRight);
+    RecallProgressBar->SetFillColorAndOpacity(FLinearColor(0.05f, 0.7f, 0.9f));
+    RecallProgressBar->SetBorderPadding(FVector2D::ZeroVector);
+    RecallProgressBar->SetPercent(0.0f);
+    UCanvasPanelSlot* ProgressSlot = Content->AddChildToCanvas(RecallProgressBar);
+    ProgressSlot->SetAnchors(FAnchors(0.0f, 1.0f, 1.0f, 1.0f));
+    ProgressSlot->SetOffsets(FMargin(10.0f, -20.0f, 10.0f, 12.0f));
+}
+
+void ULOL_HUDWidget::UpdateRecallBar()
+{
+    if (!RecallBarContainer || !RecallProgressBar || !RecallTimeText) return;
+    const ABaseChampion* Champion = Cast<ABaseChampion>(GetOwningPlayerPawn());
+    const bool bShowRecall = Champion && Champion->IsRecallActive() &&
+        (!Champion->StateComponent || !Champion->StateComponent->HasStatusTag(LOLTags::State_Dead));
+    RecallBarContainer->SetVisibility(bShowRecall ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+    if (!bShowRecall)
+    {
+        RecallProgressBar->SetPercent(0.0f);
+        RecallTimeText->SetText(FText::GetEmpty());
+        return;
+    }
+
+    RecallProgressBar->SetPercent(1.0f - Champion->GetRecallProgress());
+    // Round up to tenths so 0.0 is only displayed once the deadline is reached.
+    const float Remaining = FMath::CeilToInt(Champion->GetRecallTimeRemaining() * 10.0f) / 10.0f;
+    FNumberFormattingOptions Format;
+    Format.SetMinimumFractionalDigits(1).SetMaximumFractionalDigits(1);
+    RecallTimeText->SetText(FText::Format(NSLOCTEXT("LOLHUD", "RecallSeconds", "{0}초"), FText::AsNumber(Remaining, &Format)));
 }
 
 void ULOL_HUDWidget::CreateKillLogContainer()
